@@ -45,4 +45,20 @@ Yes. Most BepInEx mods use **ConfigurationManager** (often F1 keybind) for in-ga
 
 ---
 
+## Current Status (2025-02-15)
+
+**What works**
+- Plugin loads without errors (Harmony patches apply successfully)
+- Switched from NuGet HarmonyX to game’s `0Harmony.dll` in `BepInEx/core` to fix the `PerTypeValues` type initializer exception
+- Config: `EnableWeatherOverride` (default ON)
+- Patch applies to `EnvMan.Update()`; when player is in Ashlands, calls `SetEnv` / `SetEnvironment` via reflection
+
+**What doesn’t (yet)**
+- Weather/environment in Ashlands is not actually changing; the override runs but the game’s visuals are unchanged
+
+**Next steps for next session**
+- Inspect `EnvMan` in Assembly-CSharp/assembly_valheim for actual env-setting APIs (e.g. `m_currentEnv`, `SetEnv` signatures)
+- Possibly patch a different method or hook a different place in the env-update flow
+- Check if `"Clear"` is the correct env name for the desired look
+
 *Generated from chat session*

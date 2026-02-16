@@ -9,8 +9,9 @@ BepInEx plugin that overrides Ashlands environment to Meadows-like weather (clea
 
 ## Installation
 
-1. Ensure BepInEx is installed (via r2modman or manually).
-2. Copy `AshlandsReborn.dll` to `BepInEx/plugins/AshlandsReborn/`.
+**Using r2modman:** Settings → Locations → Browse Data Folder, then copy `AshlandsReborn.dll` to `profiles/[YourProfile]/BepInEx/plugins/AshlandsReborn/`. Or use "Import local mod" and select the folder containing the DLL.
+
+**Manual:** Copy `AshlandsReborn.dll` to your game's `BepInEx/plugins/AshlandsReborn/` folder.
 
 ## Configuration
 
