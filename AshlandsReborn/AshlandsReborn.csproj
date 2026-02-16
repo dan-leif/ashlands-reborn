@@ -22,8 +22,9 @@
   <PropertyGroup>
     <LibDir>$(MSBuildThisFileDirectory)Lib</LibDir>
   </PropertyGroup>
-  <!-- Prefer GamePath when BepInEx is present. Valheim pack uses BepInEx.dll (contains BaseUnityPlugin). -->
+  <!-- Prefer GamePath when BepInEx is present. Use game's 0Harmony to avoid NuGet version conflicts. -->
   <ItemGroup Condition="Exists('$(GamePath)\BepInEx\core\BepInEx.dll')">
+    <Reference Include="0Harmony" HintPath="$(GamePath)\BepInEx\core\0Harmony.dll" Private="False" />
     <Reference Include="BepInEx" HintPath="$(GamePath)\BepInEx\core\BepInEx.dll" Private="False" />
     <Reference Include="UnityEngine" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.dll" Private="False" />
     <Reference Include="UnityEngine.CoreModule" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.CoreModule.dll" Private="False" />
@@ -32,6 +33,7 @@
   </ItemGroup>
   <!-- Fallback: Lib when Assembly-CSharp present (run CopyRefs.ps1) -->
   <ItemGroup Condition="!Exists('$(GamePath)\BepInEx\core\BepInEx.dll') and Exists('$(LibDir)\Assembly-CSharp.dll')">
+    <Reference Include="0Harmony" HintPath="$(LibDir)\0Harmony.dll" Private="False" Condition="Exists('$(LibDir)\0Harmony.dll')" />
     <Reference Include="BepInEx" HintPath="$(LibDir)\BepInEx.dll" Private="False" />
     <Reference Include="UnityEngine" HintPath="$(LibDir)\UnityEngine.dll" Private="False" />
     <Reference Include="UnityEngine.CoreModule" HintPath="$(LibDir)\UnityEngine.CoreModule.dll" Private="False" />
@@ -41,7 +43,6 @@
     <Reference Include="assembly_valheim" HintPath="$(LibDir)\assembly_valheim.dll" Private="False" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="HarmonyX" Version="2.16.0" />
     <PackageReference Include="UnityEngine" Version="5.6.1" />
   </ItemGroup>
 

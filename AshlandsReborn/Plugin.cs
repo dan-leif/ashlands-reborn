@@ -1,3 +1,4 @@
+using System;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -31,9 +32,15 @@ public class Plugin : BaseUnityPlugin
         Config.Save();
         Config.SaveOnConfigSet = true;
 
-        Harmony.PatchAll(typeof(Plugin).Assembly);
-
-        Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Weather override: {(EnableWeatherOverride.Value ? "ON" : "OFF")}");
+        try
+        {
+            Harmony.PatchAll(typeof(Plugin).Assembly);
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Weather override: {(EnableWeatherOverride.Value ? "ON" : "OFF")}");
+        }
+        catch (Exception ex)
+        {
+            Log.LogError("Failed to apply Harmony patches: " + ex.Message);
+        }
     }
 
     private void OnDestroy()

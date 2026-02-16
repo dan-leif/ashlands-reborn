@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -11,10 +12,15 @@ namespace AshlandsReborn.Patches;
 [HarmonyPatch]
 internal static class EnvManPatches
 {
-    private static Type? EnvManType => Type.GetType("EnvMan, Assembly-CSharp");
-
-    static MethodBase? TargetMethod() => EnvManType == null ? null : AccessTools.Method(EnvManType, "UpdateEnv");
+    private static readonly Type? EnvManType = Type.GetType("EnvMan, Assembly-CSharp") ?? Type.GetType("EnvMan, assembly_valheim");
     private const string TargetEnv = "Clear"; // Meadows-like: clear sky, no cinder rain, no lava fog
+
+    static MethodBase? TargetMethod()
+    {
+        if (EnvManType == null) return null;
+        // EnvMan is a MonoBehaviour - patch Update() which runs every frame
+        return AccessTools.Method(EnvManType, "Update");
+    }
 
     /// <summary>
     /// Check if the local player is currently in the Ashlands biome.
@@ -58,10 +64,19 @@ internal static class EnvManPatches
             var envMan = EnvMan.instance;
             if (envMan == null) return;
 
-            // Try common method names: SetEnv, SetEnvironment, etc.
-            var setEnv = AccessTools.Method(envMan.GetType(), "SetEnv")
-                ?? AccessTools.Method(envMan.GetType(), "SetEnvironment");
-            setEnv?.Invoke(envMan, new object[] { TargetEnv });
+            // Try common method names: SetEnv, SetEnvironment, SetCurrentEnvironment, etc.
+            var envType = envMan.GetType();
+            var setEnv = AccessTools.Method(envType, "SetEnv")
+                ?? AccessTools.Method(envType, "SetEnvironment")
+                ?? AccessTools.Method(envType, "SetCurrentEnvironment");
+            if (setEnv != null)
+            {
+                setEnv.Invoke(envMan, new object[] { TargetEnv });
+            }
+            else
+            {
+                Plugin.Log?.LogWarning("EnvMan: could not find SetEnv/SetEnvironment/SetCurrentEnvironment. EnvMan methods: " + string.Join(", ", envType.GetMethods().Select(m => m.Name).Distinct().Take(15)));
+            }
         }
         catch (Exception ex)
         {
@@ -74,12 +89,12 @@ internal static class EnvManPatches
     /// override to Meadows if we're in Ashlands and config is enabled.
     /// </summary>
     [HarmonyPostfix]
-    [HarmonyPatch("UpdateEnv")]
     private static void UpdateEnv_Postfix()
     {
         if (Plugin.EnableWeatherOverride?.Value != true) return;
         if (!IsPlayerInAshlands()) return;
 
+        Plugin.Log?.LogDebug("Ashlands detected - forcing Meadows environment");
         ForceMeadowsEnvironment();
     }
 }
