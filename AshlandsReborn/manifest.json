@@ -1,0 +1,9 @@
+{
+  "name": "AshlandsReborn",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/dan-leif/ashlands-reborn",
+  "description": "Overrides Ashlands weather to Meadows-like (clear sky, no cinder rain, no lava fog). Part of the Ashlands Reborn mod pack.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2333"
+  ]
+}

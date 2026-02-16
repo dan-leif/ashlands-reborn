@@ -41,6 +41,7 @@ Yes. Most BepInEx mods use **ConfigurationManager** (often F1 keybind) for in-ga
 |------|---------|
 | `ASHLANDS_REBORN_PLAN.md` | Full mod plan (tools, phases, testing, caveats) |
 | `CHAT_LOG.md` | This file—conversation summary |
+| `AshlandsReborn/` | BepInEx plugin: Ashlands weather override (Phase 1) |
 
 ---
 
