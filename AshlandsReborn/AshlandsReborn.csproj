@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>AshlandsReborn</AssemblyName>
+    <RootNamespace>AshlandsReborn</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!-- Resolve Valheim game path. Override with: dotnet build -p:GamePath="C:\path\to\Valheim" -->
+  <PropertyGroup>
+    <GamePath Condition="'$(GamePath)' == ''">$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 892970', 'InstallLocation', null, RegistryView.Registry64, RegistryView.Registry32))</GamePath>
+    <GamePath Condition="'$(GamePath)' == ''">$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 892970', 'InstallLocation', null, RegistryView.Registry64, RegistryView.Registry32))</GamePath>
+    <SteamPath Condition="'$(GamePath)' == ''">$([MSBuild]::GetRegistryValueFromView('HKEY_CURRENT_USER\SOFTWARE\Valve\Steam', 'SteamPath', null, RegistryView.Registry32))</SteamPath>
+    <GamePath Condition="'$(GamePath)' == '' and '$(SteamPath)' != ''">$([System.IO.Path]::GetFullPath('$(SteamPath)\steamapps\common\Valheim'))</GamePath>
+    <GamePath Condition="'$(GamePath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Valheim</GamePath>
+  </PropertyGroup>
+
+  <!-- Game assemblies: from GamePath or Lib. For Lib, run CopyRefs.ps1. BepInEx.Unity.Mono comes from game/BepInEx pack. -->
+  <PropertyGroup>
+    <LibDir>$(MSBuildThisFileDirectory)Lib</LibDir>
+  </PropertyGroup>
+  <!-- Prefer GamePath when BepInEx is present. Valheim pack uses BepInEx.dll (contains BaseUnityPlugin). -->
+  <ItemGroup Condition="Exists('$(GamePath)\BepInEx\core\BepInEx.dll')">
+    <Reference Include="BepInEx" HintPath="$(GamePath)\BepInEx\core\BepInEx.dll" Private="False" />
+    <Reference Include="UnityEngine" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.dll" Private="False" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.CoreModule.dll" Private="False" />
+    <Reference Include="Assembly-CSharp" HintPath="$(GamePath)\valheim_Data\Managed\Assembly-CSharp.dll" Private="False" />
+    <Reference Include="assembly_valheim" HintPath="$(GamePath)\valheim_Data\Managed\assembly_valheim.dll" Private="False" />
+  </ItemGroup>
+  <!-- Fallback: Lib when Assembly-CSharp present (run CopyRefs.ps1) -->
+  <ItemGroup Condition="!Exists('$(GamePath)\BepInEx\core\BepInEx.dll') and Exists('$(LibDir)\Assembly-CSharp.dll')">
+    <Reference Include="BepInEx" HintPath="$(LibDir)\BepInEx.dll" Private="False" />
+    <Reference Include="UnityEngine" HintPath="$(LibDir)\UnityEngine.dll" Private="False" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(LibDir)\UnityEngine.CoreModule.dll" Private="False" />
+    <Reference Include="Assembly-CSharp" HintPath="$(LibDir)\Assembly-CSharp.dll" Private="False" />
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('$(GamePath)\BepInEx\core\BepInEx.dll') and Exists('$(LibDir)\assembly_valheim.dll')">
+    <Reference Include="assembly_valheim" HintPath="$(LibDir)\assembly_valheim.dll" Private="False" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="HarmonyX" Version="2.16.0" />
+    <PackageReference Include="UnityEngine" Version="5.6.1" />
+  </ItemGroup>
+
+  <!-- Copy built plugin to BepInEx when GamePath has it -->
+  <Target Name="CopyToBepInEx" AfterTargets="Build" Condition="Exists('$(GamePath)\BepInEx\plugins')">
+    <MakeDir Directories="$(GamePath)\BepInEx\plugins\AshlandsReborn" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(GamePath)\BepInEx\plugins\AshlandsReborn" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

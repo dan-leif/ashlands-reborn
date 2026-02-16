@@ -17,3 +17,6 @@ Thumbs.db
 
 # BepInEx (if testing locally)
 # BepInEx/
+
+# Local game refs (run CopyRefs.ps1 to populate)
+AshlandsReborn/Lib/*.dll
