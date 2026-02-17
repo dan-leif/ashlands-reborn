@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -150,6 +151,29 @@ internal static class EnvManPatches
         {
             var msg = inAshlands ? "Entered" : "Exited";
             Plugin.Log?.LogInfo($"[Ashlands Reborn] {msg} Ashlands | biome: {biomeName} | env: {envName}");
+        }
+
+        // Terrain override: regenerate heightmaps and grass when entering Ashlands
+        if (inAshlands && !_wasInAshlands && Plugin.EnableTerrainOverride?.Value == true)
+        {
+            try
+            {
+                var list = new List<Heightmap>();
+                Heightmap.FindHeightmap(pos, 150f, list);
+                var buildDataField = AccessTools.Field(typeof(Heightmap), "m_buildData");
+                foreach (var hmap in list)
+                {
+                    buildDataField?.SetValue(hmap, null);
+                    hmap.Poke(delayed: true);
+                }
+                if (ClutterSystem.instance != null)
+                    ClutterSystem.instance.ResetGrass(pos, 150f);
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override applied: regenerating {list.Count} heightmaps, resetting grass");
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogDebug("Terrain Poke error: " + ex.Message);
+            }
         }
 
         // Weather override: SetForceEnvironment when in Ashlands, clear when exiting
