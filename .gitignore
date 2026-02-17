@@ -20,3 +20,6 @@ Thumbs.db
 
 # Local game refs (run CopyRefs.ps1 to populate)
 AshlandsReborn/Lib/*.dll
+
+# Decompiled game assemblies (for inspection only)
+Decompiled/

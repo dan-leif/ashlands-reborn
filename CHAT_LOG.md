@@ -57,8 +57,17 @@ Yes. Most BepInEx mods use **ConfigurationManager** (often F1 keybind) for in-ga
 - Weather/environment in Ashlands is not actually changing; the override runs but the game’s visuals are unchanged
 
 **Next steps for next session**
-- Inspect `EnvMan` in Assembly-CSharp/assembly_valheim for actual env-setting APIs (e.g. `m_currentEnv`, `SetEnv` signatures)
-- Possibly patch a different method or hook a different place in the env-update flow
-- Check if `"Clear"` is the correct env name for the desired look
+- ~~Inspect `EnvMan`~~ Done (see below).
+
+**EnvMan investigation (2025-02-16)**
+
+Decompiled `assembly_valheim` and found:
+
+- **SetForceEnvironment(string env)** is the public API. Same as `env` console command and EnvZone. Takes env name (e.g. `"Clear"`).
+- **m_forceEnv** – when set, FixedUpdate uses it instead of biome-selected env.
+- **GetCurrentEnvironment()** returns current EnvSetup; **m_name** is the env name (e.g. `"Clear"`, `"Ashlands_rain"`).
+- **Flow**: `GetEnvironmentOverride()` → `m_debugEnv` or EnvZone; `UpdateEnvironment()` → `QueueEnvironment(name)` → `GetEnv(name)` looks up in `m_environments` by name.
+
+**Fix applied**: Call `SetForceEnvironment("Clear")` when in Ashlands, `SetForceEnvironment("")` when exiting. Use `GetCurrentEnvironment()?.m_name` for logging.
 
 *Generated from chat session*
