@@ -15,11 +15,39 @@ internal static class EnvManPatches
     private static readonly Type? EnvManType = Type.GetType("EnvMan, Assembly-CSharp") ?? Type.GetType("EnvMan, assembly_valheim");
     private const string TargetEnv = "Clear"; // Meadows-like: clear sky, no cinder rain, no lava fog
 
+    private static bool _wasInAshlands;
+
     static MethodBase? TargetMethod()
     {
         if (EnvManType == null) return null;
         // EnvMan is a MonoBehaviour - patch Update() which runs every frame
         return AccessTools.Method(EnvManType, "Update");
+    }
+
+    /// <summary>
+    /// Get current environment name from EnvMan via reflection.
+    /// </summary>
+    private static string GetCurrentEnvName()
+    {
+        try
+        {
+            var envMan = EnvMan.instance;
+            if (envMan == null) return "(null)";
+
+            var t = envMan.GetType();
+            var f = AccessTools.Field(t, "m_currentEnv") ?? AccessTools.Field(t, "m_env");
+            if (f != null) return f.GetValue(envMan)?.ToString() ?? "(null)";
+
+            var p = AccessTools.Property(t, "CurrentEnv") ?? AccessTools.Property(t, "currentEnv");
+            if (p != null) return p.GetValue(envMan)?.ToString() ?? "(null)";
+
+            return "(unknown)";
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log?.LogDebug("GetCurrentEnvName error: " + ex.Message);
+            return "(error)";
+        }
     }
 
     /// <summary>
@@ -85,16 +113,50 @@ internal static class EnvManPatches
     }
 
     /// <summary>
-    /// Postfix on EnvMan.UpdateEnv - after the game updates environment,
-    /// override to Meadows if we're in Ashlands and config is enabled.
+    /// Postfix on EnvMan.Update - logs Ashlands enter/exit (Step 1), then applies weather override when enabled.
     /// </summary>
     [HarmonyPostfix]
-    private static void UpdateEnv_Postfix()
+    private static void Update_Postfix()
     {
-        if (Plugin.EnableWeatherOverride?.Value != true) return;
-        if (!IsPlayerInAshlands()) return;
+        var player = Player.m_localPlayer;
+        var worldGen = WorldGenerator.instance;
+        if (player == null || worldGen == null) return;
 
-        Plugin.Log?.LogDebug("Ashlands detected - forcing Meadows environment");
-        ForceMeadowsEnvironment();
+        var pos = player.transform.position;
+        Heightmap.Biome biome;
+        try
+        {
+            biome = worldGen.GetBiome(pos);
+        }
+        catch
+        {
+            return;
+        }
+
+        var biomeName = biome.ToString();
+        var inAshlands = false;
+        try
+        {
+            var ashlands = (Heightmap.Biome)Enum.Parse(typeof(Heightmap.Biome), "Ashlands", true);
+            inAshlands = biome == ashlands;
+        }
+        catch (ArgumentException) { }
+
+        var envName = GetCurrentEnvName();
+
+        // Step 1: Ashlands transition logging
+        if (Plugin.LogAshlandsTransitions?.Value == true && inAshlands != _wasInAshlands)
+        {
+            var msg = inAshlands ? "Entered" : "Exited";
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] {msg} Ashlands | biome: {biomeName} | env: {envName}");
+        }
+
+        _wasInAshlands = inAshlands;
+
+        // Weather override
+        if (Plugin.EnableWeatherOverride?.Value == true && inAshlands)
+        {
+            ForceMeadowsEnvironment();
+        }
     }
 }

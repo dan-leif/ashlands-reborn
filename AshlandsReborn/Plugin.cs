@@ -14,6 +14,8 @@ public class Plugin : BaseUnityPlugin
 
     public static ConfigEntry<bool> EnableWeatherOverride { get; private set; } = null!;
 
+    public static ConfigEntry<bool> LogAshlandsTransitions { get; private set; } = null!;
+
     private static readonly Harmony Harmony = new(PluginInfo.PLUGIN_GUID);
 
     private void Awake()
@@ -29,13 +31,20 @@ public class Plugin : BaseUnityPlugin
             "When in Ashlands, override the environment to Meadows-like (clear sky, no cinder rain, no lava fog)."
         );
 
+        LogAshlandsTransitions = Config.Bind(
+            "General",
+            "LogAshlandsTransitions",
+            true,
+            "Log biome and environment name when entering or exiting Ashlands (Step 1 diagnostic)."
+        );
+
         Config.Save();
         Config.SaveOnConfigSet = true;
 
         try
         {
             Harmony.PatchAll(typeof(Plugin).Assembly);
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Weather override: {(EnableWeatherOverride.Value ? "ON" : "OFF")}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Weather override: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, biome logging: {(LogAshlandsTransitions.Value ? "ON" : "OFF")}");
         }
         catch (Exception ex)
         {
