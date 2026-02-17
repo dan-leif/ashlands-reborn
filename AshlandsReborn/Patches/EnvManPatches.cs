@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -25,7 +24,7 @@ internal static class EnvManPatches
     }
 
     /// <summary>
-    /// Get current environment name from EnvMan via reflection.
+    /// Get current environment name from EnvMan (EnvSetup.m_name).
     /// </summary>
     private static string GetCurrentEnvName()
     {
@@ -34,14 +33,9 @@ internal static class EnvManPatches
             var envMan = EnvMan.instance;
             if (envMan == null) return "(null)";
 
-            var t = envMan.GetType();
-            var f = AccessTools.Field(t, "m_currentEnv") ?? AccessTools.Field(t, "m_env");
-            if (f != null) return f.GetValue(envMan)?.ToString() ?? "(null)";
-
-            var p = AccessTools.Property(t, "CurrentEnv") ?? AccessTools.Property(t, "currentEnv");
-            if (p != null) return p.GetValue(envMan)?.ToString() ?? "(null)";
-
-            return "(unknown)";
+            var currentEnv = envMan.GetCurrentEnvironment();
+            if (currentEnv == null || string.IsNullOrEmpty(currentEnv.m_name)) return "(none)";
+            return currentEnv.m_name;
         }
         catch (Exception ex)
         {
@@ -84,6 +78,7 @@ internal static class EnvManPatches
 
     /// <summary>
     /// Force EnvMan to use the target environment (Clear/Meadows-like).
+    /// Uses SetForceEnvironment() - same API as EnvZone and the env console command.
     /// </summary>
     private static void ForceMeadowsEnvironment()
     {
@@ -92,23 +87,29 @@ internal static class EnvManPatches
             var envMan = EnvMan.instance;
             if (envMan == null) return;
 
-            // Try common method names: SetEnv, SetEnvironment, SetCurrentEnvironment, etc.
-            var envType = envMan.GetType();
-            var setEnv = AccessTools.Method(envType, "SetEnv")
-                ?? AccessTools.Method(envType, "SetEnvironment")
-                ?? AccessTools.Method(envType, "SetCurrentEnvironment");
-            if (setEnv != null)
-            {
-                setEnv.Invoke(envMan, new object[] { TargetEnv });
-            }
-            else
-            {
-                Plugin.Log?.LogWarning("EnvMan: could not find SetEnv/SetEnvironment/SetCurrentEnvironment. EnvMan methods: " + string.Join(", ", envType.GetMethods().Select(m => m.Name).Distinct().Take(15)));
-            }
+            envMan.SetForceEnvironment(TargetEnv);
         }
         catch (Exception ex)
         {
-            Plugin.Log?.LogDebug($"ForceMeadowsEnvironment error: {ex.Message}");
+            Plugin.Log?.LogDebug("ForceMeadowsEnvironment error: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Clear the force override when leaving Ashlands so the game uses the real biome env again.
+    /// </summary>
+    private static void ClearForceEnvironment()
+    {
+        try
+        {
+            var envMan = EnvMan.instance;
+            if (envMan == null) return;
+
+            envMan.SetForceEnvironment("");
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log?.LogDebug("ClearForceEnvironment error: " + ex.Message);
         }
     }
 
@@ -151,12 +152,15 @@ internal static class EnvManPatches
             Plugin.Log?.LogInfo($"[Ashlands Reborn] {msg} Ashlands | biome: {biomeName} | env: {envName}");
         }
 
-        _wasInAshlands = inAshlands;
-
-        // Weather override
-        if (Plugin.EnableWeatherOverride?.Value == true && inAshlands)
+        // Weather override: SetForceEnvironment when in Ashlands, clear when exiting
+        if (Plugin.EnableWeatherOverride?.Value == true)
         {
-            ForceMeadowsEnvironment();
+            if (inAshlands)
+                ForceMeadowsEnvironment();
+            else if (_wasInAshlands)
+                ClearForceEnvironment();
         }
+
+        _wasInAshlands = inAshlands;
     }
 }
