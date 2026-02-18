@@ -20,7 +20,7 @@ internal static class EnvManPatches
     private static int _terrainRegenRetryFrames;
     private static float _lastTerrainRegenTime;
 
-    private const float TerrainRegenRadius = 350f; // Cover loaded terrain (zones are 64m; ~5.5 zones)
+    private const float TerrainRegenRadius = 420f; // Cover loaded terrain + buffer to reduce yellow seam at chunk boundaries (zones are 64m)
 
     static MethodBase? TargetMethod()
     {
@@ -164,7 +164,8 @@ internal static class EnvManPatches
         var justEnteredAshlands = inAshlands && !_wasInAshlands;
         var time = Time.time;
         var timeSinceLastRegen = time - _lastTerrainRegenTime;
-        var periodicRefresh = terrainOverrideOn && inAshlands && timeSinceLastRegen >= 12f; // Refresh every ~12s while in Ashlands
+        var interval = Plugin.TerrainRefreshInterval?.Value ?? 0f;
+        var periodicRefresh = interval > 0 && terrainOverrideOn && inAshlands && timeSinceLastRegen >= interval;
         var shouldRegenTerrain = terrainOverrideOn && inAshlands && (justEnteredAshlands || overrideJustTurnedOn || periodicRefresh);
         _wasTerrainOverrideEnabled = terrainOverrideOn;
 
