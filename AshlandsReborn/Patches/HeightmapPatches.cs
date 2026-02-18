@@ -19,7 +19,7 @@ internal static class HeightmapPatches
     [HarmonyPrefix]
     private static void GetBiomeColor_Prefix(ref Heightmap.Biome biome)
     {
-        if (Plugin.EnableTerrainOverride?.Value != true) return;
+        if (!Plugin.IsTerrainOverrideActive) return;
         if (biome != Heightmap.Biome.AshLands) return;
         biome = Heightmap.Biome.Meadows;
     }
@@ -32,7 +32,7 @@ internal static class HeightmapPatches
     [HarmonyPostfix]
     private static void RebuildRenderMesh_Postfix(Heightmap __instance)
     {
-        if (Plugin.EnableTerrainOverride?.Value != true) return;
+        if (!Plugin.IsTerrainOverrideActive) return;
         if (!HasAshLands(__instance)) return;
 
         var mf = __instance.GetComponent<MeshFilter>();
@@ -78,7 +78,7 @@ internal static class HeightmapPatches
     [HarmonyPostfix]
     private static void FindBiomeClutter_Postfix(ref Heightmap.Biome __result)
     {
-        if (Plugin.EnableTerrainOverride?.Value != true) return;
+        if (!Plugin.IsTerrainOverrideActive) return;
         if (__result != Heightmap.Biome.AshLands) return;
         __result = Heightmap.Biome.Meadows;
     }

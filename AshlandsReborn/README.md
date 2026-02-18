@@ -15,7 +15,11 @@ BepInEx plugin that overrides Ashlands environment to Meadows-like weather (clea
 
 ## Configuration
 
-- **EnableWeatherOverride** (default: true) - Toggle the Ashlands weather override.
+- **Enabled** (default: true) - Master toggle: turn the entire mod on or off. When off, Ashlands uses default weather and terrain.
+- **EnableWeatherOverride** (default: true) - Override Ashlands weather to Meadows-like (clear sky, no cinder rain, no lava fog).
+- **EnableTerrainOverride** (default: true) - Override Ashlands terrain and grass to Meadows-like (green ground, green grass).
+
+Use **ConfigurationManager** (F1 in-game) to toggle these at runtime without restarting.
 
 Config file: `BepInEx/config/com.ashlandsreborn.weather.cfg`
 
