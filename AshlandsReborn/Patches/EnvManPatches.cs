@@ -18,6 +18,9 @@ internal static class EnvManPatches
     private static bool _wasInAshlands;
     private static bool _wasTerrainOverrideEnabled;
     private static int _terrainRegenRetryFrames;
+    private static float _lastTerrainRegenTime;
+
+    private const float TerrainRegenRadius = 350f; // Cover loaded terrain (zones are 64m; ~5.5 zones)
 
     static MethodBase? TargetMethod()
     {
@@ -159,7 +162,10 @@ internal static class EnvManPatches
         var terrainOverrideOn = Plugin.IsTerrainOverrideActive;
         var overrideJustTurnedOn = terrainOverrideOn && !_wasTerrainOverrideEnabled;
         var justEnteredAshlands = inAshlands && !_wasInAshlands;
-        var shouldRegenTerrain = terrainOverrideOn && inAshlands && (justEnteredAshlands || overrideJustTurnedOn);
+        var time = Time.time;
+        var timeSinceLastRegen = time - _lastTerrainRegenTime;
+        var periodicRefresh = terrainOverrideOn && inAshlands && timeSinceLastRegen >= 12f; // Refresh every ~12s while in Ashlands
+        var shouldRegenTerrain = terrainOverrideOn && inAshlands && (justEnteredAshlands || overrideJustTurnedOn || periodicRefresh);
         _wasTerrainOverrideEnabled = terrainOverrideOn;
 
         if (shouldRegenTerrain || (terrainOverrideOn && inAshlands && _terrainRegenRetryFrames > 0))
@@ -167,7 +173,7 @@ internal static class EnvManPatches
             try
             {
                 var list = new List<Heightmap>();
-                Heightmap.FindHeightmap(pos, 150f, list);
+                Heightmap.FindHeightmap(pos, TerrainRegenRadius, list);
                 if (shouldRegenTerrain && list.Count == 0)
                 {
                     // Terrain may not be loaded yet (e.g. after teleport) - retry for a few frames
@@ -183,7 +189,8 @@ internal static class EnvManPatches
                         hmap.Poke(delayed: true);
                     }
                     if (ClutterSystem.instance != null)
-                        ClutterSystem.instance.ResetGrass(pos, 150f);
+                        ClutterSystem.instance.ResetGrass(pos, TerrainRegenRadius);
+                    _lastTerrainRegenTime = time;
                     Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override applied: regenerating {list.Count} heightmaps, resetting grass");
                 }
             }
