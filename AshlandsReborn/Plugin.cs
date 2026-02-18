@@ -21,6 +21,10 @@ public class Plugin : BaseUnityPlugin
 
     public static ConfigEntry<bool> LogAshlandsTransitions { get; private set; } = null!;
 
+    public static ConfigEntry<float> LavaEdgeThreshold { get; private set; } = null!;
+
+    public static ConfigEntry<float> TerrainRefreshInterval { get; private set; } = null!;
+
     /// <summary>True when the mod is enabled and weather override is on.</summary>
     public static bool IsWeatherOverrideActive => Enabled?.Value == true && EnableWeatherOverride?.Value == true;
 
@@ -61,6 +65,20 @@ public class Plugin : BaseUnityPlugin
             "LogAshlandsTransitions",
             true,
             "Log biome and environment name when entering or exiting Ashlands (Step 1 diagnostic)."
+        );
+
+        LavaEdgeThreshold = Config.Bind(
+            "Terrain",
+            "LavaEdgeThreshold",
+            0.05f,
+            "Points with vegetation mask above this are treated as lava (preserve Ashlands). Lower = wider lava transition, fewer grass encroachments. Default 0.05."
+        );
+
+        TerrainRefreshInterval = Config.Bind(
+            "Terrain",
+            "TerrainRefreshInterval",
+            0f,
+            "Seconds between terrain refreshes while in Ashlands. 0 = disable (no periodic refresh, less stutter). 60 = refresh every minute to catch new terrain as you move."
         );
 
         Config.Save();
@@ -111,15 +129,28 @@ public class Plugin : BaseUnityPlugin
             }
         }
 
-        // Patch Heightmap.RebuildRenderMesh (private) - replaces vertex colors only, preserves mask (lava)
+        // Patch Heightmap.RebuildRenderMesh (private) - corner override, vertex colors
         var rebuildMesh = heightmapType.GetMethod("RebuildRenderMesh", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         if (rebuildMesh != null)
         {
+            var prefix = typeof(Patches.HeightmapPatches).GetMethod("RebuildRenderMesh_Prefix", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
             var postfix = typeof(Patches.HeightmapPatches).GetMethod("RebuildRenderMesh_Postfix", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
-            if (postfix != null)
+            if (prefix != null && postfix != null)
             {
-                Harmony.Patch(rebuildMesh, postfix: new HarmonyMethod(postfix));
+                Harmony.Patch(rebuildMesh, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix));
                 logged.Add("RebuildRenderMesh");
+            }
+        }
+
+        // Patch Heightmap.OnEnable - Poke this heightmap and neighbors when loading in Ashlands
+        var onEnable = heightmapType.GetMethod("OnEnable", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+        if (onEnable != null)
+        {
+            var onEnablePostfix = typeof(Patches.HeightmapPatches).GetMethod("Heightmap_OnEnable_Postfix", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            if (onEnablePostfix != null)
+            {
+                Harmony.Patch(onEnable, postfix: new HarmonyMethod(onEnablePostfix));
+                logged.Add("Heightmap.OnEnable");
             }
         }
 
