@@ -13,11 +13,19 @@ public class Plugin : BaseUnityPlugin
 {
     internal static ManualLogSource Log { get; private set; } = null!;
 
+    public static ConfigEntry<bool> Enabled { get; private set; } = null!;
+
     public static ConfigEntry<bool> EnableWeatherOverride { get; private set; } = null!;
 
     public static ConfigEntry<bool> EnableTerrainOverride { get; private set; } = null!;
 
     public static ConfigEntry<bool> LogAshlandsTransitions { get; private set; } = null!;
+
+    /// <summary>True when the mod is enabled and weather override is on.</summary>
+    public static bool IsWeatherOverrideActive => Enabled?.Value == true && EnableWeatherOverride?.Value == true;
+
+    /// <summary>True when the mod is enabled and terrain override is on.</summary>
+    public static bool IsTerrainOverrideActive => Enabled?.Value == true && EnableTerrainOverride?.Value == true;
 
     private static readonly Harmony Harmony = new(PluginInfo.PLUGIN_GUID);
 
@@ -26,6 +34,13 @@ public class Plugin : BaseUnityPlugin
         Log = Logger;
 
         Config.SaveOnConfigSet = false;
+
+        Enabled = Config.Bind(
+            "General",
+            "Enabled",
+            true,
+            "Master toggle: turn the entire mod on or off. When off, Ashlands uses default weather and terrain."
+        );
 
         EnableWeatherOverride = Config.Bind(
             "General",
@@ -58,7 +73,7 @@ public class Plugin : BaseUnityPlugin
             // Apply terrain patches explicitly in case PatchAll missed them (assembly resolution)
             ApplyTerrainPatches();
 
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, logging: {(LogAshlandsTransitions.Value ? "ON" : "OFF")}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(Enabled.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, logging: {(LogAshlandsTransitions.Value ? "ON" : "OFF")}");
         }
         catch (Exception ex)
         {
@@ -68,8 +83,6 @@ public class Plugin : BaseUnityPlugin
 
     private void ApplyTerrainPatches()
     {
-        if (EnableTerrainOverride?.Value != true) return;
-
         var logged = new System.Collections.Generic.List<string>();
 
         // Resolve types from loaded assemblies (game may load assembly_valheim differently)

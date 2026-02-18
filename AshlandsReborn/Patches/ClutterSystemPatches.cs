@@ -18,7 +18,7 @@ internal static class ClutterSystemPatches
     [HarmonyPostfix]
     private static void GetGroundInfo_Postfix(ref Vector3 point, ref Heightmap hmap, ref Heightmap.Biome biome)
     {
-        if (Plugin.EnableTerrainOverride?.Value != true) return;
+        if (!Plugin.IsTerrainOverrideActive) return;
         if (biome != Heightmap.Biome.AshLands) return;
 
         if (hmap != null && hmap.GetVegetationMask(point) > LavaThreshold)

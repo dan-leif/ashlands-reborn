@@ -16,6 +16,8 @@ internal static class EnvManPatches
     private const string TargetEnv = "Clear"; // Meadows-like: clear sky, no cinder rain, no lava fog
 
     private static bool _wasInAshlands;
+    private static bool _wasTerrainOverrideEnabled;
+    private static int _terrainRegenRetryFrames;
 
     static MethodBase? TargetMethod()
     {
@@ -146,43 +148,71 @@ internal static class EnvManPatches
 
         var envName = GetCurrentEnvName();
 
-        // Step 1: Ashlands transition logging
-        if (Plugin.LogAshlandsTransitions?.Value == true && inAshlands != _wasInAshlands)
+        // Step 1: Ashlands transition logging (only when mod is enabled)
+        if (Plugin.Enabled?.Value == true && Plugin.LogAshlandsTransitions?.Value == true && inAshlands != _wasInAshlands)
         {
             var msg = inAshlands ? "Entered" : "Exited";
             Plugin.Log?.LogInfo($"[Ashlands Reborn] {msg} Ashlands | biome: {biomeName} | env: {envName}");
         }
 
-        // Terrain override: regenerate heightmaps and grass when entering Ashlands
-        if (inAshlands && !_wasInAshlands && Plugin.EnableTerrainOverride?.Value == true)
+        // Terrain override: regenerate when entering Ashlands with override on, or when override is toggled on while in Ashlands
+        var terrainOverrideOn = Plugin.IsTerrainOverrideActive;
+        var overrideJustTurnedOn = terrainOverrideOn && !_wasTerrainOverrideEnabled;
+        var justEnteredAshlands = inAshlands && !_wasInAshlands;
+        var shouldRegenTerrain = terrainOverrideOn && inAshlands && (justEnteredAshlands || overrideJustTurnedOn);
+        _wasTerrainOverrideEnabled = terrainOverrideOn;
+
+        if (shouldRegenTerrain || (terrainOverrideOn && inAshlands && _terrainRegenRetryFrames > 0))
         {
             try
             {
                 var list = new List<Heightmap>();
                 Heightmap.FindHeightmap(pos, 150f, list);
-                var buildDataField = AccessTools.Field(typeof(Heightmap), "m_buildData");
-                foreach (var hmap in list)
+                if (shouldRegenTerrain && list.Count == 0)
                 {
-                    buildDataField?.SetValue(hmap, null);
-                    hmap.Poke(delayed: true);
+                    // Terrain may not be loaded yet (e.g. after teleport) - retry for a few frames
+                    _terrainRegenRetryFrames = 15;
                 }
-                if (ClutterSystem.instance != null)
-                    ClutterSystem.instance.ResetGrass(pos, 150f);
-                Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override applied: regenerating {list.Count} heightmaps, resetting grass");
+                else if (list.Count > 0)
+                {
+                    _terrainRegenRetryFrames = 0;
+                    var buildDataField = AccessTools.Field(typeof(Heightmap), "m_buildData");
+                    foreach (var hmap in list)
+                    {
+                        buildDataField?.SetValue(hmap, null);
+                        hmap.Poke(delayed: true);
+                    }
+                    if (ClutterSystem.instance != null)
+                        ClutterSystem.instance.ResetGrass(pos, 150f);
+                    Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override applied: regenerating {list.Count} heightmaps, resetting grass");
+                }
             }
             catch (Exception ex)
             {
                 Plugin.Log?.LogDebug("Terrain Poke error: " + ex.Message);
+                _terrainRegenRetryFrames = 0;
             }
+
+            if (_terrainRegenRetryFrames > 0)
+                _terrainRegenRetryFrames--;
+        }
+        else if (!inAshlands || !terrainOverrideOn)
+        {
+            _terrainRegenRetryFrames = 0;
         }
 
         // Weather override: SetForceEnvironment when in Ashlands, clear when exiting
-        if (Plugin.EnableWeatherOverride?.Value == true)
+        if (Plugin.IsWeatherOverrideActive)
         {
             if (inAshlands)
                 ForceMeadowsEnvironment();
             else if (_wasInAshlands)
                 ClearForceEnvironment();
+        }
+        else
+        {
+            // Override disabled or mod off - clear any force we set so Ashlands weather returns
+            ClearForceEnvironment();
         }
 
         _wasInAshlands = inAshlands;
