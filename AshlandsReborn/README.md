@@ -20,6 +20,7 @@ BepInEx plugin that overrides Ashlands environment to Meadows-like weather (clea
 - **EnableTerrainOverride** (default: true) - Override Ashlands terrain and grass to Meadows-like (green ground, green grass).
 - **LavaEdgeThreshold** (default: 0.05) - Points above this value are treated as lava (preserve Ashlands). Lower = wider lava transition zone, less grass at lava edges.
 - **TerrainRefreshInterval** (default: 0) - Seconds between terrain refreshes while in Ashlands. 0 = disabled (no periodic refresh, avoids stutter). 60 = refresh every minute to catch new terrain as you move.
+- **EnableDevCommandsAndGodMode** (default: true) - When loading a world, run devcommands and god for easier testing.
 
 Use **ConfigurationManager** (F1 in-game) to toggle these at runtime without restarting.
 

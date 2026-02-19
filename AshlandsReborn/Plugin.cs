@@ -25,6 +25,8 @@ public class Plugin : BaseUnityPlugin
 
     public static ConfigEntry<float> TerrainRefreshInterval { get; private set; } = null!;
 
+    public static ConfigEntry<bool> EnableDevCommandsAndGodMode { get; private set; } = null!;
+
     /// <summary>True when the mod is enabled and weather override is on.</summary>
     public static bool IsWeatherOverrideActive => Enabled?.Value == true && EnableWeatherOverride?.Value == true;
 
@@ -65,6 +67,13 @@ public class Plugin : BaseUnityPlugin
             "LogAshlandsTransitions",
             true,
             "Log biome and environment name when entering or exiting Ashlands (Step 1 diagnostic)."
+        );
+
+        EnableDevCommandsAndGodMode = Config.Bind(
+            "General",
+            "EnableDevCommandsAndGodMode",
+            true,
+            "When loading a world, run devcommands and god for easier testing. Default true."
         );
 
         LavaEdgeThreshold = Config.Bind(
@@ -184,6 +193,38 @@ public class Plugin : BaseUnityPlugin
 
         if (logged.Count > 0)
             Log.LogInfo($"[Ashlands Reborn] Terrain patches applied: {string.Join(", ", logged)} (Heightmap from {heightmapType.Assembly.GetName().Name})");
+    }
+
+    private static bool _devCommandsRunThisSession;
+
+    private void Update()
+    {
+        if (!EnableDevCommandsAndGodMode.Value) return;
+
+        var inWorld = Player.m_localPlayer != null;
+        if (!inWorld)
+        {
+            _devCommandsRunThisSession = false;
+            return;
+        }
+        if (_devCommandsRunThisSession) return;
+
+        _devCommandsRunThisSession = true;
+        if (Console.instance != null)
+        {
+            Console.instance.TryRunCommand("devcommands");
+            Invoke(nameof(RunGodCommand), 1f);
+            Log.LogInfo("[Ashlands Reborn] Ran devcommands, god in 1s");
+        }
+    }
+
+    private void RunGodCommand()
+    {
+        if (Console.instance != null && Player.m_localPlayer != null)
+        {
+            Console.instance.TryRunCommand("god");
+            Log.LogInfo("[Ashlands Reborn] Ran god");
+        }
     }
 
     private void OnDestroy()
