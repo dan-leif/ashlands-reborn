@@ -7,7 +7,7 @@
 - **RebuildRenderMesh** prefix/postfix: corner override, lava vertex restore, `_AshlandsVariationCol` tint
 - **FindBiomeClutter** postfix: Meadows grass placement in Ashlands
 - **OnEnable** postfix: neighbor Poke when chunks load
-- **ClutterSystem.GetGroundInfo** postfix: grass placement, lava exclusion via LavaEdgeThreshold
+- **ClutterSystem.GetGroundInfo** postfix: grass placement, lava exclusion via LavaGrassThreshold
 
 ### Known Limitation
 - **Yellow seam at 64x64 zone boundaries** – accepted; vertex color, shader, neighbor-poke approaches did not resolve it.

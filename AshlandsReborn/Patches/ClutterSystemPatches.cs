@@ -19,7 +19,7 @@ internal static class ClutterSystemPatches
         if (!Plugin.IsTerrainOverrideActive) return;
         if (biome != Heightmap.Biome.AshLands) return;
 
-        var lavaThreshold = Mathf.Max(0.01f, Plugin.LavaEdgeThreshold?.Value ?? 0.05f);
+        var lavaThreshold = Mathf.Max(0.01f, Plugin.LavaGrassThreshold?.Value ?? 0.05f);
         if (hmap != null && hmap.GetVegetationMask(point) > lavaThreshold)
         {
             biome = Heightmap.Biome.None;

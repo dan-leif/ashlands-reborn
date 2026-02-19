@@ -21,7 +21,9 @@ public class Plugin : BaseUnityPlugin
 
     public static ConfigEntry<bool> LogAshlandsTransitions { get; private set; } = null!;
 
-    public static ConfigEntry<float> LavaEdgeThreshold { get; private set; } = null!;
+    public static ConfigEntry<float> LavaTerrainThreshold { get; private set; } = null!;
+
+    public static ConfigEntry<float> LavaGrassThreshold { get; private set; } = null!;
 
     public static ConfigEntry<float> TerrainRefreshInterval { get; private set; } = null!;
 
@@ -76,11 +78,18 @@ public class Plugin : BaseUnityPlugin
             "When loading a world, run devcommands and god for easier testing. Default true."
         );
 
-        LavaEdgeThreshold = Config.Bind(
+        LavaTerrainThreshold = Config.Bind(
             "Terrain",
-            "LavaEdgeThreshold",
+            "LavaTerrainThreshold",
             0.05f,
-            "Points with vegetation mask above this are treated as lava (preserve Ashlands). Lower = wider lava transition, fewer grass encroachments. Default 0.05."
+            "Points with vegetation mask above this are treated as lava for terrain vertex color (shows lava texture). Lower = wider lava transition. Default 0.05."
+        );
+
+        LavaGrassThreshold = Config.Bind(
+            "Terrain",
+            "LavaGrassThreshold",
+            0.05f,
+            "Points with vegetation mask above this are excluded from grass placement (no grass on lava edges). Lower = wider exclusion zone. Default 0.05."
         );
 
         TerrainRefreshInterval = Config.Bind(
@@ -89,6 +98,39 @@ public class Plugin : BaseUnityPlugin
             0f,
             "Seconds between terrain refreshes while in Ashlands. 0 = disable (no periodic refresh, less stutter). 60 = refresh every minute to catch new terrain as you move."
         );
+
+        // Migrate LavaEdgeThreshold to LavaTerrainThreshold and LavaGrassThreshold
+        try
+        {
+            var defOld = new ConfigDefinition("Terrain", "LavaEdgeThreshold");
+            if (Config.ContainsKey(defOld))
+            {
+                var val = Config[defOld].BoxedValue;
+                if (val is float f)
+                {
+                    LavaTerrainThreshold.Value = f;
+                    LavaGrassThreshold.Value = f;
+                }
+                Config.Remove(defOld);
+            }
+        }
+        catch
+        {
+            // Non-fatal
+        }
+
+        // Remove obsolete config keys from when we had texture slice swap
+        try
+        {
+            var def1 = new ConfigDefinition("Terrain", "AshlandsTextureSlices");
+            var def2 = new ConfigDefinition("Terrain", "SliceProbeIndex");
+            if (Config.ContainsKey(def1)) { Config.Remove(def1); }
+            if (Config.ContainsKey(def2)) { Config.Remove(def2); }
+        }
+        catch
+        {
+            // Non-fatal; user can delete config manually if slice options persist
+        }
 
         Config.Save();
         Config.SaveOnConfigSet = true;
