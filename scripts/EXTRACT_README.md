@@ -37,3 +37,22 @@ If UnityPy fails (Valheim's format may be custom), use Option 2.
 3. Or load individual bundle file `c4210710` (no extension)
 4. Filter by Texture2D, find terrain_d or terraintile_*
 5. Export as PNG
+
+---
+
+## Extracting and Disassembling the Heightmap Shader
+
+The terrain slice selection (vertex color → texture array index) lives in the `Custom/Heightmap` shader. Full HLSL decompilation fails (DXDecompiler NullRef on Unity shaders), but assembly disassembly succeeds.
+
+```powershell
+pip install UnityPy lz4
+python scripts/extract_and_decompile_shader.py
+```
+
+- Loads bundle `c4210710`, decompresses LZ4 blob, extracts 256 DXBC shader blobs
+- Clones/builds [DXDecompiler](https://github.com/spacehamster/DXDecompiler) if needed
+- Disassembles to HLSL assembly (`.asm`) via `dxc -a` style output
+
+**Output:** `extracted_shaders/Heightmap_*.dxbc` and `Heightmap_*.asm`
+
+**Main terrain pixel shaders** (use texture2darray t14/t15 for _DiffuseArrayTex): `Heightmap_064`–`095`, `Heightmap_176`–`191`. See [`SHADER_SLICE_MAPPING.md`](../SHADER_SLICE_MAPPING.md) in project root for the full Meadows/Ashlands slice mapping.

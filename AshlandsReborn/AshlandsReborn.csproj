@@ -46,10 +46,21 @@
     <PackageReference Include="UnityEngine" Version="5.6.1" />
   </ItemGroup>
 
+  <!-- r2modman profile plugins path. Override with: dotnet build -p:ProfilePluginsPath="C:\path\to\profile\BepInEx\plugins" -->
+  <PropertyGroup>
+    <ProfilePluginsPath Condition="'$(ProfilePluginsPath)' == ''">$(USERPROFILE)\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\plugins</ProfilePluginsPath>
+  </PropertyGroup>
+
   <!-- Copy built plugin to BepInEx when GamePath has it -->
   <Target Name="CopyToBepInEx" AfterTargets="Build" Condition="Exists('$(GamePath)\BepInEx\plugins')">
     <MakeDir Directories="$(GamePath)\BepInEx\plugins\AshlandsReborn" />
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(GamePath)\BepInEx\plugins\AshlandsReborn" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Always copy to profile (r2modman etc.). Override profile: dotnet build -p:ProfilePluginsPath="C:\...\profiles\MyProfile\BepInEx\plugins" -->
+  <Target Name="CopyToProfile" AfterTargets="Build">
+    <MakeDir Directories="$(ProfilePluginsPath)\AshlandsReborn" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(ProfilePluginsPath)\AshlandsReborn" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
