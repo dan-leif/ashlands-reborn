@@ -24,21 +24,10 @@
 
 ---
 
-## Next Step: Replace Gray Stone With Grass
+## Terraintile_7 → Grass Swap (reverted)
 
-### 1. Identify which terraintile is the gray stone
-- Compare `terraintile_0.png` … `terraintile_15.png` visually
-- Match against in-game ashlands terrain appearance
-- Document the tile index for the ash/gray texture
-
-### 2. Replace with grass
-- Create a grass-colored variant (based on Meadows grass tile or `grass_terrain_color.png`)
-- Apply via one of:
-  - **CustomTextures mod**: Place replacement PNG in `BepInEx/plugins/CustomTextures` with correct naming (e.g. `terrain_<id>_terraintile_N.png` or per CustomTextures docs)
-  - **Texture loading in our mod**: Swap the texture at runtime when terrain material is set up (would require identifying the material/texture binding)
-- Keep original as backup; test in-game
-
-### 3. Validate
-- Load Ashlands, confirm gray terrain appears green/grass
-- Verify lava still looks correct
-- Check for seams or visual artifacts at boundaries
+- **terraintile_7** = ash/gray stone (identified by user)
+- **terraintile_0** = grass (Meadows)
+- **Attempted**: Create modified `_DiffuseArrayTex` with slice 7 replaced by slice 0 via Graphics.CopyTexture
+- **Result**: Terrain turned bright white (likely format mismatch or mipmap handling). Reverted.
+- **Future**: Use CustomTextures mod with scene dump to identify correct replacement naming; or investigate original texture format/mipmaps before retrying runtime swap
