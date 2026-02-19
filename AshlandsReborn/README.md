@@ -18,7 +18,8 @@ BepInEx plugin that overrides Ashlands environment to Meadows-like weather (clea
 - **Enabled** (default: true) - Master toggle: turn the entire mod on or off. When off, Ashlands uses default weather and terrain.
 - **EnableWeatherOverride** (default: true) - Override Ashlands weather to Meadows-like (clear sky, no cinder rain, no lava fog).
 - **EnableTerrainOverride** (default: true) - Override Ashlands terrain and grass to Meadows-like (green ground, green grass).
-- **LavaEdgeThreshold** (default: 0.05) - Points above this value are treated as lava (preserve Ashlands). Lower = wider lava transition zone, less grass at lava edges.
+- **LavaTerrainThreshold** (default: 0.05) - Points above this are treated as lava for terrain vertex color (shows lava texture). Lower = wider lava transition.
+- **LavaGrassThreshold** (default: 0.05) - Points above this are excluded from grass placement (no grass on lava edges). Lower = wider exclusion zone.
 - **TerrainRefreshInterval** (default: 0) - Seconds between terrain refreshes while in Ashlands. 0 = disabled (no periodic refresh, avoids stutter). 60 = refresh every minute to catch new terrain as you move.
 - **EnableDevCommandsAndGodMode** (default: true) - When loading a world, run devcommands and god for easier testing.
 
@@ -41,6 +42,11 @@ dotnet build
 If Valheim is not at the default Steam path:
 ```powershell
 dotnet build -p:GamePath="C:\path\to\Valheim"
+```
+
+The DLL is copied to both the game's `BepInEx/plugins/AshlandsReborn/` and the r2modman "Ashlands Reborn" profile (`.../profiles/Ashlands Reborn/BepInEx/plugins/AshlandsReborn/`). For a different profile:
+```powershell
+dotnet build -p:ProfilePluginsPath="C:\path\to\profiles\MyProfile\BepInEx\plugins"
 ```
 
 Or run `.\CopyRefs.ps1 -GamePath "C:\path\to\Valheim"` to copy game assemblies to `Lib/`, then build.

@@ -73,7 +73,7 @@ internal static class HeightmapPatches
         mf.mesh.GetVertices(vertices);
         if (colors.Count == 0 || colors.Count != vertices.Count) return;
 
-        var lavaThreshold = Mathf.Max(0.01f, Plugin.LavaEdgeThreshold?.Value ?? 0.05f);
+        var lavaThreshold = Mathf.Max(0.01f, Plugin.LavaTerrainThreshold?.Value ?? 0.05f);
         var lavaRestored = 0;
         for (var i = 0; i < colors.Count; i++)
         {
