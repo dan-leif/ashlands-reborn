@@ -23,6 +23,13 @@ AshlandsReborn/Lib/*.dll
 
 # Decompiled game assemblies (for inspection only)
 Decompiled/
+decompiled_valheim/
 
 # Extracted Valheim textures (run scripts/extract_terrain_textures.py)
 extracted_textures/
+
+# Shader extraction output (run scripts/extract_and_decompile_shader.py)
+extracted_shaders/
+
+# DXDecompiler clone (script clones automatically)
+tools/

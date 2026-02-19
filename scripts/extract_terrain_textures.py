@@ -55,11 +55,20 @@ def extract_terrain_textures():
         out_path = OUTPUT_DIR / f"{name}.png"
         try:
             if obj.type.name == "Texture2DArray":
+                slices = []
                 for i, img in enumerate(data.images):
                     slice_path = OUTPUT_DIR / f"{name}_slice_{i}.png"
                     img.save(str(slice_path))
                     print(f"  Saved {slice_path.name}")
+                    slices.append((i, slice_path.name))
                     count += 1
+                if slices:
+                    manifest_path = OUTPUT_DIR / f"{name}_slices.txt"
+                    with open(manifest_path, "w") as f:
+                        f.write(f"{name}: {len(slices)} slices\n")
+                        for idx, filename in slices:
+                            f.write(f"  {filename} = array index {idx}\n")
+                    print(f"  Wrote {manifest_path.name}")
             elif hasattr(data, "image") and data.image is not None:
                 data.image.save(str(out_path))
                 print(f"  Saved {out_path.name}")
