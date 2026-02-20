@@ -73,21 +73,32 @@ internal static class HeightmapPatches
         mf.mesh.GetVertices(vertices);
         if (colors.Count == 0 || colors.Count != vertices.Count) return;
 
-        var lavaThreshold = Mathf.Max(0.01f, Plugin.LavaTerrainThreshold?.Value ?? 0.05f);
+        var lavaThreshold = Mathf.Max(0.001f, Plugin.LavaTerrainThreshold?.Value ?? 0.01f);
+        var transitionRange = Plugin.LavaTransitionRange?.Value ?? 0.15f;
         var lavaRestored = 0;
         for (var i = 0; i < colors.Count; i++)
         {
             var worldPos = __instance.transform.TransformPoint(vertices[i]);
-            if (__instance.GetVegetationMask(worldPos) <= lavaThreshold) continue;
+            var mask = __instance.GetVegetationMask(worldPos);
+            if (mask <= lavaThreshold) continue;
 
-            colors[i] = new Color32(255, 0, 0, 255);
+            var depth = mask - lavaThreshold;
+            if (transitionRange > 0.001f && depth < transitionRange)
+            {
+                var t = Mathf.Clamp01(depth / transitionRange);
+                colors[i] = new Color32((byte)(t * 255f), 0, 0, 0);
+            }
+            else
+            {
+                colors[i] = new Color32(255, 0, 0, 255);
+            }
             lavaRestored++;
         }
         if (lavaRestored > 0)
         {
             mf.mesh.SetColors(colors);
             if (_terrainOverrideLogCount++ < 5)
-                Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override: restored Ashlands vertex color for {lavaRestored} lava vertices at ({__instance.transform.position.x:F0}, {__instance.transform.position.z:F0})");
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override: lava restore for {lavaRestored} vertices at ({__instance.transform.position.x:F0}, {__instance.transform.position.z:F0})");
         }
 
         // Override Ashlands material tint to Meadows green to reduce yellow seams

@@ -25,6 +25,8 @@ public class Plugin : BaseUnityPlugin
 
     public static ConfigEntry<float> LavaGrassThreshold { get; private set; } = null!;
 
+    public static ConfigEntry<float> LavaTransitionRange { get; private set; } = null!;
+
     public static ConfigEntry<float> TerrainRefreshInterval { get; private set; } = null!;
 
     public static ConfigEntry<bool> EnableDevCommandsAndGodMode { get; private set; } = null!;
@@ -81,15 +83,22 @@ public class Plugin : BaseUnityPlugin
         LavaTerrainThreshold = Config.Bind(
             "Terrain",
             "LavaTerrainThreshold",
-            0.05f,
-            "Points with vegetation mask above this are treated as lava for terrain vertex color (shows lava texture). Lower = wider lava transition. Default 0.05."
+            0.1f,
+            "Points with vegetation mask above this are treated as lava for terrain vertex color (shows lava texture). Lower = wider lava area. Default 0.1."
         );
 
         LavaGrassThreshold = Config.Bind(
             "Terrain",
             "LavaGrassThreshold",
-            0.05f,
-            "Points with vegetation mask above this are excluded from grass placement (no grass on lava edges). Lower = wider exclusion zone. Default 0.05."
+            0.15f,
+            "Points with vegetation mask above this are excluded from grass placement (no grass on lava edges). Lower = wider exclusion zone. Default 0.15."
+        );
+
+        LavaTransitionRange = Config.Bind(
+            "Terrain",
+            "LavaTransitionRange",
+            0f,
+            "Width of the Swamp-brown transition band between Meadows and Ashlands lava, as a vegetation mask range. 0 = binary/no transition (default). 0.05 = narrow. 0.15 = medium. 0.3+ = wide."
         );
 
         TerrainRefreshInterval = Config.Bind(
