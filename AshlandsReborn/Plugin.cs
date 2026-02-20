@@ -25,9 +25,9 @@ public class Plugin : BaseUnityPlugin
 
     public static ConfigEntry<float> LavaGrassThreshold { get; private set; } = null!;
 
-    public static ConfigEntry<float> LavaTransitionRange { get; private set; } = null!;
-
     public static ConfigEntry<float> TerrainRefreshInterval { get; private set; } = null!;
+
+    public static ConfigEntry<bool> EnableTreeReplacement { get; private set; } = null!;
 
     public static ConfigEntry<bool> EnableDevCommandsAndGodMode { get; private set; } = null!;
 
@@ -73,6 +73,13 @@ public class Plugin : BaseUnityPlugin
             "Log biome and environment name when entering or exiting Ashlands (Step 1 diagnostic)."
         );
 
+        EnableTreeReplacement = Config.Bind(
+            "Trees",
+            "EnableTreeReplacement",
+            true,
+            "Replace dead Ashlands trees with living Meadows trees (Beech and Oak) while keeping Ashlands resource drops."
+        );
+
         EnableDevCommandsAndGodMode = Config.Bind(
             "General",
             "EnableDevCommandsAndGodMode",
@@ -92,13 +99,6 @@ public class Plugin : BaseUnityPlugin
             "LavaGrassThreshold",
             0.15f,
             "Points with vegetation mask above this are excluded from grass placement (no grass on lava edges). Lower = wider exclusion zone. Default 0.15."
-        );
-
-        LavaTransitionRange = Config.Bind(
-            "Terrain",
-            "LavaTransitionRange",
-            0f,
-            "Width of the Swamp-brown transition band between Meadows and Ashlands lava, as a vegetation mask range. 0 = binary/no transition (default). 0.05 = narrow. 0.15 = medium. 0.3+ = wide."
         );
 
         TerrainRefreshInterval = Config.Bind(
@@ -128,13 +128,25 @@ public class Plugin : BaseUnityPlugin
             // Non-fatal
         }
 
-        // Remove obsolete config keys from when we had texture slice swap
+        // Remove obsolete config keys
         try
         {
             var def1 = new ConfigDefinition("Terrain", "AshlandsTextureSlices");
             var def2 = new ConfigDefinition("Terrain", "SliceProbeIndex");
+            var def3 = new ConfigDefinition("Terrain", "LavaTransitionRange");
+            var def4 = new ConfigDefinition("Terrain", "LavaAlphaOffset");
+            var def5 = new ConfigDefinition("Terrain", "MeadowsBaseRed");
+            var def6 = new ConfigDefinition("Terrain", "MeadowsBaseAlpha");
+            var def7 = new ConfigDefinition("Terrain", "EnableBoundaryOverlay");
+            var def8 = new ConfigDefinition("Terrain", "OverlayWidth");
             if (Config.ContainsKey(def1)) { Config.Remove(def1); }
             if (Config.ContainsKey(def2)) { Config.Remove(def2); }
+            if (Config.ContainsKey(def3)) { Config.Remove(def3); }
+            if (Config.ContainsKey(def4)) { Config.Remove(def4); }
+            if (Config.ContainsKey(def5)) { Config.Remove(def5); }
+            if (Config.ContainsKey(def6)) { Config.Remove(def6); }
+            if (Config.ContainsKey(def7)) { Config.Remove(def7); }
+            if (Config.ContainsKey(def8)) { Config.Remove(def8); }
         }
         catch
         {
@@ -148,10 +160,11 @@ public class Plugin : BaseUnityPlugin
         {
             Harmony.PatchAll(typeof(Plugin).Assembly);
 
-            // Apply terrain patches explicitly in case PatchAll missed them (assembly resolution)
+            // Apply patches explicitly in case PatchAll missed them (assembly resolution)
             ApplyTerrainPatches();
+            ApplyTreePatches();
 
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(Enabled.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, logging: {(LogAshlandsTransitions.Value ? "ON" : "OFF")}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(Enabled.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}");
         }
         catch (Exception ex)
         {
@@ -244,6 +257,36 @@ public class Plugin : BaseUnityPlugin
 
         if (logged.Count > 0)
             Log.LogInfo($"[Ashlands Reborn] Terrain patches applied: {string.Join(", ", logged)} (Heightmap from {heightmapType.Assembly.GetName().Name})");
+    }
+
+    private void ApplyTreePatches()
+    {
+        var asmSharp = AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(a => a.GetName().Name?.Equals("Assembly-CSharp", StringComparison.OrdinalIgnoreCase) == true);
+        var asmValheim = AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(a => a.GetName().Name?.Equals("assembly_valheim", StringComparison.OrdinalIgnoreCase) == true);
+
+        var treeBaseType = asmValheim?.GetType("TreeBase") ?? asmSharp?.GetType("TreeBase");
+        if (treeBaseType == null)
+        {
+            Log.LogWarning("[Ashlands Reborn] Trees: TreeBase type not found");
+            return;
+        }
+
+        var awake = treeBaseType.GetMethod("Awake", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+        if (awake != null)
+        {
+            var postfix = typeof(Patches.TreePatches).GetMethod("TreeBase_Awake_Postfix", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            if (postfix != null)
+            {
+                Harmony.Patch(awake, postfix: new HarmonyMethod(postfix));
+                Log.LogInfo("[Ashlands Reborn] Tree patch applied: TreeBase.Awake");
+            }
+        }
+        else
+        {
+            Log.LogWarning("[Ashlands Reborn] Trees: TreeBase.Awake not found - tree replacement won't work");
+        }
     }
 
     private static bool _devCommandsRunThisSession;

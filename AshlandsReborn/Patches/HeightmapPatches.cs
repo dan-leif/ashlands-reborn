@@ -73,26 +73,17 @@ internal static class HeightmapPatches
         mf.mesh.GetVertices(vertices);
         if (colors.Count == 0 || colors.Count != vertices.Count) return;
 
-        var lavaThreshold = Mathf.Max(0.001f, Plugin.LavaTerrainThreshold?.Value ?? 0.01f);
-        var transitionRange = Plugin.LavaTransitionRange?.Value ?? 0.15f;
+        var lavaThreshold = Mathf.Max(0.001f, Plugin.LavaTerrainThreshold?.Value ?? 0.1f);
         var lavaRestored = 0;
         for (var i = 0; i < colors.Count; i++)
         {
             var worldPos = __instance.transform.TransformPoint(vertices[i]);
             var mask = __instance.GetVegetationMask(worldPos);
-            if (mask <= lavaThreshold) continue;
-
-            var depth = mask - lavaThreshold;
-            if (transitionRange > 0.001f && depth < transitionRange)
-            {
-                var t = Mathf.Clamp01(depth / transitionRange);
-                colors[i] = new Color32((byte)(t * 255f), 0, 0, 0);
-            }
-            else
+            if (mask > lavaThreshold)
             {
                 colors[i] = new Color32(255, 0, 0, 255);
+                lavaRestored++;
             }
-            lavaRestored++;
         }
         if (lavaRestored > 0)
         {
