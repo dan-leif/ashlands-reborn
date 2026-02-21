@@ -4,6 +4,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using UnityEngine;
 
 namespace AshlandsReborn;
 
@@ -27,7 +28,19 @@ public class Plugin : BaseUnityPlugin
 
     public static ConfigEntry<float> TerrainRefreshInterval { get; private set; } = null!;
 
+    public static ConfigEntry<int> TerrainSampleStride { get; private set; } = null!;
+
+    public static ConfigEntry<float> TerrainRegenRadius { get; private set; } = null!;
+
+    public static ConfigEntry<KeyCode> TerrainRefreshKey { get; private set; } = null!;
+
     public static ConfigEntry<bool> EnableTreeReplacement { get; private set; } = null!;
+
+    public static ConfigEntry<int> AshlandsTreeDensity { get; private set; } = null!;
+
+    public static ConfigEntry<int> BeechOakRatio { get; private set; } = null!;
+
+    public static ConfigEntry<KeyCode> TreeRefreshKey { get; private set; } = null!;
 
     public static ConfigEntry<bool> EnableDevCommandsAndGodMode { get; private set; } = null!;
 
@@ -48,8 +61,8 @@ public class Plugin : BaseUnityPlugin
         Enabled = Config.Bind(
             "General",
             "Enabled",
-            true,
-            "Master toggle: turn the entire mod on or off. When off, Ashlands uses default weather and terrain."
+            false,
+            "Master toggle: turn the entire mod on or off. When off, Ashlands uses default weather and terrain. Devcommands and god still run if enabled."
         );
 
         EnableWeatherOverride = Config.Bind(
@@ -80,6 +93,27 @@ public class Plugin : BaseUnityPlugin
             "Replace dead Ashlands trees with living Meadows trees (Beech and Oak) while keeping Ashlands resource drops."
         );
 
+        AshlandsTreeDensity = Config.Bind(
+            "Trees",
+            "AshlandsTreeDensity",
+            20,
+            "Percent of scorched trees to transform into living Oak/Beech. 0 = no trees visible. 100 = normal Ashlands count."
+        );
+
+        BeechOakRatio = Config.Bind(
+            "Trees",
+            "BeechOakRatio",
+            100,
+            "Oak vs Beech mix. 0 = all Beech. 100 = all Oak. In-between = mixed."
+        );
+
+        TreeRefreshKey = Config.Bind(
+            "Trees",
+            "TreeRefreshKey",
+            KeyCode.F8,
+            "Key to re-apply tree config to currently loaded trees without teleporting."
+        );
+
         EnableDevCommandsAndGodMode = Config.Bind(
             "General",
             "EnableDevCommandsAndGodMode",
@@ -106,6 +140,27 @@ public class Plugin : BaseUnityPlugin
             "TerrainRefreshInterval",
             0f,
             "Seconds between terrain refreshes while in Ashlands. 0 = disable (no periodic refresh, less stutter). 60 = refresh every minute to catch new terrain as you move."
+        );
+
+        TerrainSampleStride = Config.Bind(
+            "Terrain",
+            "TerrainSampleStride",
+            2,
+            "Sample every Nth vertex for lava detection. 1 = all (quality, slow). 2 = half (default). 4 = quarter (fast)."
+        );
+
+        TerrainRegenRadius = Config.Bind(
+            "Terrain",
+            "TerrainRegenRadius",
+            128f,
+            "Radius in meters to regenerate when entering Ashlands. Lower = less stutter on enter."
+        );
+
+        TerrainRefreshKey = Config.Bind(
+            "Terrain",
+            "TerrainRefreshKey",
+            KeyCode.F7,
+            "Key to re-apply terrain with current TerrainSampleStride and TerrainRegenRadius."
         );
 
         // Migrate LavaEdgeThreshold to LavaTerrainThreshold and LavaGrassThreshold
@@ -290,12 +345,29 @@ public class Plugin : BaseUnityPlugin
     }
 
     private static bool _devCommandsRunThisSession;
+    private static float _lastTreeRefreshTime;
+    private static float _lastTerrainRefreshTime;
 
     private void Update()
     {
+        var inWorld = Player.m_localPlayer != null;
+        if (inWorld)
+        {
+            if (Input.GetKeyDown(TerrainRefreshKey?.Value ?? KeyCode.F7) && Time.time - _lastTerrainRefreshTime >= 1f)
+            {
+                _lastTerrainRefreshTime = Time.time;
+                Patches.EnvManPatches.ForceTerrainRefresh();
+            }
+            if ((Plugin.EnableTreeReplacement?.Value ?? false) && Input.GetKeyDown(TreeRefreshKey?.Value ?? KeyCode.F8) && Time.time - _lastTreeRefreshTime >= 1f)
+            {
+                _lastTreeRefreshTime = Time.time;
+                Patches.TreePatches.RefreshTrees();
+                Log.LogInfo("[Ashlands Reborn] Tree refresh triggered");
+            }
+        }
+
         if (!EnableDevCommandsAndGodMode.Value) return;
 
-        var inWorld = Player.m_localPlayer != null;
         if (!inWorld)
         {
             _devCommandsRunThisSession = false;

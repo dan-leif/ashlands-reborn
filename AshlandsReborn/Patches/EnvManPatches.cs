@@ -20,8 +20,6 @@ internal static class EnvManPatches
     private static int _terrainRegenRetryFrames;
     private static float _lastTerrainRegenTime;
 
-    private const float TerrainRegenRadius = 420f; // Cover loaded terrain + buffer to reduce yellow seam at chunk boundaries (zones are 64m)
-
     static MethodBase? TargetMethod()
     {
         if (EnvManType == null) return null;
@@ -102,6 +100,46 @@ internal static class EnvManPatches
     }
 
     /// <summary>
+    /// Manually trigger terrain regen with current config (radius, etc). Call from Plugin when TerrainRefreshKey pressed.
+    /// </summary>
+    internal static void ForceTerrainRefresh()
+    {
+        var player = Player.m_localPlayer;
+        var worldGen = WorldGenerator.instance;
+        if (player == null || worldGen == null) return;
+
+        var pos = player.transform.position;
+        Heightmap.Biome biome;
+        try { biome = worldGen.GetBiome(pos); }
+        catch { return; }
+
+        try
+        {
+            var ashlands = (Heightmap.Biome)System.Enum.Parse(typeof(Heightmap.Biome), "Ashlands", true);
+            if (biome != ashlands) return;
+        }
+        catch (ArgumentException) { return; }
+
+        if (!Plugin.IsTerrainOverrideActive) return;
+
+        var list = new List<Heightmap>();
+        var radius = Mathf.Max(32f, Plugin.TerrainRegenRadius?.Value ?? 128f);
+        Heightmap.FindHeightmap(pos, radius, list);
+        if (list.Count == 0) return;
+
+        var buildDataField = AccessTools.Field(typeof(Heightmap), "m_buildData");
+        foreach (var hmap in list)
+        {
+            buildDataField?.SetValue(hmap, null);
+            hmap.Poke(delayed: true);
+        }
+        if (ClutterSystem.instance != null)
+            ClutterSystem.instance.ResetGrass(pos, radius);
+
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain refresh: {list.Count} heightmaps, radius {radius:F0}m");
+    }
+
+    /// <summary>
     /// Clear the force override when leaving Ashlands so the game uses the real biome env again.
     /// </summary>
     private static void ClearForceEnvironment()
@@ -174,7 +212,8 @@ internal static class EnvManPatches
             try
             {
                 var list = new List<Heightmap>();
-                Heightmap.FindHeightmap(pos, TerrainRegenRadius, list);
+                var radius = Mathf.Max(32f, Plugin.TerrainRegenRadius?.Value ?? 128f);
+                Heightmap.FindHeightmap(pos, radius, list);
                 if (shouldRegenTerrain && list.Count == 0)
                 {
                     // Terrain may not be loaded yet (e.g. after teleport) - retry for a few frames
@@ -190,7 +229,7 @@ internal static class EnvManPatches
                         hmap.Poke(delayed: true);
                     }
                     if (ClutterSystem.instance != null)
-                        ClutterSystem.instance.ResetGrass(pos, TerrainRegenRadius);
+                        ClutterSystem.instance.ResetGrass(pos, radius);
                     _lastTerrainRegenTime = time;
                     Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override applied: regenerating {list.Count} heightmaps, resetting grass");
                 }
