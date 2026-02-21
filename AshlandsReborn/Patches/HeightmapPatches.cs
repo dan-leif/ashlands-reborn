@@ -74,11 +74,45 @@ internal static class HeightmapPatches
         if (colors.Count == 0 || colors.Count != vertices.Count) return;
 
         var lavaThreshold = Mathf.Max(0.001f, Plugin.LavaTerrainThreshold?.Value ?? 0.1f);
+        var sampleStride = Mathf.Clamp(Plugin.TerrainSampleStride?.Value ?? 2, 1, 8);
+        var w = (int)Mathf.Sqrt(vertices.Count) - 1;
+        if (w < 1) w = 64;
+        var side = w + 1;
+
+        float[]? sampled = null;
+        int sampleSide = 0;
+        if (sampleStride > 1)
+        {
+            sampleSide = (side - 1) / sampleStride + 1;
+            sampled = new float[sampleSide * sampleSide];
+            for (var sj = 0; sj < sampleSide; sj++)
+            for (var si = 0; si < sampleSide; si++)
+            {
+                var row = Math.Min(sj * sampleStride, side - 1);
+                var col = Math.Min(si * sampleStride, side - 1);
+                var idx = row * side + col;
+                var worldPos = __instance.transform.TransformPoint(vertices[idx]);
+                sampled[sj * sampleSide + si] = __instance.GetVegetationMask(worldPos);
+            }
+        }
+
         var lavaRestored = 0;
         for (var i = 0; i < colors.Count; i++)
         {
-            var worldPos = __instance.transform.TransformPoint(vertices[i]);
-            var mask = __instance.GetVegetationMask(worldPos);
+            float mask;
+            if (sampled != null)
+            {
+                var col = i % side;
+                var row = i / side;
+                var si = Math.Min(col / sampleStride, sampleSide - 1);
+                var sj = Math.Min(row / sampleStride, sampleSide - 1);
+                mask = sampled[sj * sampleSide + si];
+            }
+            else
+            {
+                var worldPos = __instance.transform.TransformPoint(vertices[i]);
+                mask = __instance.GetVegetationMask(worldPos);
+            }
             if (mask > lavaThreshold)
             {
                 colors[i] = new Color32(255, 0, 0, 255);
