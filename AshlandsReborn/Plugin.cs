@@ -36,6 +36,10 @@ public class Plugin : BaseUnityPlugin
 
     public static ConfigEntry<bool> EnableTreeReplacement { get; private set; } = null!;
 
+    public static ConfigEntry<string> EnableValkyrieSwap { get; private set; } = null!;
+
+    public static ConfigEntry<KeyCode> ValkyrieRefreshKey { get; private set; } = null!;
+
     public static ConfigEntry<int> AshlandsTreeDensity { get; private set; } = null!;
 
     public static ConfigEntry<int> BeechOakRatio { get; private set; } = null!;
@@ -92,6 +96,20 @@ public class Plugin : BaseUnityPlugin
             true,
             "Replace dead Ashlands trees with living Meadows trees (Beech and Oak) while keeping Ashlands resource drops."
         );
+
+        EnableValkyrieSwap = Config.Bind(
+            "Creatures",
+            "EnableValkyrieSwap",
+            "UseIntroVisualsOnly",
+            new ConfigDescription(
+                "UseIntroVisualsOnly = mesh + materials only, keeps Fallen combat animations. UseIntroVisualsAndAnimations = full Valkyrie visual + Animator. Disable = no swap.",
+                new AcceptableValueList<string>("UseIntroVisualsAndAnimations", "UseIntroVisualsOnly", "Disable")));
+
+        ValkyrieRefreshKey = Config.Bind(
+            "Creatures",
+            "ValkyrieRefreshKey",
+            KeyCode.F9,
+            "Re-apply Valkyrie swap to nearby Fallen Valkyries without teleporting.");
 
         AshlandsTreeDensity = Config.Bind(
             "Trees",
@@ -194,6 +212,14 @@ public class Plugin : BaseUnityPlugin
             var def6 = new ConfigDefinition("Terrain", "MeadowsBaseAlpha");
             var def7 = new ConfigDefinition("Terrain", "EnableBoundaryOverlay");
             var def8 = new ConfigDefinition("Terrain", "OverlayWidth");
+            var defValkyrieOld = new ConfigDefinition("Creatures", "EnableValkyrieVisualSwap");
+            if (Config.ContainsKey(defValkyrieOld))
+            {
+                var oldVal = Config[defValkyrieOld].BoxedValue;
+                if (oldVal is bool b && b)
+                    EnableValkyrieSwap.Value = "UseIntroVisualsOnly";
+                Config.Remove(defValkyrieOld);
+            }
             if (Config.ContainsKey(def1)) { Config.Remove(def1); }
             if (Config.ContainsKey(def2)) { Config.Remove(def2); }
             if (Config.ContainsKey(def3)) { Config.Remove(def3); }
@@ -219,7 +245,7 @@ public class Plugin : BaseUnityPlugin
             ApplyTerrainPatches();
             ApplyTreePatches();
 
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(Enabled.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(Enabled.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}");
         }
         catch (Exception ex)
         {
@@ -347,6 +373,7 @@ public class Plugin : BaseUnityPlugin
     private static bool _devCommandsRunThisSession;
     private static float _lastTreeRefreshTime;
     private static float _lastTerrainRefreshTime;
+    private static float _lastValkyrieRefreshTime;
 
     private void Update()
     {
@@ -363,6 +390,12 @@ public class Plugin : BaseUnityPlugin
                 _lastTreeRefreshTime = Time.time;
                 Patches.TreePatches.RefreshTrees();
                 Log.LogInfo("[Ashlands Reborn] Tree refresh triggered");
+            }
+            if (Input.GetKeyDown(ValkyrieRefreshKey?.Value ?? KeyCode.F9) && Time.time - _lastValkyrieRefreshTime >= 1f)
+            {
+                _lastValkyrieRefreshTime = Time.time;
+                Patches.ValkyriePatches.RefreshValkyries();
+                Log.LogInfo("[Ashlands Reborn] Valkyrie refresh triggered");
             }
         }
 
