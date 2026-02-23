@@ -192,7 +192,7 @@ internal static class TreePatches
 
     internal static void TryTransformTree(TreeBase tree)
     {
-        if (!(Plugin.Enabled?.Value ?? false)) return;
+        if (!(Plugin.MasterSwitch?.Value ?? false)) return;
         if (!(Plugin.EnableTreeReplacement?.Value ?? true)) return;
 
         EnsureInitialized();
@@ -243,6 +243,37 @@ internal static class TreePatches
 
         if (_transformLogCount++ < 15)
             Plugin.Log?.LogInfo($"[Ashlands Reborn] Transformed tree: {prefabName} -> {replacementName}");
+    }
+
+    internal static void RevertAllTrees()
+    {
+        var swapped = Object.FindObjectsOfType<AshlandsRebornSwapped>();
+        foreach (var marker in swapped)
+        {
+            var tree = marker.GetComponent<TreeBase>();
+            if (tree == null || marker.OriginalTrunk == null) continue;
+
+            var toDestroy = tree.m_trunk;
+            tree.m_trunk = marker.OriginalTrunk;
+            if (marker.OriginalTrunk != null)
+            {
+                foreach (var r in marker.OriginalTrunk.GetComponentsInChildren<Renderer>(true))
+                    r.enabled = true;
+                foreach (var c in marker.OriginalTrunk.GetComponentsInChildren<Collider>(true))
+                    c.enabled = true;
+            }
+            if (toDestroy != null) Object.Destroy(toDestroy);
+            Object.Destroy(marker);
+        }
+
+        var hidden = Object.FindObjectsOfType<AshlandsRebornHidden>();
+        foreach (var marker in hidden)
+        {
+            var tree = marker.GetComponent<TreeBase>();
+            if (tree != null) UnhideTree(tree);
+        }
+
+        Plugin.Log?.LogInfo("[Ashlands Reborn] Tree revert complete");
     }
 
     internal static void RefreshTrees()

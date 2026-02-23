@@ -14,45 +14,35 @@ public class Plugin : BaseUnityPlugin
 {
     internal static ManualLogSource Log { get; private set; } = null!;
 
-    public static ConfigEntry<bool> Enabled { get; private set; } = null!;
-
-    public static ConfigEntry<bool> EnableWeatherOverride { get; private set; } = null!;
-
-    public static ConfigEntry<bool> EnableTerrainOverride { get; private set; } = null!;
-
-    public static ConfigEntry<bool> LogAshlandsTransitions { get; private set; } = null!;
-
-    public static ConfigEntry<float> LavaTerrainThreshold { get; private set; } = null!;
-
-    public static ConfigEntry<float> LavaGrassThreshold { get; private set; } = null!;
-
-    public static ConfigEntry<float> TerrainRefreshInterval { get; private set; } = null!;
-
-    public static ConfigEntry<int> TerrainSampleStride { get; private set; } = null!;
-
-    public static ConfigEntry<float> TerrainRegenRadius { get; private set; } = null!;
-
-    public static ConfigEntry<KeyCode> TerrainRefreshKey { get; private set; } = null!;
-
-    public static ConfigEntry<bool> EnableTreeReplacement { get; private set; } = null!;
-
-    public static ConfigEntry<string> EnableValkyrieSwap { get; private set; } = null!;
-
-    public static ConfigEntry<KeyCode> ValkyrieRefreshKey { get; private set; } = null!;
-
-    public static ConfigEntry<int> AshlandsTreeDensity { get; private set; } = null!;
-
-    public static ConfigEntry<int> BeechOakRatio { get; private set; } = null!;
-
-    public static ConfigEntry<KeyCode> TreeRefreshKey { get; private set; } = null!;
-
+    // --- General ---
+    public static ConfigEntry<bool> MasterSwitch { get; private set; } = null!;
+    public static ConfigEntry<KeyCode> MasterSwitchKey { get; private set; } = null!;
     public static ConfigEntry<bool> EnableDevCommandsAndGodMode { get; private set; } = null!;
 
-    /// <summary>True when the mod is enabled and weather override is on.</summary>
-    public static bool IsWeatherOverrideActive => Enabled?.Value == true && EnableWeatherOverride?.Value == true;
+    // --- Weather ---
+    public static ConfigEntry<bool> EnableWeatherOverride { get; private set; } = null!;
 
-    /// <summary>True when the mod is enabled and terrain override is on.</summary>
-    public static bool IsTerrainOverrideActive => Enabled?.Value == true && EnableTerrainOverride?.Value == true;
+    // --- Terrain ---
+    public static ConfigEntry<bool> EnableTerrainOverride { get; private set; } = null!;
+    public static ConfigEntry<float> LavaGrassThreshold { get; private set; } = null!;
+    public static ConfigEntry<float> LavaTerrainThreshold { get; private set; } = null!;
+    public static ConfigEntry<float> TerrainRefreshInterval { get; private set; } = null!;
+    public static ConfigEntry<KeyCode> TerrainRefreshKey { get; private set; } = null!;
+    public static ConfigEntry<float> TerrainRegenRadius { get; private set; } = null!;
+    public static ConfigEntry<int> TerrainSampleStride { get; private set; } = null!;
+
+    // --- Trees ---
+    public static ConfigEntry<bool> EnableTreeReplacement { get; private set; } = null!;
+    public static ConfigEntry<int> AshlandsTreeDensity { get; private set; } = null!;
+    public static ConfigEntry<int> BeechOakRatio { get; private set; } = null!;
+    public static ConfigEntry<KeyCode> TreeRefreshKey { get; private set; } = null!;
+
+    // --- Creatures ---
+    public static ConfigEntry<string> EnableValkyrieSwap { get; private set; } = null!;
+    public static ConfigEntry<KeyCode> ValkyrieRefreshKey { get; private set; } = null!;
+
+    public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
+    public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
 
     private static readonly Harmony Harmony = new(PluginInfo.PLUGIN_GUID);
 
@@ -62,54 +52,93 @@ public class Plugin : BaseUnityPlugin
 
         Config.SaveOnConfigSet = false;
 
-        Enabled = Config.Bind(
+        // --- General ---
+        MasterSwitch = Config.Bind(
             "General",
-            "Enabled",
-            false,
-            "Master toggle: turn the entire mod on or off. When off, Ashlands uses default weather and terrain. Devcommands and god still run if enabled."
+            "MasterSwitch",
+            true,
+            "Master toggle for all mod features except DevCommandsAndGodMode."
         );
 
-        EnableWeatherOverride = Config.Bind(
+        MasterSwitchKey = Config.Bind(
             "General",
+            "MasterSwitchKey",
+            KeyCode.F6,
+            "Hotkey to toggle MasterSwitch and immediately revert or apply all visual changes."
+        );
+
+        EnableDevCommandsAndGodMode = Config.Bind(
+            "General",
+            "EnableDevCommandsAndGodMode",
+            true,
+            "When loading a world, run devcommands and god for easier testing."
+        );
+
+        // --- Weather ---
+        EnableWeatherOverride = Config.Bind(
+            "Weather",
             "EnableWeatherOverride",
             true,
             "When in Ashlands, override the environment to Meadows-like (clear sky, no cinder rain, no lava fog)."
         );
 
+        // --- Terrain ---
         EnableTerrainOverride = Config.Bind(
-            "General",
+            "Terrain",
             "EnableTerrainOverride",
             true,
             "When in Ashlands, override terrain and grass to Meadows-like (green ground, green grass)."
         );
 
-        LogAshlandsTransitions = Config.Bind(
-            "General",
-            "LogAshlandsTransitions",
-            true,
-            "Log biome and environment name when entering or exiting Ashlands (Step 1 diagnostic)."
+        LavaGrassThreshold = Config.Bind(
+            "Terrain",
+            "LavaGrassThreshold",
+            0.15f,
+            "Points with vegetation mask above this are excluded from grass placement (no grass on lava edges). Lower = wider exclusion zone. Default 0.15."
         );
 
+        LavaTerrainThreshold = Config.Bind(
+            "Terrain",
+            "LavaTerrainThreshold",
+            0.1f,
+            "Points with vegetation mask above this are treated as lava for terrain vertex color (shows lava texture). Lower = wider lava area. Default 0.1."
+        );
+
+        TerrainRefreshInterval = Config.Bind(
+            "Terrain",
+            "TerrainRefreshInterval",
+            0f,
+            "Seconds between terrain refreshes while in Ashlands. 0 = disable (no periodic refresh, less stutter). 60 = refresh every minute."
+        );
+
+        TerrainRefreshKey = Config.Bind(
+            "Terrain",
+            "TerrainRefreshKey",
+            KeyCode.F7,
+            "Key to re-apply terrain with current TerrainSampleStride and TerrainRegenRadius."
+        );
+
+        TerrainRegenRadius = Config.Bind(
+            "Terrain",
+            "TerrainRegenRadius",
+            128f,
+            "Radius in meters to regenerate when entering Ashlands. Lower = less stutter on enter."
+        );
+
+        TerrainSampleStride = Config.Bind(
+            "Terrain",
+            "TerrainSampleStride",
+            2,
+            "Sample every Nth vertex for lava detection. 1 = all (quality, slow). 2 = half (default). 4 = quarter (fast)."
+        );
+
+        // --- Trees ---
         EnableTreeReplacement = Config.Bind(
             "Trees",
             "EnableTreeReplacement",
             true,
             "Replace dead Ashlands trees with living Meadows trees (Beech and Oak) while keeping Ashlands resource drops."
         );
-
-        EnableValkyrieSwap = Config.Bind(
-            "Creatures",
-            "EnableValkyrieSwap",
-            "UseIntroVisualsOnly",
-            new ConfigDescription(
-                "UseIntroVisualsOnly = mesh + materials only, keeps Fallen combat animations. UseIntroVisualsAndAnimations = full Valkyrie visual + Animator. Disable = no swap.",
-                new AcceptableValueList<string>("UseIntroVisualsAndAnimations", "UseIntroVisualsOnly", "Disable")));
-
-        ValkyrieRefreshKey = Config.Bind(
-            "Creatures",
-            "ValkyrieRefreshKey",
-            KeyCode.F9,
-            "Re-apply Valkyrie swap to nearby Fallen Valkyries without teleporting.");
 
         AshlandsTreeDensity = Config.Bind(
             "Trees",
@@ -132,54 +161,65 @@ public class Plugin : BaseUnityPlugin
             "Key to re-apply tree config to currently loaded trees without teleporting."
         );
 
-        EnableDevCommandsAndGodMode = Config.Bind(
-            "General",
-            "EnableDevCommandsAndGodMode",
-            true,
-            "When loading a world, run devcommands and god for easier testing. Default true."
-        );
+        // --- Creatures ---
+        EnableValkyrieSwap = Config.Bind(
+            "Creatures",
+            "EnableValkyrieSwap",
+            "Enabled",
+            new ConfigDescription(
+                "Enabled = mesh + materials only, keeps Fallen combat animations. UseIntroVisualsAndAnimations = full Valkyrie visual + Animator. Disabled = no swap.",
+                new AcceptableValueList<string>("Enabled", "UseIntroVisualsAndAnimations", "Disabled")));
 
-        LavaTerrainThreshold = Config.Bind(
-            "Terrain",
-            "LavaTerrainThreshold",
-            0.1f,
-            "Points with vegetation mask above this are treated as lava for terrain vertex color (shows lava texture). Lower = wider lava area. Default 0.1."
-        );
+        ValkyrieRefreshKey = Config.Bind(
+            "Creatures",
+            "ValkyrieRefreshKey",
+            KeyCode.F9,
+            "Re-apply Valkyrie swap to nearby Fallen Valkyries without teleporting.");
 
-        LavaGrassThreshold = Config.Bind(
-            "Terrain",
-            "LavaGrassThreshold",
-            0.15f,
-            "Points with vegetation mask above this are excluded from grass placement (no grass on lava edges). Lower = wider exclusion zone. Default 0.15."
-        );
+        // Migrate renamed/moved config keys
+        try
+        {
+            var defOldEnabled = new ConfigDefinition("General", "Enabled");
+            if (Config.ContainsKey(defOldEnabled))
+            {
+                var raw = Config[defOldEnabled].BoxedValue?.ToString()?.Trim();
+                if (bool.TryParse(raw, out var b))
+                    MasterSwitch.Value = b;
+                Config.Remove(defOldEnabled);
+            }
 
-        TerrainRefreshInterval = Config.Bind(
-            "Terrain",
-            "TerrainRefreshInterval",
-            0f,
-            "Seconds between terrain refreshes while in Ashlands. 0 = disable (no periodic refresh, less stutter). 60 = refresh every minute to catch new terrain as you move."
-        );
+            var defOldWeather = new ConfigDefinition("General", "EnableWeatherOverride");
+            if (Config.ContainsKey(defOldWeather))
+            {
+                var raw = Config[defOldWeather].BoxedValue?.ToString()?.Trim();
+                if (bool.TryParse(raw, out var b))
+                    EnableWeatherOverride.Value = b;
+                Config.Remove(defOldWeather);
+            }
 
-        TerrainSampleStride = Config.Bind(
-            "Terrain",
-            "TerrainSampleStride",
-            2,
-            "Sample every Nth vertex for lava detection. 1 = all (quality, slow). 2 = half (default). 4 = quarter (fast)."
-        );
+            var defOldTerrain = new ConfigDefinition("General", "EnableTerrainOverride");
+            if (Config.ContainsKey(defOldTerrain))
+            {
+                var raw = Config[defOldTerrain].BoxedValue?.ToString()?.Trim();
+                if (bool.TryParse(raw, out var b))
+                    EnableTerrainOverride.Value = b;
+                Config.Remove(defOldTerrain);
+            }
 
-        TerrainRegenRadius = Config.Bind(
-            "Terrain",
-            "TerrainRegenRadius",
-            128f,
-            "Radius in meters to regenerate when entering Ashlands. Lower = less stutter on enter."
-        );
+            var defLog = new ConfigDefinition("General", "LogAshlandsTransitions");
+            if (Config.ContainsKey(defLog))
+                Config.Remove(defLog);
 
-        TerrainRefreshKey = Config.Bind(
-            "Terrain",
-            "TerrainRefreshKey",
-            KeyCode.F7,
-            "Key to re-apply terrain with current TerrainSampleStride and TerrainRegenRadius."
-        );
+            var valkVal = EnableValkyrieSwap.Value;
+            if (valkVal == "UseIntroVisualsOnly")
+                EnableValkyrieSwap.Value = "Enabled";
+            else if (valkVal == "Disable")
+                EnableValkyrieSwap.Value = "Disabled";
+        }
+        catch
+        {
+            // Non-fatal
+        }
 
         // Migrate LavaEdgeThreshold to LavaTerrainThreshold and LavaGrassThreshold
         try
@@ -204,34 +244,26 @@ public class Plugin : BaseUnityPlugin
         // Remove obsolete config keys
         try
         {
-            var def1 = new ConfigDefinition("Terrain", "AshlandsTextureSlices");
-            var def2 = new ConfigDefinition("Terrain", "SliceProbeIndex");
-            var def3 = new ConfigDefinition("Terrain", "LavaTransitionRange");
-            var def4 = new ConfigDefinition("Terrain", "LavaAlphaOffset");
-            var def5 = new ConfigDefinition("Terrain", "MeadowsBaseRed");
-            var def6 = new ConfigDefinition("Terrain", "MeadowsBaseAlpha");
-            var def7 = new ConfigDefinition("Terrain", "EnableBoundaryOverlay");
-            var def8 = new ConfigDefinition("Terrain", "OverlayWidth");
             var defValkyrieOld = new ConfigDefinition("Creatures", "EnableValkyrieVisualSwap");
             if (Config.ContainsKey(defValkyrieOld))
             {
                 var oldVal = Config[defValkyrieOld].BoxedValue;
                 if (oldVal is bool b && b)
-                    EnableValkyrieSwap.Value = "UseIntroVisualsOnly";
+                    EnableValkyrieSwap.Value = "Enabled";
                 Config.Remove(defValkyrieOld);
             }
-            if (Config.ContainsKey(def1)) { Config.Remove(def1); }
-            if (Config.ContainsKey(def2)) { Config.Remove(def2); }
-            if (Config.ContainsKey(def3)) { Config.Remove(def3); }
-            if (Config.ContainsKey(def4)) { Config.Remove(def4); }
-            if (Config.ContainsKey(def5)) { Config.Remove(def5); }
-            if (Config.ContainsKey(def6)) { Config.Remove(def6); }
-            if (Config.ContainsKey(def7)) { Config.Remove(def7); }
-            if (Config.ContainsKey(def8)) { Config.Remove(def8); }
+
+            foreach (var name in new[] { "AshlandsTextureSlices", "SliceProbeIndex", "LavaTransitionRange",
+                "LavaAlphaOffset", "MeadowsBaseRed", "MeadowsBaseAlpha", "EnableBoundaryOverlay", "OverlayWidth" })
+            {
+                var def = new ConfigDefinition("Terrain", name);
+                if (Config.ContainsKey(def))
+                    Config.Remove(def);
+            }
         }
         catch
         {
-            // Non-fatal; user can delete config manually if slice options persist
+            // Non-fatal
         }
 
         Config.Save();
@@ -245,7 +277,7 @@ public class Plugin : BaseUnityPlugin
             ApplyTerrainPatches();
             ApplyTreePatches();
 
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(Enabled.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}");
         }
         catch (Exception ex)
         {
@@ -371,6 +403,7 @@ public class Plugin : BaseUnityPlugin
     }
 
     private static bool _devCommandsRunThisSession;
+    private static float _lastMasterSwitchToggleTime;
     private static float _lastTreeRefreshTime;
     private static float _lastTerrainRefreshTime;
     private static float _lastValkyrieRefreshTime;
@@ -380,6 +413,26 @@ public class Plugin : BaseUnityPlugin
         var inWorld = Player.m_localPlayer != null;
         if (inWorld)
         {
+            if (Input.GetKeyDown(MasterSwitchKey?.Value ?? KeyCode.F6) && Time.time - _lastMasterSwitchToggleTime >= 1f)
+            {
+                _lastMasterSwitchToggleTime = Time.time;
+                MasterSwitch.Value = !MasterSwitch.Value;
+                if (MasterSwitch.Value)
+                {
+                    Patches.EnvManPatches.ForceTerrainRefresh(force: true);
+                    Patches.TreePatches.RefreshTrees();
+                    Patches.ValkyriePatches.RefreshValkyries();
+                    Log.LogInfo("[Ashlands Reborn] Master switch ON - all overrides applied");
+                }
+                else
+                {
+                    Patches.EnvManPatches.ClearForceEnvironment();
+                    Patches.EnvManPatches.ForceTerrainRefresh(force: true);
+                    Patches.TreePatches.RevertAllTrees();
+                    Patches.ValkyriePatches.RevertAllValkyries();
+                    Log.LogInfo("[Ashlands Reborn] Master switch OFF - all overrides reverted");
+                }
+            }
             if (Input.GetKeyDown(TerrainRefreshKey?.Value ?? KeyCode.F7) && Time.time - _lastTerrainRefreshTime >= 1f)
             {
                 _lastTerrainRefreshTime = Time.time;
