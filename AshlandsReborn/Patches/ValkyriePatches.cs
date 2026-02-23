@@ -88,18 +88,18 @@ internal static class ValkyriePatches
 
     private static string GetValkyrieSwapMode()
     {
-        var mode = Plugin.EnableValkyrieSwap?.Value ?? "UseIntroVisualsOnly";
-        if (mode == "Disable") return "Disable";
+        var mode = Plugin.EnableValkyrieSwap?.Value ?? "Enabled";
+        if (mode == "Disabled") return "Disabled";
         if (mode == "UseIntroVisualsAndAnimations") return "UseIntroVisualsAndAnimations";
-        return "UseIntroVisualsOnly";
+        return "Enabled";
     }
 
     internal static void TrySwapValkyrieVisual(Humanoid humanoid)
     {
-        if (!(Plugin.Enabled?.Value ?? false)) return;
+        if (!(Plugin.MasterSwitch?.Value ?? false)) return;
 
         var mode = GetValkyrieSwapMode();
-        if (mode == "Disable") return;
+        if (mode == "Disabled") return;
 
         var go = humanoid.gameObject;
         if (GetPrefabName(go) != FallenValkyriePrefab) return;
@@ -413,9 +413,22 @@ internal static class ValkyriePatches
         Object.Destroy(marker);
     }
 
+    internal static void RevertAllValkyries()
+    {
+        var humanoids = Object.FindObjectsOfType<Humanoid>();
+        var count = 0;
+        foreach (var h in humanoids)
+        {
+            if (GetPrefabName(h.gameObject) != FallenValkyriePrefab) continue;
+            RevertValkyrieSwap(h);
+            count++;
+        }
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Valkyrie revert: {count} Fallen Valkyries");
+    }
+
     internal static void RefreshValkyries()
     {
-        if (!(Plugin.Enabled?.Value ?? false)) return;
+        if (!(Plugin.MasterSwitch?.Value ?? false)) return;
 
         var humanoids = Object.FindObjectsOfType<Humanoid>();
         var count = 0;

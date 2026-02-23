@@ -28,27 +28,6 @@ internal static class EnvManPatches
     }
 
     /// <summary>
-    /// Get current environment name from EnvMan (EnvSetup.m_name).
-    /// </summary>
-    private static string GetCurrentEnvName()
-    {
-        try
-        {
-            var envMan = EnvMan.instance;
-            if (envMan == null) return "(null)";
-
-            var currentEnv = envMan.GetCurrentEnvironment();
-            if (currentEnv == null || string.IsNullOrEmpty(currentEnv.m_name)) return "(none)";
-            return currentEnv.m_name;
-        }
-        catch (Exception ex)
-        {
-            Plugin.Log?.LogDebug("GetCurrentEnvName error: " + ex.Message);
-            return "(error)";
-        }
-    }
-
-    /// <summary>
     /// Check if the local player is currently in the Ashlands biome.
     /// </summary>
     private static bool IsPlayerInAshlands()
@@ -102,7 +81,7 @@ internal static class EnvManPatches
     /// <summary>
     /// Manually trigger terrain regen with current config (radius, etc). Call from Plugin when TerrainRefreshKey pressed.
     /// </summary>
-    internal static void ForceTerrainRefresh()
+    internal static void ForceTerrainRefresh(bool force = false)
     {
         var player = Player.m_localPlayer;
         var worldGen = WorldGenerator.instance;
@@ -120,7 +99,7 @@ internal static class EnvManPatches
         }
         catch (ArgumentException) { return; }
 
-        if (!Plugin.IsTerrainOverrideActive) return;
+        if (!force && !Plugin.IsTerrainOverrideActive) return;
 
         var list = new List<Heightmap>();
         var radius = Mathf.Max(32f, Plugin.TerrainRegenRadius?.Value ?? 128f);
@@ -142,7 +121,7 @@ internal static class EnvManPatches
     /// <summary>
     /// Clear the force override when leaving Ashlands so the game uses the real biome env again.
     /// </summary>
-    private static void ClearForceEnvironment()
+    internal static void ClearForceEnvironment()
     {
         try
         {
@@ -158,7 +137,7 @@ internal static class EnvManPatches
     }
 
     /// <summary>
-    /// Postfix on EnvMan.Update - logs Ashlands enter/exit (Step 1), then applies weather override when enabled.
+    /// Postfix on EnvMan.Update - applies weather and terrain overrides when enabled.
     /// </summary>
     [HarmonyPostfix]
     private static void Update_Postfix()
@@ -178,7 +157,6 @@ internal static class EnvManPatches
             return;
         }
 
-        var biomeName = biome.ToString();
         var inAshlands = false;
         try
         {
@@ -186,15 +164,6 @@ internal static class EnvManPatches
             inAshlands = biome == ashlands;
         }
         catch (ArgumentException) { }
-
-        var envName = GetCurrentEnvName();
-
-        // Step 1: Ashlands transition logging (only when mod is enabled)
-        if (Plugin.Enabled?.Value == true && Plugin.LogAshlandsTransitions?.Value == true && inAshlands != _wasInAshlands)
-        {
-            var msg = inAshlands ? "Entered" : "Exited";
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] {msg} Ashlands | biome: {biomeName} | env: {envName}");
-        }
 
         // Terrain override: regenerate when entering Ashlands with override on, or when override is toggled on while in Ashlands
         var terrainOverrideOn = Plugin.IsTerrainOverrideActive;
