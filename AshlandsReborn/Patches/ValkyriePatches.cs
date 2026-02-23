@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using HarmonyLib;
 using UnityEngine;
 
@@ -18,6 +19,37 @@ internal static class ValkyriePatches
 
     private static GameObject? _valkyrieVisualTemplate;
     private static int _swapLogCount;
+    private static bool _boneDumpDone;
+
+    /// <summary>
+    /// Maps intro Valkyrie bone names to Fallen Valkyrie bone names.
+    /// Derived from bone dump: intro has 62 bones, fallen has 68.
+    /// 41 match exactly; 21 need mapping (renames, wing detail → spine0, shoulder feathers → shoulder).
+    /// </summary>
+    private static readonly Dictionary<string, string> IntroToFallenBoneMap = new()
+    {
+        { "pelvis", "hip" },
+        { "tail", "tail0" },
+        { "tail.001", "tail1" },
+        { "tail.002", "tail2" },
+        { "l_shouldergeathers", "l_shoulder" },
+        { "r_shouldergeathers", "r_shoulder" },
+        { "spine0.001", "spine0" },
+        { "spine0.002", "spine0" },
+        { "spine0.003", "spine0" },
+        { "spine0.004", "spine0" },
+        { "spine0.005", "spine0" },
+        { "spine0.006", "spine0" },
+        { "spine0.007", "spine0" },
+        { "spine0.008", "spine0" },
+        { "spine0.009", "spine0" },
+        { "spine0.010", "spine0" },
+        { "spine0.011", "spine0" },
+        { "spine0.012", "spine0" },
+        { "spine0.013", "spine0" },
+        { "spine0.014", "spine0" },
+        { "spine0.015", "spine0" },
+    };
 
     private static void EnsureValkyrieTemplate()
     {
@@ -87,6 +119,12 @@ internal static class ValkyriePatches
         var fallenVisual = fallenRoot.GetChild(1);
         if (fallenVisual == null) return;
 
+        if (!_boneDumpDone)
+        {
+            _boneDumpDone = true;
+            DumpBoneNames(fallenVisual, _valkyrieVisualTemplate!.transform);
+        }
+
         if (mode == "UseIntroVisualsAndAnimations")
             ApplyRawSwap(go, fallenVisual);
         else
@@ -120,9 +158,28 @@ internal static class ValkyriePatches
         var boneMap = BuildBoneMap(fallenVisual);
 
         var fallenSMRs = fallenVisual.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-        Transform? armatureRoot = null;
-        if (fallenSMRs.Length > 0 && fallenSMRs[0].transform.parent != null)
-            armatureRoot = fallenSMRs[0].transform.parent;
+        Transform? smrParent = null;
+        int referenceLayer = 0;
+        if (fallenSMRs.Length > 0)
+        {
+            smrParent = fallenSMRs[0].transform.parent;
+            referenceLayer = fallenSMRs[0].gameObject.layer;
+        }
+
+        // Build a map from fallen bone name to its static bind pose matrix.
+        // These come from the mesh asset and represent the true rest pose,
+        // unlike live bone transforms which reflect whatever animation frame is playing.
+        var fallenBPMap = new Dictionary<string, Matrix4x4>();
+        if (fallenSMRs.Length > 0)
+        {
+            var fbones = fallenSMRs[0].bones;
+            var fbps = fallenSMRs[0].sharedMesh.bindposes;
+            for (int j = 0; j < fbones.Length && j < fbps.Length; j++)
+                if (fbones[j] != null)
+                    fallenBPMap[fbones[j].name] = fbps[j];
+        }
+
+        var originalRenderers = fallenVisual.GetComponentsInChildren<Renderer>(true);
 
         var created = new List<GameObject>();
         var anySMRFailed = false;
@@ -132,40 +189,73 @@ internal static class ValkyriePatches
             var bones = valkyrieSMR.bones;
             var newBones = new Transform[bones.Length];
             var missing = 0;
+            var missingNames = new List<string>();
             for (var i = 0; i < bones.Length; i++)
             {
                 var resolved = TryResolveBone(bones[i].name, boneMap);
                 if (resolved != null)
                     newBones[i] = resolved;
                 else
+                {
                     missing++;
+                    if (missingNames.Count < 5)
+                        missingNames.Add(bones[i].name);
+                }
             }
 
             if (missing > 0)
             {
                 anySMRFailed = true;
                 if (_swapLogCount < 10)
-                    Plugin.Log?.LogWarning($"[Ashlands Reborn] Valkyrie animated swap: {missing}/{bones.Length} bones not found for {valkyrieSMR.name} - rigs differ, falling back to UseIntroVisualsAndAnimations");
+                    Plugin.Log?.LogWarning($"[Ashlands Reborn] Valkyrie animated swap: {missing}/{bones.Length} bones not found for {valkyrieSMR.name} (e.g. {string.Join(", ", missingNames)}) - falling back to UseIntroVisualsAndAnimations");
                 break;
             }
 
-            var parent = armatureRoot != null ? armatureRoot : fallenVisual;
+            // Clone the intro mesh and replace bind poses with the Fallen rig's
+            // static bind poses. This ensures the mesh deforms correctly with the
+            // Fallen Valkyrie's Animator regardless of the current animation frame.
+            var origMesh = valkyrieSMR.sharedMesh;
+            var newMesh = Object.Instantiate(origMesh);
+            var origBindPoses = origMesh.bindposes;
+            var newBindPoses = new Matrix4x4[bones.Length];
+            for (var i = 0; i < bones.Length; i++)
+            {
+                if (newBones[i] != null && fallenBPMap.TryGetValue(newBones[i].name, out var bp))
+                    newBindPoses[i] = bp;
+                else
+                    newBindPoses[i] = origBindPoses[i];
+            }
+            newMesh.bindposes = newBindPoses;
+
+            var parent = smrParent != null ? smrParent : fallenVisual;
             var newGo = new GameObject("AshlandsReborn_ValkyrieMesh");
+            newGo.layer = referenceLayer;
             newGo.transform.SetParent(parent);
             newGo.transform.localPosition = Vector3.zero;
             newGo.transform.localRotation = Quaternion.identity;
             newGo.transform.localScale = Vector3.one;
 
             var newSMR = newGo.AddComponent<SkinnedMeshRenderer>();
-            newSMR.sharedMesh = valkyrieSMR.sharedMesh;
+            newSMR.sharedMesh = newMesh;
             newSMR.sharedMaterials = valkyrieSMR.sharedMaterials;
             newSMR.localBounds = valkyrieSMR.localBounds;
+            newSMR.updateWhenOffscreen = true;
             newSMR.bones = newBones;
+
             if (valkyrieSMR.rootBone != null)
             {
                 var rootResolved = TryResolveBone(valkyrieSMR.rootBone.name, boneMap);
                 if (rootResolved != null)
                     newSMR.rootBone = rootResolved;
+            }
+
+            if (fallenSMRs.Length > 0)
+            {
+                newSMR.shadowCastingMode = fallenSMRs[0].shadowCastingMode;
+                newSMR.receiveShadows = fallenSMRs[0].receiveShadows;
+                newSMR.lightProbeUsage = fallenSMRs[0].lightProbeUsage;
+                if (fallenSMRs[0].probeAnchor != null)
+                    newSMR.probeAnchor = fallenSMRs[0].probeAnchor;
             }
 
             created.Add(newGo);
@@ -181,8 +271,22 @@ internal static class ValkyriePatches
             return;
         }
 
-        foreach (var r in fallenVisual.GetComponentsInChildren<Renderer>(true))
+        foreach (var r in originalRenderers)
             r.enabled = false;
+
+        // Force the Animator to keep updating bone transforms even though the
+        // original renderers are disabled. Without this, the Animator culls bone
+        // updates when it sees no visible renderers, freezing the mesh in T-pose.
+        var animator = go.GetComponentInChildren<Animator>();
+        if (animator != null)
+        {
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            if (_swapLogCount < 3)
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] Valkyrie animator culling set to AlwaysAnimate (was {animator.cullingMode})");
+        }
+
+        if (_swapLogCount < 3)
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Valkyrie animated swap: created {created.Count} SMRs, layer={referenceLayer}, parent={smrParent?.name ?? "null"}");
 
         var marker = go.AddComponent<AshlandsRebornValkyrieSwapped>();
         marker.OriginalVisual = fallenVisual.gameObject;
@@ -194,21 +298,69 @@ internal static class ValkyriePatches
     {
         if (boneMap.TryGetValue(valkyrieBoneName, out var t))
             return t;
-        var baseName = valkyrieBoneName;
-        var colon = baseName.LastIndexOf(':');
-        if (colon >= 0)
-            baseName = baseName.Substring(colon + 1);
-        var slash = baseName.LastIndexOf('/');
-        if (slash >= 0)
-            baseName = baseName.Substring(slash + 1);
-        if (baseName != valkyrieBoneName && boneMap.TryGetValue(baseName, out t))
+        if (IntroToFallenBoneMap.TryGetValue(valkyrieBoneName, out var fallenName) && boneMap.TryGetValue(fallenName, out t))
             return t;
-        foreach (var kv in boneMap)
-        {
-            if (kv.Key.EndsWith(baseName) || baseName.EndsWith(kv.Key))
-                return kv.Value;
-        }
         return null;
+    }
+
+    private static void DumpBoneNames(Transform fallenVisual, Transform valkyrieVisual)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("=== VALKYRIE BONE DUMP ===");
+
+        sb.AppendLine();
+        sb.AppendLine("--- Fallen Valkyrie Hierarchy ---");
+        DumpHierarchy(fallenVisual, sb, 0);
+
+        sb.AppendLine();
+        sb.AppendLine("--- Fallen Valkyrie SMR Bones ---");
+        foreach (var smr in fallenVisual.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            sb.AppendLine($"  SMR: {smr.name} ({smr.bones.Length} bones, rootBone: {smr.rootBone?.name ?? "null"})");
+            for (var i = 0; i < smr.bones.Length; i++)
+                sb.AppendLine($"    [{i}] {smr.bones[i]?.name ?? "NULL"}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("--- Intro Valkyrie Hierarchy ---");
+        DumpHierarchy(valkyrieVisual, sb, 0);
+
+        sb.AppendLine();
+        sb.AppendLine("--- Intro Valkyrie SMR Bones ---");
+        foreach (var smr in valkyrieVisual.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            sb.AppendLine($"  SMR: {smr.name} ({smr.bones.Length} bones, rootBone: {smr.rootBone?.name ?? "null"})");
+            for (var i = 0; i < smr.bones.Length; i++)
+                sb.AppendLine($"    [{i}] {smr.bones[i]?.name ?? "NULL"}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("--- Fallen Valkyrie Materials ---");
+        foreach (var smr in fallenVisual.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            sb.AppendLine($"  SMR: {smr.name}");
+            foreach (var mat in smr.sharedMaterials)
+                sb.AppendLine($"    Material: {mat?.name ?? "null"}, Shader: {mat?.shader?.name ?? "null"}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("--- Intro Valkyrie Materials ---");
+        foreach (var smr in valkyrieVisual.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            sb.AppendLine($"  SMR: {smr.name}");
+            foreach (var mat in smr.sharedMaterials)
+                sb.AppendLine($"    Material: {mat?.name ?? "null"}, Shader: {mat?.shader?.name ?? "null"}");
+        }
+
+        sb.AppendLine("=== END BONE DUMP ===");
+        Plugin.Log?.LogInfo(sb.ToString());
+    }
+
+    private static void DumpHierarchy(Transform t, StringBuilder sb, int depth)
+    {
+        sb.AppendLine($"{new string(' ', depth * 2)}{t.name}");
+        for (var i = 0; i < t.childCount; i++)
+            DumpHierarchy(t.GetChild(i), sb, depth + 1);
     }
 
     private static Dictionary<string, Transform> BuildBoneMap(Transform root)
