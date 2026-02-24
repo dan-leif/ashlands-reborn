@@ -1,0 +1,305 @@
+Charred 
+
+[Info   :Ashlands Reborn] === CHARRED WARRIOR DUMP ===
+Prefab name: 'Charred_Melee'
+Position: (92.43, 49.47, -9745.83)
+
+--- m_defaultItems (always equipped) ---
+  Charred_HipCloth
+  charred_greatsword_swing
+  charred_greatsword_thrust
+  charred_greatsword_feint
+  charred_greatsword_thrustfeint
+--- m_randomWeapon (one chosen randomly) ---
+  (empty)
+--- m_randomArmor (one chosen randomly) ---
+  null
+--- m_randomShield (one chosen randomly) ---
+  (empty)
+--- m_randomItems (each has a chance) ---
+  Charred_Helmet (50%)
+  Charred_Breastplate (50%)
+--- m_randomSets ---
+
+--- VisEquipment Slots (at Awake time) ---
+  m_rightItem: ''
+  m_leftItem: ''
+  m_chestItem: ''
+  m_legItem: ''
+  m_helmetItem: ''
+  m_shoulderItem: ''
+  m_utilityItem: ''
+
+--- Hierarchy (depth ≤ 6) ---
+Charred_Melee(Clone)
+  EyePos
+  Visual
+    TheCharred
+      Armature
+        Root
+          Hips
+            LeftUpLeg
+            RightUpLeg
+            Spine
+      Body
+      Eyes
+      Sinew
+      Skull
+
+--- SkinnedMeshRenderers ---
+  SMR: 'Body'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.01, 0.00)  size=(0.03, 0.03, 0.01)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+  SMR: 'Eyes'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.02, 0.00)  size=(0.00, 0.00, 0.00)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+  SMR: 'Sinew'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.01, 0.00)  size=(0.01, 0.02, 0.00)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+  SMR: 'Skull'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.02, 0.00)  size=(0.00, 0.00, 0.00)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+
+--- Renderers & Materials ---
+  ParticleSystemRenderer: 'EyeGlow'
+    Material: 'flame'  Shader: 'Legacy Shaders/Particles/Additive'
+  ParticleSystemRenderer: 'EyeGlow (1)'
+    Material: 'flame'  Shader: 'Legacy Shaders/Particles/Additive'
+  ParticleSystemRenderer: 'fx_charred_chestglow'
+    Material: 'glow'  Shader: 'Legacy Shaders/Particles/Alpha Blended'
+  ParticleSystemRenderer: '1-Star FX'
+    Material: 'fireworks_poof'  Shader: 'Particles/Standard Unlit2'
+  ParticleSystemRenderer: '2-Star FX'
+    Material: 'fireworks_poof'  Shader: 'Particles/Standard Unlit2'
+  ParticleSystemRenderer: '1-Star FX'
+    Material: 'fireworks_poof'  Shader: 'Particles/Standard Unlit2'
+  SkinnedMeshRenderer: 'Body'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+  SkinnedMeshRenderer: 'Eyes'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+  SkinnedMeshRenderer: 'Sinew'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+  SkinnedMeshRenderer: 'Skull'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+
+=== END CHARRED WARRIOR DUMP ===

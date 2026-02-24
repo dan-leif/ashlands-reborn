@@ -41,6 +41,10 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> EnableValkyrieSwap { get; private set; } = null!;
     public static ConfigEntry<KeyCode> ValkyrieRefreshKey { get; private set; } = null!;
 
+    // --- Charred Warrior ---
+    public static ConfigEntry<bool> EnableCharredWarriorSwap { get; private set; } = null!;
+    public static ConfigEntry<KeyCode> CharredWarriorRefreshKey { get; private set; } = null!;
+
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
 
@@ -176,6 +180,18 @@ public class Plugin : BaseUnityPlugin
             KeyCode.F9,
             "Re-apply Valkyrie swap to nearby Fallen Valkyries without teleporting.");
 
+        EnableCharredWarriorSwap = Config.Bind(
+            "Creatures",
+            "EnableCharredWarriorSwap",
+            true,
+            "Replace the Charred_Melee greatsword visual with the Krom (THSwordKrom). No behavior change.");
+
+        CharredWarriorRefreshKey = Config.Bind(
+            "Creatures",
+            "CharredWarriorRefreshKey",
+            KeyCode.F10,
+            "Re-apply Charred Warrior sword swap to nearby instances without teleporting.");
+
         // Migrate renamed/moved config keys
         try
         {
@@ -277,7 +293,7 @@ public class Plugin : BaseUnityPlugin
             ApplyTerrainPatches();
             ApplyTreePatches();
 
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, CharredSword: {(EnableCharredWarriorSwap.Value ? "ON" : "OFF")}");
         }
         catch (Exception ex)
         {
@@ -407,6 +423,7 @@ public class Plugin : BaseUnityPlugin
     private static float _lastTreeRefreshTime;
     private static float _lastTerrainRefreshTime;
     private static float _lastValkyrieRefreshTime;
+    private static float _lastCharredRefreshTime;
 
     private void Update()
     {
@@ -422,6 +439,7 @@ public class Plugin : BaseUnityPlugin
                     Patches.EnvManPatches.ForceTerrainRefresh(force: true);
                     Patches.TreePatches.RefreshTrees();
                     Patches.ValkyriePatches.RefreshValkyries();
+                    Patches.CharredWarriorPatches.RefreshCharredWarriors();
                     Log.LogInfo("[Ashlands Reborn] Master switch ON - all overrides applied");
                 }
                 else
@@ -430,6 +448,7 @@ public class Plugin : BaseUnityPlugin
                     Patches.EnvManPatches.ForceTerrainRefresh(force: true);
                     Patches.TreePatches.RevertAllTrees();
                     Patches.ValkyriePatches.RevertAllValkyries();
+                    Patches.CharredWarriorPatches.RevertAllCharredWarriors();
                     Log.LogInfo("[Ashlands Reborn] Master switch OFF - all overrides reverted");
                 }
             }
@@ -449,6 +468,12 @@ public class Plugin : BaseUnityPlugin
                 _lastValkyrieRefreshTime = Time.time;
                 Patches.ValkyriePatches.RefreshValkyries();
                 Log.LogInfo("[Ashlands Reborn] Valkyrie refresh triggered");
+            }
+            if (Input.GetKeyDown(CharredWarriorRefreshKey?.Value ?? KeyCode.F10) && Time.time - _lastCharredRefreshTime >= 1f)
+            {
+                _lastCharredRefreshTime = Time.time;
+                Patches.CharredWarriorPatches.RefreshCharredWarriors();
+                Log.LogInfo("[Ashlands Reborn] Charred Warrior refresh triggered");
             }
         }
 
