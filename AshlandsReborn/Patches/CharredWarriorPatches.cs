@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using HarmonyLib;
@@ -56,6 +57,15 @@ internal static class CharredWarriorPatches
         typeof(VisEquipment).GetField("m_currentLegItemHash", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly FieldInfo? FCurrentHelmetHash =
         typeof(VisEquipment).GetField("m_currentHelmetItemHash", BindingFlags.Instance | BindingFlags.NonPublic);
+
+    // Armor instance lists — read after AttachArmor to locate newly-created SMRs
+    private static readonly FieldInfo? FChestInstances =
+        typeof(VisEquipment).GetField("m_chestItemInstances", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FLegInstances =
+        typeof(VisEquipment).GetField("m_legItemInstances", BindingFlags.Instance | BindingFlags.NonPublic);
+    // Helmet is a single GameObject (not a list), attached via AttachItem to the m_helmet bone
+    private static readonly FieldInfo? FHelmetInstance =
+        typeof(VisEquipment).GetField("m_helmetItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
 
     private static bool _suppressSwordSwap;
     private static int  _swapLogCount;
@@ -139,6 +149,91 @@ internal static class CharredWarriorPatches
         if (!ShouldApplyArmor()) return;
         if (!IsCharredMelee(__instance.gameObject)) return;
         hash = HashHelmet;
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 3b: Bindpose fix — postfix on SetChestEquipped / SetLegEquipped /
+    // SetHelmetEquipped.  After AttachArmor instantiates the armor GameObjects
+    // and assigns m_bodyModel.bones, the mesh bindposes are still baked for the
+    // player skeleton.  We clone each mesh and substitute the Charred-specific
+    // T-pose bindposes so the armor deforms correctly for this creature.
+    // -------------------------------------------------------------------------
+
+    [HarmonyPatch(typeof(VisEquipment), "SetChestEquipped")]
+    [HarmonyPostfix]
+    private static void SetChestEquipped_Postfix(VisEquipment __instance)
+    {
+        if (!ShouldApplyArmor()) return;
+        if (!IsCharredMelee(__instance.gameObject)) return;
+        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>();
+        if (marker == null || marker.TposeBoneBindposes.Count == 0) return;
+        var instances = FChestInstances?.GetValue(__instance) as List<GameObject>;
+        FixArmorBindposes(instances, marker);
+    }
+
+    [HarmonyPatch(typeof(VisEquipment), "SetLegEquipped")]
+    [HarmonyPostfix]
+    private static void SetLegEquipped_Postfix(VisEquipment __instance)
+    {
+        if (!ShouldApplyArmor()) return;
+        if (!IsCharredMelee(__instance.gameObject)) return;
+        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>();
+        if (marker == null || marker.TposeBoneBindposes.Count == 0) return;
+        var instances = FLegInstances?.GetValue(__instance) as List<GameObject>;
+        FixArmorBindposes(instances, marker);
+    }
+
+    [HarmonyPatch(typeof(VisEquipment), "SetHelmetEquipped")]
+    [HarmonyPostfix]
+    private static void SetHelmetEquipped_Postfix(VisEquipment __instance)
+    {
+        if (!ShouldApplyArmor()) return;
+        if (!IsCharredMelee(__instance.gameObject)) return;
+        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>();
+        if (marker == null || marker.TposeBoneBindposes.Count == 0) return;
+        var helmetGo = FHelmetInstance?.GetValue(__instance) as GameObject;
+        if (helmetGo != null)
+            FixArmorBindposes(new List<GameObject> { helmetGo }, marker);
+    }
+
+    /// <summary>
+    /// For each SkinnedMeshRenderer in the supplied GameObjects, clones the shared mesh
+    /// and replaces its bindposes with the Charred-specific T-pose values stored on the
+    /// marker, so the armor deforms correctly against this creature's skeleton.
+    /// </summary>
+    private static void FixArmorBindposes(List<GameObject>? instances, AshlandsRebornCharredSwapped marker)
+    {
+        if (instances == null) return;
+
+        var fixed_ = 0;
+        foreach (var go in instances)
+        {
+            if (go == null) continue;
+            foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (smr.bones == null || smr.bones.Length == 0 || smr.sharedMesh == null) continue;
+
+                var originalBindposes = smr.sharedMesh.bindposes;
+                var newBindposes = new Matrix4x4[smr.bones.Length];
+                for (var i = 0; i < smr.bones.Length; i++)
+                {
+                    if (smr.bones[i] != null &&
+                        marker.TposeBoneBindposes.TryGetValue(smr.bones[i].name, out var stored))
+                        newBindposes[i] = stored;
+                    else
+                        newBindposes[i] = i < originalBindposes.Length ? originalBindposes[i] : Matrix4x4.identity;
+                }
+
+                // Clone the mesh to avoid modifying the shared player asset
+                var clonedMesh = UObject.Instantiate(smr.sharedMesh);
+                clonedMesh.bindposes = newBindposes;
+                smr.sharedMesh = clonedMesh;
+                fixed_++;
+            }
+        }
+
+        if (fixed_ > 0)
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred armor bindpose fix: {fixed_} SMR(s) rebound");
     }
 
     // -------------------------------------------------------------------------
@@ -244,11 +339,29 @@ internal static class CharredWarriorPatches
     {
         var prefabName = GetPrefabName(__instance.gameObject);
 
-        // Trigger swap on every Charred_Melee that spawns
+        // Capture T-pose bone bindposes for every Charred_Melee that spawns.
+        // At Awake time no animation frames have run, so the skeleton is still in its
+        // bind/rest pose.  We pre-compute the world-position-invariant ratio
+        //   bone.worldToLocalMatrix * meshRoot.localToWorldMatrix
+        // once here and use it later to fix armor SMR bindposes in FixArmorBindposes().
         if (prefabName == CharredMeleePrefab)
         {
-            // The swap will fire automatically when SetRightItem is called (during GiveDefaultItems).
-            // Nothing extra needed here — kept for potential future per-spawn logic.
+            var vis = __instance.GetComponent<VisEquipment>();
+            if (vis?.m_bodyModel != null)
+            {
+                var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
+                             ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+
+                var meshRoot = vis.m_bodyModel.transform.parent.localToWorldMatrix;
+                foreach (var bone in vis.m_bodyModel.bones)
+                {
+                    if (bone != null)
+                        marker.TposeBoneBindposes[bone.name] = bone.worldToLocalMatrix * meshRoot;
+                }
+
+                if (marker.TposeBoneBindposes.Count > 0)
+                    Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred T-pose captured: {marker.TposeBoneBindposes.Count} bones");
+            }
         }
 
         // Discovery dump fires only once per session
@@ -362,8 +475,19 @@ internal static class CharredWarriorPatches
     }
 }
 
-/// <summary>Marker on Charred_Melee — stores original right-hand weapon name for revert.</summary>
+/// <summary>
+/// Marker on Charred_Melee — stores the original right-hand weapon name for revert,
+/// and T-pose bindpose matrices (one per bone name) for armor mesh fixup.
+/// </summary>
 internal class AshlandsRebornCharredSwapped : MonoBehaviour
 {
     public string OriginalRightItem = "";
+
+    /// <summary>
+    /// Per-bone bindpose computed at Awake T-pose time:
+    ///   bone.worldToLocalMatrix * meshRoot.localToWorldMatrix
+    /// This ratio is world-position-invariant and is used to replace the
+    /// player-baked bindposes in any armor SMR attached to this creature.
+    /// </summary>
+    public Dictionary<string, Matrix4x4> TposeBoneBindposes = new();
 }
