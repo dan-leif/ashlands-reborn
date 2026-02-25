@@ -43,6 +43,7 @@ public class Plugin : BaseUnityPlugin
 
     // --- Charred Warrior ---
     public static ConfigEntry<bool> EnableCharredWarriorSwap { get; private set; } = null!;
+    public static ConfigEntry<string> EnableCharredWarriorArmorSwap { get; private set; } = null!;
     public static ConfigEntry<KeyCode> CharredWarriorRefreshKey { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
@@ -184,13 +185,22 @@ public class Plugin : BaseUnityPlugin
             "Creatures",
             "EnableCharredWarriorSwap",
             true,
-            "Replace the Charred_Melee greatsword visual with the Krom (THSwordKrom). No behavior change.");
+            "Master toggle for all Charred_Melee visual changes (sword and armor). No behavior change.");
+
+        EnableCharredWarriorArmorSwap = Config.Bind(
+            "Creatures",
+            "EnableCharredWarriorArmorSwap",
+            "VanillaMetal",
+            new ConfigDescription(
+                "Default = keep vanilla armor (50% Charred_Helmet, 50% Charred_Breastplate, no legs). " +
+                "VanillaMetal = force HelmetFlametal + ArmorIronChest + ArmorMageLegs_Ashlands on every Charred_Melee.",
+                new AcceptableValueList<string>("Default", "VanillaMetal")));
 
         CharredWarriorRefreshKey = Config.Bind(
             "Creatures",
             "CharredWarriorRefreshKey",
             KeyCode.F10,
-            "Re-apply Charred Warrior sword swap to nearby instances without teleporting.");
+            "Re-apply Charred Warrior sword and armor swap to nearby instances without teleporting.");
 
         // Migrate renamed/moved config keys
         try
@@ -293,7 +303,7 @@ public class Plugin : BaseUnityPlugin
             ApplyTerrainPatches();
             ApplyTreePatches();
 
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, CharredSword: {(EnableCharredWarriorSwap.Value ? "ON" : "OFF")}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, CharredSword: {(EnableCharredWarriorSwap.Value ? "ON" : "OFF")}, CharredArmor: {EnableCharredWarriorArmorSwap.Value}");
         }
         catch (Exception ex)
         {
