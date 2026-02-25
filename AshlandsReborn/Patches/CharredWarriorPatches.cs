@@ -9,10 +9,11 @@ namespace AshlandsReborn.Patches;
 
 /// <summary>
 /// Visual transformation for Charred_Melee (the Ashlands greatsword enemy).
-/// Phase 1: replaces the charred greatsword visual with the Krom (THSwordKrom).
-///   Patches VisEquipment.SetRightItem before it writes to ZDO — behavior (attacks, damage) untouched.
-/// Phase 0 dump: fires once per session on first Charred_Melee spawn and logs
-///   bones, items, and materials to the BepInEx log.
+/// Phase 1 (sword): prefixes VisEquipment.SetRightItem to replace charred_greatsword_* with THSwordKrom.
+/// Phase 3 (armor): prefixes the private SetChestEquipped/SetLegEquipped/SetHelmetEquipped methods to
+///   inject VanillaMetal armor hashes at the visual-instantiation level, bypassing ZDO timing entirely.
+/// Behavior (attacks, damage, AI) is untouched throughout.
+/// Phase 0 dump: fires once per session on first Charred_Melee spawn.
 /// </summary>
 [HarmonyPatch]
 internal static class CharredWarriorPatches
@@ -21,17 +22,55 @@ internal static class CharredWarriorPatches
     private const string KromPrefabName     = "THSwordKrom";
     private const string CharredSwordPrefix = "charred_greatsword";
 
-    // Reflection cache for VisEquipment.m_rightItem (private field)
+    // VanillaMetal armor prefab names
+    private const string ArmorChest  = "ArmorIronChest";
+    private const string ArmorHelmet = "HelmetFlametal";
+    private const string ArmorLegs   = "ArmorMageLegs_Ashlands";
+
+    // Pre-compute stable hashes using Valheim's algorithm (same as string.GetStableHashCode()
+    // in assembly_valheim, which is inaccessible from external assemblies).
+    private static readonly int HashChest  = StableHash(ArmorChest);
+    private static readonly int HashHelmet = StableHash(ArmorHelmet);
+    private static readonly int HashLegs   = StableHash(ArmorLegs);
+
+    // Valheim's stable string hash — matches the internal GetStableHashCode() extension method.
+    private static int StableHash(string str)
+    {
+        int hash1 = 5381;
+        int hash2 = hash1;
+        for (int i = 0; i < str.Length; i += 2)
+        {
+            hash1 = ((hash1 << 5) + hash1) ^ str[i];
+            if (i + 1 < str.Length)
+                hash2 = ((hash2 << 5) + hash2) ^ str[i + 1];
+        }
+        return hash1 + hash2 * 1566083941;
+    }
+
+    // Reflection cache — private VisEquipment fields
     private static readonly FieldInfo? FRightItem =
         typeof(VisEquipment).GetField("m_rightItem", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FCurrentChestHash =
+        typeof(VisEquipment).GetField("m_currentChestItemHash", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FCurrentLegHash =
+        typeof(VisEquipment).GetField("m_currentLegItemHash", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FCurrentHelmetHash =
+        typeof(VisEquipment).GetField("m_currentHelmetItemHash", BindingFlags.Instance | BindingFlags.NonPublic);
 
     private static bool _suppressSwordSwap;
     private static int  _swapLogCount;
     private static bool _dumpDone;
 
+    // Sword swap active when master switch + EnableCharredWarriorSwap are on
     private static bool ShouldSwap() =>
         (Plugin.MasterSwitch?.Value ?? false) &&
         (Plugin.EnableCharredWarriorSwap?.Value ?? false);
+
+    // Armor swap active when sword swap is on + armor mode is VanillaMetal
+    private static bool ShouldApplyArmor() =>
+        ShouldSwap() &&
+        string.Equals(Plugin.EnableCharredWarriorArmorSwap?.Value, "VanillaMetal",
+            StringComparison.OrdinalIgnoreCase);
 
     private static string GetPrefabName(GameObject go)
     {
@@ -69,6 +108,40 @@ internal static class CharredWarriorPatches
     }
 
     // -------------------------------------------------------------------------
+    // Phase 3: Armor swap — prefix the private hash-to-visual methods
+    // These fire inside UpdateEquipmentVisuals every time the visual is evaluated,
+    // so no per-spawn force-set is needed. Revert/refresh happen automatically
+    // on the next UpdateEquipmentVisuals frame when ShouldApplyArmor() changes.
+    // -------------------------------------------------------------------------
+
+    [HarmonyPatch(typeof(VisEquipment), "SetChestEquipped")]
+    [HarmonyPrefix]
+    private static void SetChestEquipped_Prefix(VisEquipment __instance, ref int hash)
+    {
+        if (!ShouldApplyArmor()) return;
+        if (!IsCharredMelee(__instance.gameObject)) return;
+        hash = HashChest;
+    }
+
+    [HarmonyPatch(typeof(VisEquipment), "SetLegEquipped")]
+    [HarmonyPrefix]
+    private static void SetLegEquipped_Prefix(VisEquipment __instance, ref int hash)
+    {
+        if (!ShouldApplyArmor()) return;
+        if (!IsCharredMelee(__instance.gameObject)) return;
+        hash = HashLegs;
+    }
+
+    [HarmonyPatch(typeof(VisEquipment), "SetHelmetEquipped")]
+    [HarmonyPrefix]
+    private static void SetHelmetEquipped_Prefix(VisEquipment __instance, ref int hash)
+    {
+        if (!ShouldApplyArmor()) return;
+        if (!IsCharredMelee(__instance.gameObject)) return;
+        hash = HashHelmet;
+    }
+
+    // -------------------------------------------------------------------------
     // Revert: restore original charred sword on all live instances
     // -------------------------------------------------------------------------
 
@@ -83,8 +156,16 @@ internal static class CharredWarriorPatches
             {
                 if (marker == null) continue;
                 var vis = marker.GetComponent<VisEquipment>();
-                if (vis != null && !string.IsNullOrEmpty(marker.OriginalRightItem))
-                    vis.SetRightItem(marker.OriginalRightItem);   // suppressed → writes original to ZDO
+                if (vis != null)
+                {
+                    // Restore original sword (suppressed so prefix won't re-swap)
+                    if (!string.IsNullOrEmpty(marker.OriginalRightItem))
+                        vis.SetRightItem(marker.OriginalRightItem);
+
+                    // Invalidate armor current-hash fields so UpdateEquipmentVisuals
+                    // re-evaluates immediately and shows the original items next frame
+                    InvalidateArmorHashes(vis);
+                }
                 UObject.Destroy(marker);
             }
         }
@@ -93,7 +174,7 @@ internal static class CharredWarriorPatches
             _suppressSwordSwap = false;
         }
 
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred sword revert: {markers.Length} instance(s)");
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred revert: {markers.Length} instance(s)");
     }
 
     // -------------------------------------------------------------------------
@@ -114,7 +195,7 @@ internal static class CharredWarriorPatches
             var vis = humanoid.GetComponent<VisEquipment>();
             if (vis == null) continue;
 
-            // Find the name to re-trigger with.
+            // --- Sword refresh ---
             // Prefer the stored original; fall back to the current m_rightItem if it's a charred sword.
             var marker = humanoid.GetComponent<AshlandsRebornCharredSwapped>();
             var triggerName = marker?.OriginalRightItem ?? "";
@@ -124,20 +205,33 @@ internal static class CharredWarriorPatches
                 if (cur.StartsWith(CharredSwordPrefix, StringComparison.OrdinalIgnoreCase))
                     triggerName = cur;
             }
-            if (string.IsNullOrEmpty(triggerName)) continue;
+            if (!string.IsNullOrEmpty(triggerName))
+            {
+                // Remove old marker, clear guard, re-trigger — prefix swaps to Krom
+                if (marker != null) UObject.Destroy(marker);
+                FRightItem?.SetValue(vis, "");
+                vis.SetRightItem(triggerName);
+            }
 
-            // Remove old marker so the prefix will create a fresh one
-            if (marker != null) UObject.Destroy(marker);
+            // --- Armor refresh ---
+            // Invalidate current-hash fields so UpdateEquipmentVisuals re-evaluates
+            // immediately and the armor prefix applies on the next frame
+            InvalidateArmorHashes(vis);
 
-            // Clear m_rightItem so the SetRightItem guard (!(m_rightItem == name)) passes
-            FRightItem?.SetValue(vis, "");
-
-            // Call without suppression — prefix fires and swaps to Krom
-            vis.SetRightItem(triggerName);
             count++;
         }
 
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred sword refresh: {count} instance(s)");
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred refresh: {count} instance(s)");
+    }
+
+    // Invalidates the cached visual hash for all three armor slots on a VisEquipment,
+    // forcing UpdateEquipmentVisuals to re-evaluate them on the next frame.
+    private static void InvalidateArmorHashes(VisEquipment vis)
+    {
+        const int invalid = -1;
+        FCurrentChestHash?.SetValue(vis, invalid);
+        FCurrentLegHash?.SetValue(vis, invalid);
+        FCurrentHelmetHash?.SetValue(vis, invalid);
     }
 
     // -------------------------------------------------------------------------
