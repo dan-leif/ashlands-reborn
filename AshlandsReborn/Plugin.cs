@@ -190,7 +190,7 @@ public class Plugin : BaseUnityPlugin
         EnableCharredWarriorArmorSwap = Config.Bind(
             "Creatures",
             "EnableCharredWarriorArmorSwap",
-            "VanillaMetal",
+            "Default",  // KNOWN ISSUE: VanillaMetal causes severe mesh spike artifacts; defaulting to Default until bindpose fix is resolved
             new ConfigDescription(
                 "Default = keep vanilla armor (50% Charred_Helmet, 50% Charred_Breastplate, no legs). " +
                 "VanillaMetal = force HelmetFlametal + ArmorIronChest + ArmorMageLegs_Ashlands on every Charred_Melee.",

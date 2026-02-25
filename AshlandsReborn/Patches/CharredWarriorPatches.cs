@@ -197,6 +197,12 @@ internal static class CharredWarriorPatches
     }
 
     /// <summary>
+    /// KNOWN ISSUE: This approach produces severe mesh spike artifacts in-game.
+    /// The T-pose capture at Humanoid.Awake may not actually catch the skeleton in
+    /// its bind/rest pose (Animator may have already run), causing the recomputed
+    /// bindposes to be wrong. Needs investigation before VanillaMetal mode is usable.
+    /// Config default is "Default" until resolved.
+    ///
     /// For each SkinnedMeshRenderer in the supplied GameObjects, clones the shared mesh
     /// and replaces its bindposes with the Charred-specific T-pose values stored on the
     /// marker, so the armor deforms correctly against this creature's skeleton.
