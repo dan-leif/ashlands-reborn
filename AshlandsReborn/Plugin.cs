@@ -44,6 +44,7 @@ public class Plugin : BaseUnityPlugin
     // --- Charred Warrior ---
     public static ConfigEntry<bool> EnableCharredWarriorSwap { get; private set; } = null!;
     public static ConfigEntry<string> EnableCharredWarriorArmorSwap { get; private set; } = null!;
+    public static ConfigEntry<float> CharredWarriorKromScale { get; private set; } = null!;
     public static ConfigEntry<KeyCode> CharredWarriorRefreshKey { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
@@ -195,6 +196,14 @@ public class Plugin : BaseUnityPlugin
                 "Default = keep vanilla armor (50% Charred_Helmet, 50% Charred_Breastplate, no legs). " +
                 "VanillaMetal = force HelmetFlametal + ArmorIronChest + ArmorMageLegs_Ashlands on every Charred_Melee.",
                 new AcceptableValueList<string>("Default", "VanillaMetal")));
+
+        CharredWarriorKromScale = Config.Bind(
+            "Creatures",
+            "CharredWarriorKromScale",
+            1.16f,
+            new ConfigDescription(
+                "Scale factor for Krom sword when swapped onto Charred Warriors. 1.0 = vanilla size. 1.16 = 16% larger (matches original sword). 1.18 = 18% larger.",
+                new AcceptableValueRange<float>(0.5f, 2f)));
 
         CharredWarriorRefreshKey = Config.Bind(
             "Creatures",
