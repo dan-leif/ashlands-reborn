@@ -194,8 +194,9 @@ public class Plugin : BaseUnityPlugin
             "Default",  // KNOWN ISSUE: VanillaMetal causes severe mesh spike artifacts; defaulting to Default until bindpose fix is resolved
             new ConfigDescription(
                 "Default = keep vanilla armor (50% Charred_Helmet, 50% Charred_Breastplate, no legs). " +
+                "HelmetOnly = apply HelmetFlametal to every Charred_Melee, leaving chest/legs vanilla. " +
                 "VanillaMetal = force HelmetFlametal + ArmorIronChest + ArmorMageLegs_Ashlands on every Charred_Melee.",
-                new AcceptableValueList<string>("Default", "VanillaMetal")));
+                new AcceptableValueList<string>("Default", "HelmetOnly", "VanillaMetal")));
 
         CharredWarriorKromScale = Config.Bind(
             "Creatures",

@@ -63,7 +63,9 @@ internal static class CharredWarriorPatches
         typeof(VisEquipment).GetField("m_chestItemInstances", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly FieldInfo? FLegInstances =
         typeof(VisEquipment).GetField("m_legItemInstances", BindingFlags.Instance | BindingFlags.NonPublic);
-    // Helmet is a single GameObject (not a list), attached via AttachItem to the m_helmet bone
+    // Helmet is driven by a single item name + instance GameObject
+    private static readonly FieldInfo? FHelmetItemName =
+        typeof(VisEquipment).GetField("m_helmetItem", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly FieldInfo? FHelmetInstance =
         typeof(VisEquipment).GetField("m_helmetItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly FieldInfo? FRightItemInstance =
@@ -82,6 +84,12 @@ internal static class CharredWarriorPatches
     private static bool ShouldApplyArmor() =>
         ShouldSwap() &&
         string.Equals(Plugin.EnableCharredWarriorArmorSwap?.Value, "VanillaMetal",
+            StringComparison.OrdinalIgnoreCase);
+
+    // Helmet-only mode: apply Flametal helmet but leave chest/legs vanilla
+    private static bool ShouldApplyHelmetOnly() =>
+        ShouldSwap() &&
+        string.Equals(Plugin.EnableCharredWarriorArmorSwap?.Value, "HelmetOnly",
             StringComparison.OrdinalIgnoreCase);
 
     private static string GetPrefabName(GameObject go)
@@ -208,8 +216,13 @@ internal static class CharredWarriorPatches
     [HarmonyPrefix]
     private static void SetHelmetEquipped_Prefix(VisEquipment __instance, ref int hash)
     {
-        if (!ShouldApplyArmor()) return;
+        if (!ShouldApplyArmor() && !ShouldApplyHelmetOnly()) return;
         if (!IsCharredMelee(__instance.gameObject)) return;
+
+        // In both full-armor and helmet-only modes, force the visual source item
+        // to HelmetFlametal so AttachArmor instantiates the correct prefab, then
+        // override the hash to match.
+        FHelmetItemName?.SetValue(__instance, ArmorHelmet);
         hash = HashHelmet;
     }
 
