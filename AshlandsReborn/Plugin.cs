@@ -44,6 +44,10 @@ public class Plugin : BaseUnityPlugin
     // --- Charred Warrior ---
     public static ConfigEntry<bool> EnableCharredWarriorSwap { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorKromScale { get; private set; } = null!;
+    public static ConfigEntry<float> CharredWarriorHelmetScale { get; private set; } = null!;
+    public static ConfigEntry<float> CharredWarriorHelmetYOffset { get; private set; } = null!;
+    public static ConfigEntry<float> CharredWarriorHelmetYaw { get; private set; } = null!;
+    public static ConfigEntry<float> CharredWarriorHelmetZOffset { get; private set; } = null!;
     public static ConfigEntry<KeyCode> CharredWarriorRefreshKey { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
@@ -194,6 +198,38 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Scale factor for Krom sword when swapped onto Charred Warriors. 1.0 = vanilla size. 1.16 = 16% larger (matches original sword). 1.18 = 18% larger.",
                 new AcceptableValueRange<float>(0.5f, 2f)));
+
+        CharredWarriorHelmetScale = Config.Bind(
+            "Creatures",
+            "CharredWarriorHelmetScale",
+            1.1f,
+            new ConfigDescription(
+                "Scale factor for Drake Helmet when swapped onto Charred Warriors. 1.0 = vanilla size. 1.05 = 5% larger (slightly better fit).",
+                new AcceptableValueRange<float>(0.5f, 2f)));
+
+        CharredWarriorHelmetYOffset = Config.Bind(
+            "Creatures",
+            "CharredWarriorHelmetYOffset",
+            0.05f,
+            new ConfigDescription(
+                "Vertical height offset for Drake Helmet on Charred Warriors. Positive = move up. Adjust so the helmet sits flush on the skull.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        CharredWarriorHelmetYaw = Config.Bind(
+            "Creatures",
+            "CharredWarriorHelmetYaw",
+            270f,
+            new ConfigDescription(
+                "Y-axis rotation for Drake Helmet on Charred Warriors. 0 = default HelmetDrake orientation. -90 = facing forward.",
+                new AcceptableValueRange<float>(-360f, 360f)));
+
+        CharredWarriorHelmetZOffset = Config.Bind(
+            "Creatures",
+            "CharredWarriorHelmetZOffset",
+            0.05f,
+            new ConfigDescription(
+                "Forward/back offset for Drake Helmet on Charred Warriors in world space. Positive = forward (toward face). Adjust to prevent skull clipping through front.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
 
         CharredWarriorRefreshKey = Config.Bind(
             "Creatures",

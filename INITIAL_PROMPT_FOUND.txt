@@ -1,0 +1,24 @@
+Initial prompt from Cursor chat (Ashlands Reborn, Feb 16 2026):
+============================================================
+
+[2026-02-16T01:02:12.989Z] USER:
+I'm considering modding the PC game Valheim. Is this doable? What would be your steps? What tools or other plugins do I need to install, if any? How do I test?
+Here's my concept.
+Ashlands Reborn
+A version of the Ashlands biome where all that is horrible is replaced with beauty.
+The functionality will not change. It will just be uplifting rather than depressing.
+Phase 1:
+- The weather is great. (Like the Meadows)
+- The ground is green and growing things. (Like the Meadows)
+- The air is clear and the sky is beautiful. (Like the Meadows)
+Phase 2:
+- The water is green instead of red
+- Trees are green/mossy
+- The monsters are not gross?
+	- Charred bones are lighter, eyes are blue
+	- Valkyrie wings are white, eyes are blue
+
+[2026-02-16T01:02:14.658Z] ASSISTANT:
+
+Researching Valheim modding to produce a plan for "Ashlands Reborn."
+

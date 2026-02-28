@@ -19,6 +19,8 @@ internal static class CharredWarriorPatches
     private const string CharredMeleePrefab = "Charred_Melee";
     private const string KromPrefabName     = "THSwordKrom";
     private const string CharredSwordPrefix = "charred_greatsword";
+    private const string HelmetDrakeName    = "HelmetDrake";
+    private const string CharredHelmetName  = "Charred_Helmet";
 
 
 
@@ -27,6 +29,12 @@ internal static class CharredWarriorPatches
         typeof(VisEquipment).GetField("m_rightItem", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly FieldInfo? FRightItemInstance =
         typeof(VisEquipment).GetField("m_rightItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FHelmetItem =
+        typeof(VisEquipment).GetField("m_helmetItem", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FHelmetItemInstance =
+        typeof(VisEquipment).GetField("m_helmetItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FHelmetTransform =
+        typeof(VisEquipment).GetField("m_helmet", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
     private static bool _suppressSwordSwap;
     private static int  _swapLogCount;
@@ -132,6 +140,116 @@ internal static class CharredWarriorPatches
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Phase 1.5: Helmet swap — prefix on VisEquipment.SetHelmetItem
+    // -------------------------------------------------------------------------
+
+    [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetHelmetItem))]
+    [HarmonyPrefix]
+    private static void SetHelmetItem_Prefix(VisEquipment __instance, ref string name)
+    {
+        if (_suppressSwordSwap) return; // Share the suppression flag
+        if (!ShouldSwap()) return;
+        if (!IsCharredMelee(__instance.gameObject)) return;
+        
+        // Only swap if it's the charred helmet
+        if (!string.Equals(name, CharredHelmetName, StringComparison.OrdinalIgnoreCase)) return;
+
+        // Store original name for revert (only on first swap)
+        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
+                     ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+        if (string.IsNullOrEmpty(marker.OriginalHelmetItem))
+            marker.OriginalHelmetItem = name;
+
+        name = HelmetDrakeName;
+
+        if (_swapLogCount < 10)
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred_Melee helmet: '{marker.OriginalHelmetItem}' → '{HelmetDrakeName}'");
+
+        marker.HelmetScaled = false;
+
+        // Diagnostic: check m_helmet transform
+        var helmetTransform = FHelmetTransform?.GetValue(__instance) as Transform;
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] DIAG Helmet prefix: m_helmet transform={(helmetTransform?.name ?? "NULL")}, helmetTransformIsNull={helmetTransform == null}");
+    }
+
+    [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetHelmetItem))]
+    [HarmonyPostfix]
+    private static void SetHelmetItem_Postfix(VisEquipment __instance)
+    {
+        if (!ShouldSwap()) return;
+        if (!IsCharredMelee(__instance.gameObject)) return;
+
+        var curItem = FHelmetItem?.GetValue(__instance) as string ?? "";
+        if (!string.Equals(curItem, HelmetDrakeName, StringComparison.OrdinalIgnoreCase)) return;
+
+        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>();
+        if (marker != null && marker.HelmetScaled) return;
+
+        // Diagnostic: log helmet state after SetHelmetItem
+        var helmetTransform = FHelmetTransform?.GetValue(__instance) as Transform;
+        var helmetInstance = FHelmetItemInstance?.GetValue(__instance) as GameObject;
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] DIAG Helmet postfix: curItem='{curItem}', m_helmet={(helmetTransform?.name ?? "NULL")}, m_helmetItemInstance={(helmetInstance?.name ?? "NULL")}");
+
+        __instance.StartCoroutine(ScaleHelmetAfterAttach(__instance, marker));
+    }
+
+    private static System.Collections.IEnumerator ScaleHelmetAfterAttach(VisEquipment vis, AshlandsRebornCharredSwapped? marker)
+    {
+        yield return null;
+        yield return null;
+
+        if (vis == null || !ShouldSwap()) yield break;
+
+        var helmetGo = FHelmetItemInstance?.GetValue(vis) as GameObject;
+        if (helmetGo == null)
+        {
+            // Valheim usually attaches helmets to the Head bone
+            var head = FindInChildren(vis.transform, "Head");
+            if (head != null && head.childCount > 0)
+            {
+                 // Try to find the instantiated helmet under the head
+                 for (var i = 0; i < head.childCount; i++)
+                 {
+                     var child = head.GetChild(i).gameObject;
+                     if (GetPrefabName(child).Equals(HelmetDrakeName, StringComparison.OrdinalIgnoreCase))
+                     {
+                         helmetGo = child;
+                         break;
+                     }
+                 }
+            }
+        }
+
+        if (helmetGo != null)
+        {
+            var scale = Plugin.CharredWarriorHelmetScale?.Value ?? 1.05f;
+            var yOffset = Plugin.CharredWarriorHelmetYOffset?.Value ?? 0.15f;
+
+            var posBefore = helmetGo.transform.position;
+
+            helmetGo.transform.localScale *= scale;
+            // Rotate around Y axis — configurable via CharredWarriorHelmetYaw
+            var yaw = Plugin.CharredWarriorHelmetYaw?.Value ?? -90f;
+            helmetGo.transform.localRotation *= Quaternion.Euler(0f, yaw, 0f);
+            // Lift in world space (avoids bone-local scale distortion)
+            helmetGo.transform.Translate(0f, yOffset, 0f, Space.World);
+            // Move forward/back relative to the warrior's facing direction
+            var zOffset = Plugin.CharredWarriorHelmetZOffset?.Value ?? 0.05f;
+            helmetGo.transform.Translate(vis.transform.forward * zOffset, Space.World);
+
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] DIAG Helmet pos: before={posBefore}, after={helmetGo.transform.position}, yOffset={yOffset}");
+
+            if (marker != null) marker.HelmetScaled = true;
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Drake Helmet adjusted: scale={scale}, yOffset={yOffset}");
+        }
+        else
+        {
+            Plugin.Log?.LogWarning("[Ashlands Reborn] Drake Helmet GO not found after attach — cannot adjust position.");
+        }
+    }
+
+
 
 
     // -------------------------------------------------------------------------
@@ -154,6 +272,9 @@ internal static class CharredWarriorPatches
                 {
                     if (!string.IsNullOrEmpty(marker.OriginalRightItem))
                         vis.SetRightItem(marker.OriginalRightItem);
+                    
+                    if (!string.IsNullOrEmpty(marker.OriginalHelmetItem))
+                        vis.SetHelmetItem(marker.OriginalHelmetItem);
                 }
                 
                 UObject.Destroy(marker);
@@ -189,18 +310,33 @@ internal static class CharredWarriorPatches
 
             // --- Sword refresh ---
             marker = humanoid.GetComponent<AshlandsRebornCharredSwapped>();
-            var triggerName = marker?.OriginalRightItem ?? "";
-            if (string.IsNullOrEmpty(triggerName))
+            var triggerSword = marker?.OriginalRightItem ?? "";
+            if (string.IsNullOrEmpty(triggerSword))
             {
                 var cur = FRightItem?.GetValue(vis) as string ?? "";
                 if (cur.StartsWith(CharredSwordPrefix, StringComparison.OrdinalIgnoreCase))
-                    triggerName = cur;
+                    triggerSword = cur;
             }
-            if (!string.IsNullOrEmpty(triggerName))
+            if (!string.IsNullOrEmpty(triggerSword))
             {
                 if (marker != null) marker.OriginalRightItem = "";
                 FRightItem?.SetValue(vis, "");
-                vis.SetRightItem(triggerName);
+                vis.SetRightItem(triggerSword);
+            }
+
+            // --- Helmet refresh ---
+            var triggerHelmet = marker?.OriginalHelmetItem ?? "";
+            if (string.IsNullOrEmpty(triggerHelmet))
+            {
+                var cur = FHelmetItem?.GetValue(vis) as string ?? "";
+                if (string.Equals(cur, CharredHelmetName, StringComparison.OrdinalIgnoreCase))
+                    triggerHelmet = cur;
+            }
+            if (!string.IsNullOrEmpty(triggerHelmet))
+            {
+                if (marker != null) marker.OriginalHelmetItem = "";
+                FHelmetItem?.SetValue(vis, "");
+                vis.SetHelmetItem(triggerHelmet);
             }
 
             count++;
@@ -226,6 +362,19 @@ internal static class CharredWarriorPatches
             {
                 var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
                              ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+
+                // Charred_Melee has no m_helmet transform set — rigid-attach helmets
+                // like HelmetDrake need it so AttachItem can parent them correctly.
+                // Without this, SetParent(null) sends the helmet to the world origin.
+                if (vis.m_helmet == null)
+                {
+                    var head = FindInChildren(vis.transform, "Head");
+                    if (head != null)
+                    {
+                        vis.m_helmet = head;
+                        Plugin.Log?.LogInfo("[Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee");
+                    }
+                }
             }
         }
 
@@ -346,7 +495,11 @@ internal static class CharredWarriorPatches
 internal class AshlandsRebornCharredSwapped : MonoBehaviour
 {
     public string OriginalRightItem = "";
+    public string OriginalHelmetItem = "";
 
     /// <summary>True when we've scaled the Krom weapon (avoids re-scaling every frame).</summary>
     public bool KromScaled;
+
+    /// <summary>True when we've scaled the helmet (avoids re-scaling every frame).</summary>
+    public bool HelmetScaled;
 }
