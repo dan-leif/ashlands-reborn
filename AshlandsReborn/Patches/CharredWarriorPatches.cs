@@ -86,12 +86,6 @@ internal static class CharredWarriorPatches
         string.Equals(Plugin.EnableCharredWarriorArmorSwap?.Value, "VanillaMetal",
             StringComparison.OrdinalIgnoreCase);
 
-    // Helmet-only mode: apply Flametal helmet but leave chest/legs vanilla
-    private static bool ShouldApplyHelmetOnly() =>
-        ShouldSwap() &&
-        string.Equals(Plugin.EnableCharredWarriorArmorSwap?.Value, "HelmetOnly",
-            StringComparison.OrdinalIgnoreCase);
-
     private static string GetPrefabName(GameObject go)
     {
         var name = go.name;
@@ -216,12 +210,11 @@ internal static class CharredWarriorPatches
     [HarmonyPrefix]
     private static void SetHelmetEquipped_Prefix(VisEquipment __instance, ref int hash)
     {
-        if (!ShouldApplyArmor() && !ShouldApplyHelmetOnly()) return;
+        if (!ShouldApplyArmor()) return;
         if (!IsCharredMelee(__instance.gameObject)) return;
 
-        // In both full-armor and helmet-only modes, force the visual source item
-        // to HelmetFlametal so AttachArmor instantiates the correct prefab, then
-        // override the hash to match.
+        // VanillaMetal mode: force the visual source item to HelmetFlametal so
+        // AttachArmor instantiates the correct prefab, then override the hash to match.
         FHelmetItemName?.SetValue(__instance, ArmorHelmet);
         hash = HashHelmet;
     }

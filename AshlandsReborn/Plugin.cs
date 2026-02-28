@@ -193,10 +193,8 @@ public class Plugin : BaseUnityPlugin
             "EnableCharredWarriorArmorSwap",
             "Default",  // KNOWN ISSUE: VanillaMetal causes severe mesh spike artifacts; defaulting to Default until bindpose fix is resolved
             new ConfigDescription(
-                "Default = keep vanilla armor (50% Charred_Helmet, 50% Charred_Breastplate, no legs). " +
-                "HelmetOnly = apply HelmetFlametal to every Charred_Melee, leaving chest/legs vanilla. " +
-                "VanillaMetal = force HelmetFlametal + ArmorIronChest + ArmorMageLegs_Ashlands on every Charred_Melee.",
-                new AcceptableValueList<string>("Default", "HelmetOnly", "VanillaMetal")));
+                "Default = keep vanilla armor. VanillaMetal = force HelmetFlametal + ArmorIronChest + ArmorMageLegs_Ashlands on every Charred_Melee (known bindpose issues).",
+                new AcceptableValueList<string>("Default", "VanillaMetal")));
 
         CharredWarriorKromScale = Config.Bind(
             "Creatures",
@@ -251,6 +249,9 @@ public class Plugin : BaseUnityPlugin
                 EnableValkyrieSwap.Value = "Enabled";
             else if (valkVal == "Disable")
                 EnableValkyrieSwap.Value = "Disabled";
+
+            if (string.Equals(EnableCharredWarriorArmorSwap.Value, "HelmetOnly", StringComparison.OrdinalIgnoreCase))
+                EnableCharredWarriorArmorSwap.Value = "Default";
         }
         catch
         {
