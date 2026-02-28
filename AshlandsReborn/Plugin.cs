@@ -43,7 +43,6 @@ public class Plugin : BaseUnityPlugin
 
     // --- Charred Warrior ---
     public static ConfigEntry<bool> EnableCharredWarriorSwap { get; private set; } = null!;
-    public static ConfigEntry<string> EnableCharredWarriorArmorSwap { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorKromScale { get; private set; } = null!;
     public static ConfigEntry<KeyCode> CharredWarriorRefreshKey { get; private set; } = null!;
 
@@ -186,15 +185,7 @@ public class Plugin : BaseUnityPlugin
             "Creatures",
             "EnableCharredWarriorSwap",
             true,
-            "Master toggle for all Charred_Melee visual changes (sword and armor). No behavior change.");
-
-        EnableCharredWarriorArmorSwap = Config.Bind(
-            "Creatures",
-            "EnableCharredWarriorArmorSwap",
-            "Default",  // KNOWN ISSUE: VanillaMetal causes severe mesh spike artifacts; defaulting to Default until bindpose fix is resolved
-            new ConfigDescription(
-                "Default = keep vanilla armor. VanillaMetal = force HelmetFlametal + ArmorIronChest + ArmorMageLegs_Ashlands on every Charred_Melee (known bindpose issues).",
-                new AcceptableValueList<string>("Default", "VanillaMetal")));
+            "Master toggle for all Charred_Melee visual changes (sword only). No behavior change.");
 
         CharredWarriorKromScale = Config.Bind(
             "Creatures",
@@ -249,9 +240,6 @@ public class Plugin : BaseUnityPlugin
                 EnableValkyrieSwap.Value = "Enabled";
             else if (valkVal == "Disable")
                 EnableValkyrieSwap.Value = "Disabled";
-
-            if (string.Equals(EnableCharredWarriorArmorSwap.Value, "HelmetOnly", StringComparison.OrdinalIgnoreCase))
-                EnableCharredWarriorArmorSwap.Value = "Default";
         }
         catch
         {
@@ -314,7 +302,7 @@ public class Plugin : BaseUnityPlugin
             ApplyTerrainPatches();
             ApplyTreePatches();
 
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, CharredSword: {(EnableCharredWarriorSwap.Value ? "ON" : "OFF")}, CharredArmor: {EnableCharredWarriorArmorSwap.Value}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, CharredSword: {(EnableCharredWarriorSwap.Value ? "ON" : "OFF")}");
         }
         catch (Exception ex)
         {
@@ -494,7 +482,7 @@ public class Plugin : BaseUnityPlugin
             {
                 _lastCharredRefreshTime = Time.time;
                 Patches.CharredWarriorPatches.RefreshCharredWarriors();
-                Log.LogInfo("[Ashlands Reborn] Charred Warrior refresh triggered");
+                Log.LogInfo("[Ashlands Reborn] Charred Warrior sword refresh triggered");
             }
         }
 
