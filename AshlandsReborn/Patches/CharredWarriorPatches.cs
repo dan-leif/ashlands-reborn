@@ -88,9 +88,7 @@ internal static class CharredWarriorPatches
         name = KromPrefabName;
 
         if (_swapLogCount++ < 5)
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred_Melee sword: '{marker.OriginalRightItem}' → '{KromPrefabName}'");
-
-        marker.KromScaled = false;
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred_Melee sword: '{marker.OriginalRightItem}' \u2192 '{KromPrefabName}'");
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetRightItem))]
@@ -104,40 +102,34 @@ internal static class CharredWarriorPatches
         if (!string.Equals(curItem, KromPrefabName, StringComparison.OrdinalIgnoreCase)) return;
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>();
-        if (marker != null && marker.KromScaled) return;
-
+        // Skip if we've already scaled this exact instance.
+        // NOTE: do NOT check marker.KromScaled — that flag doesn't survive the prefix resetting it.
+        if (marker?.LastScaledKromInstance != null) return;
         __instance.StartCoroutine(ScaleKromAfterAttach(__instance, marker));
     }
 
     private static System.Collections.IEnumerator ScaleKromAfterAttach(VisEquipment vis, AshlandsRebornCharredSwapped? marker)
     {
-        yield return null;
-        yield return null;
+        // Wait several frames for the character skeleton, scale, and first animation frame to settle.
+        // Initial spawn (especially console spawn) can have 'garbage' bone positions for the first few frames.
+        for (int i = 0; i < 10; i++) yield return null;
 
         if (vis == null || !ShouldSwap()) yield break;
 
         var weaponGo = FRightItemInstance?.GetValue(vis) as GameObject;
-        if (weaponGo == null)
-        {
-            var attachR = FindInChildren(vis.transform, "Attach.r");
-            if (attachR != null && attachR.childCount > 0)
-                weaponGo = attachR.GetChild(0).gameObject;
-            if (weaponGo == null)
-            {
-                var rightHand = FindInChildren(vis.transform, "RightHand");
-                if (rightHand != null && rightHand.childCount > 0)
-                    weaponGo = rightHand.GetChild(0).gameObject;
-            }
-        }
 
-        if (weaponGo != null)
+        // Guard: skip if this is the same instance we already scaled (prevents stacking during combat).
+        if (weaponGo == null || (marker != null && ReferenceEquals(weaponGo, marker.LastScaledKromInstance)))
+            yield break;
+
+        var scale = Plugin.CharredWarriorKromScale?.Value ?? 1.16f;
+        weaponGo.transform.localScale *= scale;
+        if (marker != null)
         {
-            var scale = Plugin.CharredWarriorKromScale?.Value ?? 1.16f;
-            weaponGo.transform.localScale *= scale;
-            if (marker != null) marker.KromScaled = true;
-            if (_swapLogCount <= 5)
-                Plugin.Log?.LogInfo($"[Ashlands Reborn] Krom scaled by {scale}x for Charred");
+            marker.KromScaled = true;
+            marker.LastScaledKromInstance = weaponGo;
         }
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Krom sword adjusted: scale={scale}");
     }
 
     // -------------------------------------------------------------------------
@@ -151,9 +143,17 @@ internal static class CharredWarriorPatches
         if (_suppressSwordSwap) return; // Share the suppression flag
         if (!ShouldSwap()) return;
         if (!IsCharredMelee(__instance.gameObject)) return;
+
+        if (_swapLogCount < 20)
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] SetHelmetItem_Prefix for {__instance.gameObject.name}: '{name}'");
         
         // Only swap if it's the charred helmet
         if (!string.Equals(name, CharredHelmetName, StringComparison.OrdinalIgnoreCase)) return;
+
+        // Ensure the attachment point exists BEFORE the game calls AttachItem in the postfix flow.
+        // On initial spawn, SetHelmetItem is called during initialization, often BEFORE 
+        // our Awake postfix has had a chance to run.
+        EnsureHelmetTransform(__instance);
 
         // Store original name for revert (only on first swap)
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
@@ -164,9 +164,7 @@ internal static class CharredWarriorPatches
         name = HelmetDrakeName;
 
         if (_swapLogCount < 10)
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred_Melee helmet: '{marker.OriginalHelmetItem}' → '{HelmetDrakeName}'");
-
-        marker.HelmetScaled = false;
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred_Melee helmet: '{marker.OriginalHelmetItem}' \u2192 '{HelmetDrakeName}'");
 
         // Diagnostic: check m_helmet transform
         var helmetTransform = FHelmetTransform?.GetValue(__instance) as Transform;
@@ -184,64 +182,100 @@ internal static class CharredWarriorPatches
         if (!string.Equals(curItem, HelmetDrakeName, StringComparison.OrdinalIgnoreCase)) return;
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>();
-        if (marker != null && marker.HelmetScaled) return;
+        // Skip if we've already scaled this exact instance.
+        if (marker?.LastScaledHelmetInstance != null) return;
 
-        // Diagnostic: log helmet state after SetHelmetItem
-        var helmetTransform = FHelmetTransform?.GetValue(__instance) as Transform;
+        // Visual fix: Hide the helmet immediately. 
+        // We'll show it again in the coroutine after it's been correctly oriented/positioned.
         var helmetInstance = FHelmetItemInstance?.GetValue(__instance) as GameObject;
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] DIAG Helmet postfix: curItem='{curItem}', m_helmet={(helmetTransform?.name ?? "NULL")}, m_helmetItemInstance={(helmetInstance?.name ?? "NULL")}");
+        if (helmetInstance != null)
+        {
+            foreach (var r in helmetInstance.GetComponentsInChildren<Renderer>(true))
+                r.enabled = false;
+        }
 
         __instance.StartCoroutine(ScaleHelmetAfterAttach(__instance, marker));
     }
 
     private static System.Collections.IEnumerator ScaleHelmetAfterAttach(VisEquipment vis, AshlandsRebornCharredSwapped? marker)
     {
-        yield return null;
-        yield return null;
+        // Wait 20 frames for the character skeleton, scale, and first animation frame to settle.
+        // Initial spawn (especially console spawn) can have 'garbage' bone positions for the first few frames.
+        for (int i = 0; i < 20; i++) yield return null;
 
         if (vis == null || !ShouldSwap()) yield break;
 
+        // Ensure we have the attachment point. 
+        if (vis.m_helmet == null) EnsureHelmetTransform(vis);
+        var head = vis.m_helmet;
+
         var helmetGo = FHelmetItemInstance?.GetValue(vis) as GameObject;
-        if (helmetGo == null)
+
+        // --- RESCUE AND RE-EQUIP ---
+        // If the helmet is missing but we now have a valid Head bone, the initial attach likely failed.
+        // We trigger a re-equip now that the character is settled.
+        if (helmetGo == null && head != null && marker != null && !string.IsNullOrEmpty(marker.OriginalHelmetItem))
         {
-            // Valheim usually attaches helmets to the Head bone
-            var head = FindInChildren(vis.transform, "Head");
-            if (head != null && head.childCount > 0)
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Helmet missing on {vis.gameObject.name} but Head bone is ready. Triggering rescue re-equip.");
+            _suppressSwordSwap = false; // Ensure we don't block the next call
+            vis.SetHelmetItem(marker.OriginalHelmetItem);
+            yield break; // The new call will start its own coroutine
+        }
+
+        // Guard: skip if this is the same instance we already scaled (prevents stacking during combat).
+        if (helmetGo == null || (marker != null && ReferenceEquals(helmetGo, marker.LastScaledHelmetInstance)))
+        {
+            if (helmetGo == null)
             {
-                 // Try to find the instantiated helmet under the head
-                 for (var i = 0; i < head.childCount; i++)
-                 {
-                     var child = head.GetChild(i).gameObject;
-                     if (GetPrefabName(child).Equals(HelmetDrakeName, StringComparison.OrdinalIgnoreCase))
-                     {
-                         helmetGo = child;
-                         break;
-                     }
-                 }
+                Plugin.Log?.LogWarning($"[Ashlands Reborn] Drake Helmet GO not found after 20 frames on {vis.gameObject.name}. m_helmet={(head?.name ?? "NULL")}");
             }
+            yield break;
         }
 
         if (helmetGo != null)
         {
-            var scale = Plugin.CharredWarriorHelmetScale?.Value ?? 1.05f;
-            var yOffset = Plugin.CharredWarriorHelmetYOffset?.Value ?? 0.15f;
+            // Ensure parenting is correct (fixes orphaned-at-origin issue if m_helmet changed)
+            if (head != null && helmetGo.transform.parent != head)
+            {
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] Re-parenting Drake Helmet to Head bone for {vis.gameObject.name}");
+                helmetGo.transform.SetParent(head);
+                helmetGo.transform.localPosition = Vector3.zero;
+                helmetGo.transform.localRotation = Quaternion.identity;
+            }
+
+            var scale = Plugin.CharredWarriorHelmetScale?.Value ?? 1.1f;
+            var yOffset = Plugin.CharredWarriorHelmetYOffset?.Value ?? 0.05f;
 
             var posBefore = helmetGo.transform.position;
 
             helmetGo.transform.localScale *= scale;
+
+            // Apply rotation and offsets adding to current state
             // Rotate around Y axis — configurable via CharredWarriorHelmetYaw
             var yaw = Plugin.CharredWarriorHelmetYaw?.Value ?? -90f;
             helmetGo.transform.localRotation *= Quaternion.Euler(0f, yaw, 0f);
-            // Lift in world space (avoids bone-local scale distortion)
+            
+            // Calculate actual face "forward" in world space now that we've rotated it locally.
+            // vis.transform.forward might be pointing in a default direction during initialization.
+            var faceForward = helmetGo.transform.forward;
+
+            // Lift in world space
             helmetGo.transform.Translate(0f, yOffset, 0f, Space.World);
-            // Move forward/back relative to the warrior's facing direction
+            // Move forward/back relative to where the face is actually pointing
             var zOffset = Plugin.CharredWarriorHelmetZOffset?.Value ?? 0.05f;
-            helmetGo.transform.Translate(vis.transform.forward * zOffset, Space.World);
+            helmetGo.transform.Translate(faceForward * zOffset, Space.World);
 
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] DIAG Helmet pos: before={posBefore}, after={helmetGo.transform.position}, yOffset={yOffset}");
+            // Important: Show the helmet now that it's correctly placed
+            foreach (var r in helmetGo.GetComponentsInChildren<Renderer>(true))
+                r.enabled = true;
 
-            if (marker != null) marker.HelmetScaled = true;
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] Drake Helmet adjusted: scale={scale}, yOffset={yOffset}");
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Drake Helmet adjusted and shown: rootForward={vis.transform.forward}, faceForward={faceForward}, yOff={yOffset}, zOff={zOffset}");
+
+            if (marker != null)
+            {
+                marker.HelmetScaled = true;
+                marker.LastScaledHelmetInstance = helmetGo;
+            }
         }
         else
         {
@@ -363,18 +397,7 @@ internal static class CharredWarriorPatches
                 var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
                              ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
 
-                // Charred_Melee has no m_helmet transform set — rigid-attach helmets
-                // like HelmetDrake need it so AttachItem can parent them correctly.
-                // Without this, SetParent(null) sends the helmet to the world origin.
-                if (vis.m_helmet == null)
-                {
-                    var head = FindInChildren(vis.transform, "Head");
-                    if (head != null)
-                    {
-                        vis.m_helmet = head;
-                        Plugin.Log?.LogInfo("[Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee");
-                    }
-                }
+                EnsureHelmetTransform(vis);
             }
         }
 
@@ -384,6 +407,49 @@ internal static class CharredWarriorPatches
 
         _dumpDone = true;
         DumpCharredWarrior(__instance, prefabName);
+    }
+
+    private static void FindGameObjectByPrefabName(Transform root, string prefabName, List<GameObject> results)
+    {
+        if (GetPrefabName(root.gameObject).Equals(prefabName, StringComparison.OrdinalIgnoreCase))
+            results.Add(root.gameObject);
+
+        for (var i = 0; i < root.childCount; i++)
+            FindGameObjectByPrefabName(root.GetChild(i), prefabName, results);
+    }
+
+    private static void EnsureHelmetTransform(VisEquipment vis)
+    {
+        // Charred_Melee has no m_helmet transform set in its prefab — rigid-attach helmets
+        // like HelmetDrake need it so AttachItem can parent them correctly.
+        if (vis.m_helmet != null) return;
+
+        // 1. Recursive search in hierarchy
+        var head = FindInChildren(vis.transform, "Head");
+        
+        // 2. Fallback: Search in m_bodyModel bones if available
+        if (head == null && vis.m_bodyModel != null)
+        {
+            foreach (var bone in vis.m_bodyModel.bones)
+            {
+                if (bone != null && string.Equals(bone.name, "Head", StringComparison.OrdinalIgnoreCase))
+                {
+                    head = bone;
+                    break;
+                }
+            }
+        }
+
+        if (head != null)
+        {
+            vis.m_helmet = head;
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Assigned Head bone as m_helmet for {vis.gameObject.name}");
+        }
+        else
+        {
+            if (_swapLogCount < 20)
+                Plugin.Log?.LogWarning($"[Ashlands Reborn] Could not find Head bone for {vis.gameObject.name}");
+        }
     }
 
     private static void DumpCharredWarrior(Humanoid humanoid, string prefabName)
@@ -500,6 +566,16 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     /// <summary>True when we've scaled the Krom weapon (avoids re-scaling every frame).</summary>
     public bool KromScaled;
 
+    /// <summary>Last Krom weapon instance we scaled. Guards against repeated SetRightItem calls during combat.</summary>
+    public GameObject? LastScaledKromInstance;
+
     /// <summary>True when we've scaled the helmet (avoids re-scaling every frame).</summary>
     public bool HelmetScaled;
+
+    /// <summary>
+    /// The last helmet instance GameObject we applied transforms to.
+    /// The coroutine compares the current instance against this to prevent
+    /// re-applying scale/rotation when SetHelmetItem is called repeatedly (e.g. during combat).
+    /// </summary>
+    public GameObject? LastScaledHelmetInstance;
 }
