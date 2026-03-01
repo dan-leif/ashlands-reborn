@@ -43,6 +43,7 @@ public class Plugin : BaseUnityPlugin
 
     // --- Charred Warrior ---
     public static ConfigEntry<bool> EnableCharredWarriorSwap { get; private set; } = null!;
+    public static ConfigEntry<string> CharredWarriorHelmetName { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorKromScale { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetScale { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetYOffset { get; private set; } = null!;
@@ -190,6 +191,14 @@ public class Plugin : BaseUnityPlugin
             "EnableCharredWarriorSwap",
             true,
             "Master toggle for all Charred_Melee visual changes (sword only). No behavior change.");
+
+        CharredWarriorHelmetName = Config.Bind(
+            "Creatures",
+            "CharredWarriorHelmetName",
+            "HelmetDrake",
+            new ConfigDescription(
+                "The helmet to swap onto Charred Warriors. HelmetDrake is vanilla, knighthelm requires SouthsilArmor mod.",
+                new AcceptableValueList<string>("HelmetDrake", "knighthelm")));
 
         CharredWarriorKromScale = Config.Bind(
             "Creatures",
