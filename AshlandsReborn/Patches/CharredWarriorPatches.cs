@@ -41,12 +41,12 @@ internal static class CharredWarriorPatches
         typeof(VisEquipment).GetField("m_legItem", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly FieldInfo? FShoulderItem =
         typeof(VisEquipment).GetField("m_shoulderItem", BindingFlags.Instance | BindingFlags.NonPublic);
-    private static readonly FieldInfo? FChestItemInstance =
-        typeof(VisEquipment).GetField("m_chestItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
-    private static readonly FieldInfo? FLegItemInstance =
-        typeof(VisEquipment).GetField("m_legItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
-    private static readonly FieldInfo? FShoulderItemInstance =
-        typeof(VisEquipment).GetField("m_shoulderItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FChestItemInstances =
+        typeof(VisEquipment).GetField("m_chestItemInstances", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FLegItemInstances =
+        typeof(VisEquipment).GetField("m_legItemInstances", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FShoulderItemInstances =
+        typeof(VisEquipment).GetField("m_shoulderItemInstances", BindingFlags.Instance | BindingFlags.NonPublic);
 
     private static bool _suppressSwordSwap;
     private static int  _swapLogCount;
@@ -239,7 +239,7 @@ internal static class CharredWarriorPatches
 
         name = target;
         HideBodyVisuals(__instance, true);
-        __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstance));
+        __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances));
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetLegItem))]
@@ -257,7 +257,7 @@ internal static class CharredWarriorPatches
 
         name = target;
         HideBodyVisuals(__instance, true);
-        __instance.StartCoroutine(RemapArmorBones(__instance, FLegItemInstance));
+        __instance.StartCoroutine(RemapArmorBones(__instance, FLegItemInstances));
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetShoulderItem))]
@@ -274,55 +274,75 @@ internal static class CharredWarriorPatches
             marker.OriginalShoulderItem = name;
 
         name = target;
-        __instance.StartCoroutine(RemapArmorBones(__instance, FShoulderItemInstance));
+        __instance.StartCoroutine(RemapArmorBones(__instance, FShoulderItemInstances));
     }
 
     private static System.Collections.IEnumerator RemapArmorBones(VisEquipment vis, FieldInfo? instanceField)
     {
-        // Wait for the game to actually instantiate the armor GameObject
-        for (int i = 0; i < 5; i++) yield return null;
-        if (vis == null || instanceField == null) yield break;
+        var fieldName = instanceField?.Name ?? "null";
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] RemapArmorBones started for {vis.gameObject.name}, field: {fieldName}");
 
-        var armorGo = instanceField.GetValue(vis) as GameObject;
-        if (armorGo == null) yield break;
-
-        var smrs = armorGo.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-        if (smrs.Length == 0) yield break;
-
-        // Build bone cache for this character if not already done
-        var root = vis.transform;
-        
-        foreach (var smr in smrs)
+        // Wait for the game to actually instantiate the armor GameObjects
+        List<GameObject>? instances = null;
+        for (int i = 0; i < 20; i++)
         {
-            var newBones = new Transform[smr.bones.Length];
-            for (int i = 0; i < smr.bones.Length; i++)
-            {
-                var originalBone = smr.bones[i];
-                if (originalBone == null) continue;
-
-                // Find matching bone in the Charred Warrior's hierarchy
-                var targetBone = FindInChildren(root, originalBone.name);
-                if (targetBone != null)
-                {
-                    newBones[i] = targetBone;
-                }
-                else
-                {
-                    // Fallback: use root if specific bone not found (prevents stretching to infinity)
-                    newBones[i] = root;
-                }
-            }
-            smr.bones = newBones;
-            
-            // Optionally update rootBone to the matching one in the character
-            if (smr.rootBone != null)
-            {
-                var newRoot = FindInChildren(root, smr.rootBone.name);
-                if (newRoot != null) smr.rootBone = newRoot;
-            }
+            if (vis == null) yield break;
+            instances = instanceField?.GetValue(vis) as List<GameObject>;
+            if (instances != null && instances.Count > 0) break;
+            yield return null;
         }
 
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] Remapped bones for armor on {vis.gameObject.name}");
+        if (instances == null || instances.Count == 0)
+        {
+            Plugin.Log?.LogWarning($"[Ashlands Reborn] RemapArmorBones: Armor instances not found after 20 frames for {vis.gameObject.name} ({fieldName})");
+            yield break;
+        }
+
+        foreach (var armorGo in instances)
+        {
+            if (armorGo == null) continue;
+
+            var smrs = armorGo.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] RemapArmorBones: Found {smrs.Length} SMRs on {armorGo.name}");
+
+            if (smrs.Length == 0) continue;
+
+            var root = vis.transform;
+            
+            foreach (var smr in smrs)
+            {
+                var newBones = new Transform[smr.bones.Length];
+                int remappedCount = 0;
+                int fallbackCount = 0;
+
+                for (int i = 0; i < smr.bones.Length; i++)
+                {
+                    var originalBone = smr.bones[i];
+                    if (originalBone == null) continue;
+
+                    var targetBone = FindInChildren(root, originalBone.name);
+                    if (targetBone != null)
+                    {
+                        newBones[i] = targetBone;
+                        remappedCount++;
+                    }
+                    else
+                    {
+                        newBones[i] = root;
+                        fallbackCount++;
+                    }
+                }
+                smr.bones = newBones;
+                
+                if (smr.rootBone != null)
+                {
+                    var newRoot = FindInChildren(root, smr.rootBone.name);
+                    if (newRoot != null) smr.rootBone = newRoot;
+                }
+
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] Remapped SMR '{smr.name}': {remappedCount} mapped, {fallbackCount} fallbacks to root.");
+            }
+        }
     }
 
     private static void HideBodyVisuals(VisEquipment vis, bool hide)
