@@ -7,6 +7,7 @@
     <AssemblyName>AshlandsReborn</AssemblyName>
     <RootNamespace>AshlandsReborn</RootNamespace>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <NoWarn>$(NoWarn);0618</NoWarn>
   </PropertyGroup>
 
   <!-- Resolve Valheim game path. Override with: dotnet build -p:GamePath="C:\path\to\Valheim" -->

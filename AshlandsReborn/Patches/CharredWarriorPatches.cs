@@ -161,14 +161,24 @@ internal static class CharredWarriorPatches
         if (string.IsNullOrEmpty(marker.OriginalHelmetItem))
             marker.OriginalHelmetItem = name;
 
-        name = HelmetDrakeName;
+        // Get configured helmet
+        var targetHelmet = Plugin.CharredWarriorHelmetName?.Value ?? HelmetDrakeName;
+        
+        // Safety check: verify prefab exists in ZNetScene
+        if (targetHelmet != HelmetDrakeName && ZNetScene.instance != null)
+        {
+            if (ZNetScene.instance.GetPrefab(targetHelmet) == null)
+            {
+                if (_swapLogCount < 5)
+                    Plugin.Log?.LogWarning($"[Ashlands Reborn] Configured helmet '{targetHelmet}' not found. Falling back to '{HelmetDrakeName}'.");
+                targetHelmet = HelmetDrakeName;
+            }
+        }
+
+        name = targetHelmet;
 
         if (_swapLogCount < 10)
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred_Melee helmet: '{marker.OriginalHelmetItem}' \u2192 '{HelmetDrakeName}'");
-
-        // Diagnostic: check m_helmet transform
-        var helmetTransform = FHelmetTransform?.GetValue(__instance) as Transform;
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] DIAG Helmet prefix: m_helmet transform={(helmetTransform?.name ?? "NULL")}, helmetTransformIsNull={helmetTransform == null}");
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred_Melee helmet: '{marker.OriginalHelmetItem}' \u2192 '{name}'");
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetHelmetItem))]
@@ -179,7 +189,10 @@ internal static class CharredWarriorPatches
         if (!IsCharredMelee(__instance.gameObject)) return;
 
         var curItem = FHelmetItem?.GetValue(__instance) as string ?? "";
-        if (!string.Equals(curItem, HelmetDrakeName, StringComparison.OrdinalIgnoreCase)) return;
+        var targetHelmet = Plugin.CharredWarriorHelmetName?.Value ?? HelmetDrakeName;
+        // Check if current matches target (or fallback)
+        if (!string.Equals(curItem, targetHelmet, StringComparison.OrdinalIgnoreCase) && 
+            !string.Equals(curItem, HelmetDrakeName, StringComparison.OrdinalIgnoreCase)) return;
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>();
         // Skip if we've already scaled this exact instance.
