@@ -44,6 +44,9 @@ public class Plugin : BaseUnityPlugin
     // --- Charred Warrior ---
     public static ConfigEntry<bool> EnableCharredWarriorSwap { get; private set; } = null!;
     public static ConfigEntry<string> CharredWarriorHelmetName { get; private set; } = null!;
+    public static ConfigEntry<string> CharredWarriorChestName { get; private set; } = null!;
+    public static ConfigEntry<string> CharredWarriorLegsName { get; private set; } = null!;
+    public static ConfigEntry<string> CharredWarriorShoulderName { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorKromScale { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetScale { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetYOffset { get; private set; } = null!;
@@ -200,6 +203,24 @@ public class Plugin : BaseUnityPlugin
                 "The helmet to swap onto Charred Warriors. HelmetDrake is vanilla, knighthelm requires SouthsilArmor mod.",
                 new AcceptableValueList<string>("HelmetDrake", "knighthelm")));
 
+        CharredWarriorChestName = Config.Bind(
+            "Creatures",
+            "CharredWarriorChestName",
+            "knightchest",
+            "The chest armor to swap onto Charred Warriors. Requires SouthsilArmor mod for 'knightchest'. Leave empty to disable.");
+
+        CharredWarriorLegsName = Config.Bind(
+            "Creatures",
+            "CharredWarriorLegsName",
+            "",
+            "The legs armor to swap onto Charred Warriors. Leave empty to disable.");
+
+        CharredWarriorShoulderName = Config.Bind(
+            "Creatures",
+            "CharredWarriorShoulderName",
+            "",
+            "The shoulder armor to swap onto Charred Warriors. Leave empty to disable.");
+
         CharredWarriorKromScale = Config.Bind(
             "Creatures",
             "CharredWarriorKromScale",
@@ -239,6 +260,7 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Forward/back offset for Drake Helmet on Charred Warriors in world space. Positive = forward (toward face). Adjust to prevent skull clipping through front.",
                 new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
 
         CharredWarriorRefreshKey = Config.Bind(
             "Creatures",
@@ -527,7 +549,7 @@ public class Plugin : BaseUnityPlugin
             {
                 _lastCharredRefreshTime = Time.time;
                 Patches.CharredWarriorPatches.RefreshCharredWarriors();
-                Log.LogInfo("[Ashlands Reborn] Charred Warrior sword refresh triggered");
+                Log.LogInfo("[Ashlands Reborn] Charred Warrior sword and armor refresh triggered");
             }
         }
 
