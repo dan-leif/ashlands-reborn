@@ -41,6 +41,12 @@ internal static class CharredWarriorPatches
         typeof(VisEquipment).GetField("m_legItem", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly FieldInfo? FShoulderItem =
         typeof(VisEquipment).GetField("m_shoulderItem", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FChestItemInstance =
+        typeof(VisEquipment).GetField("m_chestItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FLegItemInstance =
+        typeof(VisEquipment).GetField("m_legItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FShoulderItemInstance =
+        typeof(VisEquipment).GetField("m_shoulderItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
 
     private static bool _suppressSwordSwap;
     private static int  _swapLogCount;
@@ -50,6 +56,8 @@ internal static class CharredWarriorPatches
     private static bool ShouldSwap() =>
         (Plugin.MasterSwitch?.Value ?? false) &&
         (Plugin.EnableCharredWarriorSwap?.Value ?? false);
+
+    private static readonly Dictionary<string, Transform> _boneCache = new(StringComparer.OrdinalIgnoreCase);
 
     private static string GetPrefabName(GameObject go)
     {
@@ -231,6 +239,7 @@ internal static class CharredWarriorPatches
 
         name = target;
         HideBodyVisuals(__instance, true);
+        __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstance));
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetLegItem))]
@@ -248,6 +257,7 @@ internal static class CharredWarriorPatches
 
         name = target;
         HideBodyVisuals(__instance, true);
+        __instance.StartCoroutine(RemapArmorBones(__instance, FLegItemInstance));
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetShoulderItem))]
@@ -264,6 +274,55 @@ internal static class CharredWarriorPatches
             marker.OriginalShoulderItem = name;
 
         name = target;
+        __instance.StartCoroutine(RemapArmorBones(__instance, FShoulderItemInstance));
+    }
+
+    private static System.Collections.IEnumerator RemapArmorBones(VisEquipment vis, FieldInfo? instanceField)
+    {
+        // Wait for the game to actually instantiate the armor GameObject
+        for (int i = 0; i < 5; i++) yield return null;
+        if (vis == null || instanceField == null) yield break;
+
+        var armorGo = instanceField.GetValue(vis) as GameObject;
+        if (armorGo == null) yield break;
+
+        var smrs = armorGo.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        if (smrs.Length == 0) yield break;
+
+        // Build bone cache for this character if not already done
+        var root = vis.transform;
+        
+        foreach (var smr in smrs)
+        {
+            var newBones = new Transform[smr.bones.Length];
+            for (int i = 0; i < smr.bones.Length; i++)
+            {
+                var originalBone = smr.bones[i];
+                if (originalBone == null) continue;
+
+                // Find matching bone in the Charred Warrior's hierarchy
+                var targetBone = FindInChildren(root, originalBone.name);
+                if (targetBone != null)
+                {
+                    newBones[i] = targetBone;
+                }
+                else
+                {
+                    // Fallback: use root if specific bone not found (prevents stretching to infinity)
+                    newBones[i] = root;
+                }
+            }
+            smr.bones = newBones;
+            
+            // Optionally update rootBone to the matching one in the character
+            if (smr.rootBone != null)
+            {
+                var newRoot = FindInChildren(root, smr.rootBone.name);
+                if (newRoot != null) smr.rootBone = newRoot;
+            }
+        }
+
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Remapped bones for armor on {vis.gameObject.name}");
     }
 
     private static void HideBodyVisuals(VisEquipment vis, bool hide)
