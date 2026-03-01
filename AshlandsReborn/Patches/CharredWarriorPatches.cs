@@ -35,6 +35,12 @@ internal static class CharredWarriorPatches
         typeof(VisEquipment).GetField("m_helmetItemInstance", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly FieldInfo? FHelmetTransform =
         typeof(VisEquipment).GetField("m_helmet", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FChestItem =
+        typeof(VisEquipment).GetField("m_chestItem", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FLegItem =
+        typeof(VisEquipment).GetField("m_legItem", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FShoulderItem =
+        typeof(VisEquipment).GetField("m_shoulderItem", BindingFlags.Instance | BindingFlags.NonPublic);
 
     private static bool _suppressSwordSwap;
     private static int  _swapLogCount;
@@ -210,6 +216,68 @@ internal static class CharredWarriorPatches
         __instance.StartCoroutine(ScaleHelmetAfterAttach(__instance, marker));
     }
 
+    [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetChestItem))]
+    [HarmonyPrefix]
+    private static void SetChestItem_Prefix(VisEquipment __instance, ref string name)
+    {
+        if (!ShouldSwap() || !IsCharredMelee(__instance.gameObject)) return;
+        var target = Plugin.CharredWarriorChestName?.Value ?? "";
+        if (string.IsNullOrEmpty(target)) return;
+
+        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
+                     ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+        if (string.IsNullOrEmpty(marker.OriginalChestItem))
+            marker.OriginalChestItem = name;
+
+        name = target;
+        HideBodyVisuals(__instance, true);
+    }
+
+    [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetLegItem))]
+    [HarmonyPrefix]
+    private static void SetLegItem_Prefix(VisEquipment __instance, ref string name)
+    {
+        if (!ShouldSwap() || !IsCharredMelee(__instance.gameObject)) return;
+        var target = Plugin.CharredWarriorLegsName?.Value ?? "";
+        if (string.IsNullOrEmpty(target)) return;
+
+        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
+                     ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+        if (string.IsNullOrEmpty(marker.OriginalLegItem))
+            marker.OriginalLegItem = name;
+
+        name = target;
+        HideBodyVisuals(__instance, true);
+    }
+
+    [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetShoulderItem))]
+    [HarmonyPrefix]
+    private static void SetShoulderItem_Prefix(VisEquipment __instance, ref string name)
+    {
+        if (!ShouldSwap() || !IsCharredMelee(__instance.gameObject)) return;
+        var target = Plugin.CharredWarriorShoulderName?.Value ?? "";
+        if (string.IsNullOrEmpty(target)) return;
+
+        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
+                     ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+        if (string.IsNullOrEmpty(marker.OriginalShoulderItem))
+            marker.OriginalShoulderItem = name;
+
+        name = target;
+    }
+
+    private static void HideBodyVisuals(VisEquipment vis, bool hide)
+    {
+        // Charred_Melee_Vis is the main body mesh. 
+        // When wearing full knight armor, we usually want to hide the skeletal body to prevent clipping.
+        var body = FindInChildren(vis.transform, "Charred_Melee_Vis");
+        if (body != null)
+        {
+            var renderer = body.GetComponent<Renderer>();
+            if (renderer != null) renderer.enabled = !hide;
+        }
+    }
+
     private static System.Collections.IEnumerator ScaleHelmetAfterAttach(VisEquipment vis, AshlandsRebornCharredSwapped? marker)
     {
         // Wait 20 frames for the character skeleton, scale, and first animation frame to settle.
@@ -322,6 +390,17 @@ internal static class CharredWarriorPatches
                     
                     if (!string.IsNullOrEmpty(marker.OriginalHelmetItem))
                         vis.SetHelmetItem(marker.OriginalHelmetItem);
+
+                    if (!string.IsNullOrEmpty(marker.OriginalChestItem))
+                        vis.SetChestItem(marker.OriginalChestItem);
+
+                    if (!string.IsNullOrEmpty(marker.OriginalLegItem))
+                        vis.SetLegItem(marker.OriginalLegItem);
+
+                    if (!string.IsNullOrEmpty(marker.OriginalShoulderItem))
+                        vis.SetShoulderItem(marker.OriginalShoulderItem, 0);
+
+                    HideBodyVisuals(vis, false);
                 }
                 
                 UObject.Destroy(marker);
@@ -384,6 +463,42 @@ internal static class CharredWarriorPatches
                 if (marker != null) marker.OriginalHelmetItem = "";
                 FHelmetItem?.SetValue(vis, "");
                 vis.SetHelmetItem(triggerHelmet);
+            }
+
+            // --- Chest refresh ---
+            var triggerChest = marker?.OriginalChestItem ?? "";
+            if (string.IsNullOrEmpty(triggerChest))
+                triggerChest = FChestItem?.GetValue(vis) as string ?? "";
+            
+            if (!string.IsNullOrEmpty(triggerChest))
+            {
+                if (marker != null) marker.OriginalChestItem = "";
+                FChestItem?.SetValue(vis, "");
+                vis.SetChestItem(triggerChest);
+            }
+
+            // --- Legs refresh ---
+            var triggerLegs = marker?.OriginalLegItem ?? "";
+            if (string.IsNullOrEmpty(triggerLegs))
+                triggerLegs = FLegItem?.GetValue(vis) as string ?? "";
+
+            if (!string.IsNullOrEmpty(triggerLegs))
+            {
+                if (marker != null) marker.OriginalLegItem = "";
+                FLegItem?.SetValue(vis, "");
+                vis.SetLegItem(triggerLegs);
+            }
+
+            // --- Shoulder refresh ---
+            var triggerShoulder = marker?.OriginalShoulderItem ?? "";
+            if (string.IsNullOrEmpty(triggerShoulder))
+                triggerShoulder = FShoulderItem?.GetValue(vis) as string ?? "";
+
+            if (!string.IsNullOrEmpty(triggerShoulder))
+            {
+                if (marker != null) marker.OriginalShoulderItem = "";
+                FShoulderItem?.SetValue(vis, "");
+                vis.SetShoulderItem(triggerShoulder, 0);
             }
 
             count++;
@@ -575,6 +690,9 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
 {
     public string OriginalRightItem = "";
     public string OriginalHelmetItem = "";
+    public string OriginalChestItem = "";
+    public string OriginalLegItem = "";
+    public string OriginalShoulderItem = "";
 
     /// <summary>True when we've scaled the Krom weapon (avoids re-scaling every frame).</summary>
     public bool KromScaled;
