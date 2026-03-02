@@ -1,0 +1,157 @@
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: 'Charred_Helmet' → 'knighthelm'
+[Info   :Ashlands Reborn] === ARMOR BONE MAPPING DUMP ===
+Armor: 'knightchest'
+
+--- Charred_Melee available bones ---
+  'Root'
+  'Hips'
+  'Spine'
+  'Spine1'
+  'Spine2'
+  'Neck'
+  'Head'
+  'Jaw'
+  'LeftShoulder'
+  'LeftArm'
+  'LeftForeArm'
+  'LeftHand'
+  'LeftHandThumb1'
+  'LeftHandThumb2'
+  'LeftHandThumb3'
+  'LeftHandIndex1'
+  'LeftHandIndex2'
+  'LeftHandIndex3'
+  'LeftHandMiddle1'
+  'LeftHandMiddle2'
+  'LeftHandMiddle3'
+  'LeftHandRing1'
+  'LeftHandRing2'
+  'LeftHandRing3'
+  'LeftHandPinky1'
+  'LeftHandPinky2'
+  'LeftHandPinky3'
+  'Attach.l'
+  'RightShoulder'
+  'RightArm'
+  'RightForeArm'
+  'RightHand'
+  'RightHandThumb1'
+  'RightHandThumb2'
+  'RightHandThumb3'
+  'RightHandIndex1'
+  'RightHandIndex2'
+  'RightHandIndex3'
+  'RightHandMiddle1'
+  'RightHandMiddle2'
+  'RightHandMiddle3'
+  'RightHandRing1'
+  'RightHandRing2'
+  'RightHandRing3'
+  'RightHandPinky1'
+  'RightHandPinky2'
+  'RightHandPinky3'
+  'Attach.r'
+  'LeftUpLeg'
+  'LeftLeg'
+  'LeftFoot'
+  'LeftToeBase'
+  'RightUpLeg'
+  'RightLeg'
+  'RightFoot'
+  'RightToeBase'
+  'Charred_Melee(Clone)'
+  'EyePos'
+  'Visual'
+  'TheCharred'
+  'Armature'
+  'EyeGlow'
+  'EyeGlow (1)'
+  'attach(Clone)'
+  'TheCharred_Sword'
+  'fx_charred_chestglow'
+  '1-Star FX'
+  '2-Star FX'
+  'Body'
+  'Eyes'
+  'Sinew'
+  'Skull'
+  'attach_skin(Clone)'
+  'ChestPiece'
+  'LowerCloth'
+  'LeftToeBase_end'
+  'RightToeBase_end'
+  'Attach.l_end'
+  'LeftHandIndex3_end'
+  'LeftHandMiddle3_end'
+  'LeftHandPinky3_end'
+  'LeftHandRing3_end'
+  'LeftHandThumb3_end'
+  'Jaw_end'
+  'Attach.r_end'
+  'RightHandIndex3_end'
+  'RightHandMiddle3_end'
+  'RightHandPinky3_end'
+  'RightHandRing3_end'
+  'RightHandThumb3_end'
+  'Helmet'
+
+--- Armor SMR 'Padded_Cuirrass' expected bones (53) ---
+  [0] 'Hips' -> OK
+  [1] 'Spine' -> OK
+  [2] 'Spine1' -> OK
+  [3] 'Spine2' -> OK
+  [4] 'Neck' -> OK
+  [5] 'Head' -> OK
+  [6] 'Jaw' -> OK
+  [7] 'LeftShoulder' -> OK
+  [8] 'LeftArm' -> OK
+  [9] 'LeftForeArm' -> OK
+  [10] 'LeftHand' -> OK
+  [11] 'LeftHandThumb1' -> OK
+  [12] 'LeftHandThumb2' -> OK
+  [13] 'LeftHandThumb3' -> OK
+  [14] 'LeftHandIndex1' -> OK
+  [15] 'LeftHandIndex2' -> OK
+  [16] 'LeftHandIndex3' -> OK
+  [17] 'LeftHandMiddle1' -> OK
+  [18] 'LeftHandMiddle2' -> OK
+  [19] 'LeftHandMiddle3' -> OK
+  [20] 'LeftHandRing1' -> OK
+  [21] 'LeftHandRing2' -> OK
+  [22] 'LeftHandRing3' -> OK
+  [23] 'LeftHandPinky1' -> OK
+  [24] 'LeftHandPinky2' -> OK
+  [25] 'LeftHandPinky3' -> OK
+  [26] 'RightShoulder' -> OK
+  [27] 'RightArm' -> OK
+  [28] 'RightForeArm' -> OK
+  [29] 'RightHand' -> OK
+  [30] 'RightHandThumb1' -> OK
+  [31] 'RightHandThumb2' -> OK
+  [32] 'RightHandThumb3' -> OK
+  [33] 'RightHandIndex1' -> OK
+  [34] 'RightHandIndex2' -> OK
+  [35] 'RightHandIndex3' -> OK
+  [36] 'RightHandMiddle1' -> OK
+  [37] 'RightHandMiddle2' -> OK
+  [38] 'RightHandMiddle3' -> OK
+  [39] 'RightHandRing1' -> OK
+  [40] 'RightHandRing2' -> OK
+  [41] 'RightHandRing3' -> OK
+  [42] 'RightHandPinky1' -> OK
+  [43] 'RightHandPinky2' -> OK
+  [44] 'RightHandPinky3' -> OK
+  [45] 'LeftUpLeg' -> OK
+  [46] 'LeftLeg' -> OK
+  [47] 'LeftFoot' -> OK
+  [48] 'LeftToeBase' -> OK
+  [49] 'RightUpLeg' -> OK
+  [50] 'RightLeg' -> OK
+  [51] 'RightFoot' -> OK
+  [52] 'RightToeBase' -> OK
+  Total: 53, Missing: 0
+=== END ARMOR BONE MAPPING DUMP ===
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bone remap: Created SyncedArmor_ChestPiece for Charred_Melee(Clone) (53 bones, 0 unmapped)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bone remap: Created SyncedArmor_ChestPiece for Charred_Melee(Clone) (53 bones, 0 unmapped)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred refresh: 8 instance(s)
