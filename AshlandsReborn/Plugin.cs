@@ -48,6 +48,10 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> CharredWarriorLegsName { get; private set; } = null!;
     public static ConfigEntry<string> CharredWarriorShoulderName { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorKromScale { get; private set; } = null!;
+    public static ConfigEntry<float> CharredWarriorChestScale { get; private set; } = null!;
+    public static ConfigEntry<float> CharredWarriorLegsScale { get; private set; } = null!;
+    public static ConfigEntry<float> CharredWarriorCapeScale { get; private set; } = null!;
+    public static ConfigEntry<float> CharredWarriorShoulderRotation { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetScale { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetYOffset { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetYaw { get; private set; } = null!;
@@ -207,19 +211,19 @@ public class Plugin : BaseUnityPlugin
             "Creatures",
             "CharredWarriorChestName",
             "knightchest",
-            "The chest armor to swap onto Charred Warriors. Requires SouthsilArmor mod for 'knightchest'. Leave empty to disable.");
+            "The chest armor to swap onto Charred Warriors. Requires SouthsilArmor mod for 'knightchest'. Try 'ArmorIronChest' to test with vanilla armor. Leave empty to disable.");
 
         CharredWarriorLegsName = Config.Bind(
             "Creatures",
             "CharredWarriorLegsName",
-            "",
-            "The legs armor to swap onto Charred Warriors. Leave empty to disable.");
+            "knightlegs",
+            "The legs armor to swap onto Charred Warriors. Requires SouthsilArmor mod for 'knightlegs'. Leave empty to disable.");
 
         CharredWarriorShoulderName = Config.Bind(
             "Creatures",
             "CharredWarriorShoulderName",
-            "",
-            "The shoulder armor to swap onto Charred Warriors. Leave empty to disable.");
+            "ss_storrcape",
+            "The cape/shoulder to swap onto Charred Warriors. Requires SouthsilArmor mod for 'ss_storrcape'. Leave empty to disable.");
 
         CharredWarriorKromScale = Config.Bind(
             "Creatures",
@@ -228,6 +232,38 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Scale factor for Krom sword when swapped onto Charred Warriors. 1.0 = vanilla size. 1.16 = 16% larger (matches original sword). 1.18 = 18% larger.",
                 new AcceptableValueRange<float>(0.5f, 2f)));
+
+        CharredWarriorChestScale = Config.Bind(
+            "Creatures",
+            "CharredWarriorChestScale",
+            1.0f,
+            new ConfigDescription(
+                "Scale factor for chest armor on Charred Warriors. 1.0 = player size. Adjusts bind poses so the skinned mesh renders larger/smaller relative to the skeleton.",
+                new AcceptableValueRange<float>(0.5f, 2f)));
+
+        CharredWarriorLegsScale = Config.Bind(
+            "Creatures",
+            "CharredWarriorLegsScale",
+            1.0f,
+            new ConfigDescription(
+                "Scale factor for leg armor on Charred Warriors. 1.0 = player size.",
+                new AcceptableValueRange<float>(0.5f, 2f)));
+
+        CharredWarriorCapeScale = Config.Bind(
+            "Creatures",
+            "CharredWarriorCapeScale",
+            1.0f,
+            new ConfigDescription(
+                "Scale factor for cape/shoulder on Charred Warriors. 1.0 = player size.",
+                new AcceptableValueRange<float>(0.5f, 2f)));
+
+        CharredWarriorShoulderRotation = Config.Bind(
+            "Creatures",
+            "CharredWarriorShoulderRotation",
+            0f,
+            new ConfigDescription(
+                "Z-axis rotation in degrees for shoulder bone adjustment. 0 = no adjustment (bind-pose replacement handles orientation). Try 180 to flip if pauldrons appear upside-down.",
+                new AcceptableValueRange<float>(-360f, 360f)));
 
         CharredWarriorHelmetScale = Config.Bind(
             "Creatures",
