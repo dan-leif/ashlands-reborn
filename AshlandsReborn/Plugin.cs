@@ -192,8 +192,8 @@ public class Plugin : BaseUnityPlugin
         EnableCharredWarriorSwap = Config.Bind(
             "Creatures",
             "EnableCharredWarriorSwap",
-            true,
-            "Master toggle for all Charred_Melee visual changes (sword only). No behavior change.");
+            false,
+            "Master toggle for all Charred_Melee visual changes (sword and armor). No behavior change.");
 
         CharredWarriorHelmetName = Config.Bind(
             "Creatures",
@@ -369,7 +369,7 @@ public class Plugin : BaseUnityPlugin
             ApplyTerrainPatches();
             ApplyTreePatches();
 
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, CharredSword: {(EnableCharredWarriorSwap.Value ? "ON" : "OFF")}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, CharredSwap: {(EnableCharredWarriorSwap.Value ? "ON" : "OFF")}");
         }
         catch (Exception ex)
         {
