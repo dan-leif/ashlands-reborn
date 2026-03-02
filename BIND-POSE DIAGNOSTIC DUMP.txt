@@ -1,0 +1,199 @@
+[Info   :Ashlands Reborn] === BIND-POSE DIAGNOSTIC DUMP ===
+Armor: 'knightchest', SMR: 'Padded_Cuirrass'
+Charred m_bodyModel: 'Body', bones=56, rootBone='Root'
+
+--- Per-bone bind-pose comparison (Player prefab vs Charred body) ---
+Format: bone | playerPos | charredPos | posDelta | playerRotEuler | charredRotEuler | rotDelta(deg) | playerScale | charredScale
+  Hips:
+    Player:  pos=(-0.00015,-0.00098,-0.02315)  rot=(270.0,0.0,0.0)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00017,0.01402)  rot=(270.0,0.0,0.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.03719  rotAngle=0.0deg
+  Spine:
+    Player:  pos=(-0.00015,-0.00098,-0.01667)  rot=(274.5,0.0,0.0)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00017,0.01567)  rot=(273.9,0.0,0.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.03237  rotAngle=0.6deg
+  Spine1:
+    Player:  pos=(-0.00015,0.00036,-0.00048)  rot=(275.7,0.0,0.0)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00034,0.01822)  rot=(278.7,0.0,0.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.01870  rotAngle=3.1deg
+  Spine2:
+    Player:  pos=(-0.00015,0.00120,0.00761)  rot=(275.7,0.0,0.0)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00066,0.02030)  rot=(271.2,180.0,180.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.01271  rotAngle=6.9deg
+  Neck:
+    Player:  pos=(-0.00015,0.00212,0.01645)  rot=(305.0,175.4,185.5)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00062,0.02231)  rot=(276.5,185.8,180.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.00605  rotAngle=29.0deg
+  Head:
+    Player:  pos=(-0.00039,-0.00043,0.01993)  rot=(292.0,90.0,180.0)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00041,0.02412)  rot=(270.3,0.0,270.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.00429  rotAngle=22.0deg
+  LeftShoulder:
+    Player:  pos=(-0.00448,0.00217,0.01528)  rot=(19.0,174.0,270.2)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00032,-0.00051,0.02181)  rot=(0.5,1.6,292.1)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.00820  rotAngle=176.3deg
+  LeftArm:
+    Player:  pos=(-0.01309,0.00220,0.01246)  rot=(58.4,179.6,269.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00314,0.00063,0.02178)  rot=(10.8,0.8,278.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.01372  rotAngle=176.5deg
+  LeftForeArm:
+    Player:  pos=(-0.02303,0.00219,-0.00290)  rot=(57.6,178.8,269.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00700,0.00118,0.02104)  rot=(358.0,2.0,269.7)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.02883  rotAngle=177.6deg
+  LeftHand:
+    Player:  pos=(-0.03135,0.00205,-0.01534)  rot=(50.2,177.9,271.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.01093,0.00116,0.02118)  rot=(0.0,0.0,270.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.04185  rotAngle=177.3deg
+  RightShoulder:
+    Player:  pos=(0.00419,0.00217,0.01528)  rot=(19.0,186.0,89.8)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00032,-0.00051,0.02181)  rot=(0.5,358.4,67.9)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.00805  rotAngle=176.3deg
+  RightArm:
+    Player:  pos=(0.01280,0.00220,0.01246)  rot=(58.4,180.4,90.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00314,0.00063,0.02178)  rot=(10.8,359.2,82.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.01351  rotAngle=176.5deg
+  RightForeArm:
+    Player:  pos=(0.02274,0.00219,-0.00290)  rot=(57.6,181.2,90.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00700,0.00118,0.02104)  rot=(358.0,358.0,90.3)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.02867  rotAngle=177.6deg
+  RightHand:
+    Player:  pos=(0.03106,0.00205,-0.01534)  rot=(50.2,182.1,88.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.01093,0.00116,0.02118)  rot=(0.0,0.0,90.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.04171  rotAngle=177.3deg
+  LeftUpLeg:
+    Player:  pos=(-0.00597,-0.00068,-0.01698)  rot=(86.0,166.9,346.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00190,0.00012,0.01393)  rot=(89.8,0.0,0.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.03119  rotAngle=180.0deg
+  LeftLeg:
+    Player:  pos=(-0.00639,0.00112,-0.04246)  rot=(85.7,172.9,352.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00190,0.00015,0.00674)  rot=(82.7,358.8,358.6)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.04941  rotAngle=179.8deg
+  LeftFoot:
+    Player:  pos=(-0.00664,0.00312,-0.06771)  rot=(36.3,0.3,175.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00192,0.00090,0.00088)  rot=(25.5,180.0,180.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.06878  rotAngle=177.6deg
+  RightUpLeg:
+    Player:  pos=(0.00568,-0.00068,-0.01698)  rot=(86.0,193.1,13.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00190,0.00012,0.01393)  rot=(89.8,0.0,0.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.03115  rotAngle=180.0deg
+  RightLeg:
+    Player:  pos=(0.00610,0.00112,-0.04246)  rot=(85.7,187.1,7.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00190,0.00015,0.00674)  rot=(82.7,1.2,1.4)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.04938  rotAngle=179.8deg
+  RightFoot:
+    Player:  pos=(0.00634,0.00312,-0.06771)  rot=(36.3,359.7,184.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00192,0.00090,0.00088)  rot=(25.5,180.0,180.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.06876  rotAngle=177.6deg
+
+--- Charred skeleton hierarchy (parent chain + local transforms) ---
+  Transform chain from root:
+    'Charred_Melee(Clone)' localPos=(83.05, 50.71, -9746.79) localRot=(0.00, 123.76, 0.00) localScale=(0.90, 0.90, 0.90)
+  Armature -> root chain:
+    'Armature' localPos=(0.00, 0.00, 0.00) localRot=(270.02, 0.00, 0.00) localScale=(100.00, 100.00, 100.00) worldScale=(90.00, 90.00, 90.00)
+    'Root' localPos=(0.00, 0.00, 0.00) localRot=(89.98, 0.00, 0.00) localScale=(1.00, 1.00, 1.00) worldScale=(90.00, 90.00, 90.00)
+    'Hips' localPos=(0.00, 0.01, 0.00) localRot=(0.00, 0.00, 0.00) localScale=(1.00, 1.00, 1.00) worldScale=(90.00, 90.00, 90.00)
+    'LeftUpLeg' localPos=(0.00, 0.00, 0.00) localRot=(359.81, 180.00, 180.00) localScale=(1.00, 1.00, 1.00) worldScale=(90.00, 90.00, 90.00)
+    'LeftLeg' localPos=(0.00, 0.01, 0.00) localRot=(7.08, 359.85, 0.15) localScale=(1.00, 1.00, 1.00) worldScale=(90.00, 90.00, 90.00)
+  Per-bone parent chains:
+    Hips: chain=[Visual > TheCharred > Armature > Root > Hips]  localPos=(0.00, 0.01, 0.00)  localRot=(0.00, 0.00, 0.00)  localScale=(1.00, 1.00, 1.00)
+    Spine: chain=[Visual > TheCharred > Armature > Root > Hips > Spine]  localPos=(0.00, 0.00, 0.00)  localRot=(356.08, 0.00, 0.00)  localScale=(1.00, 1.00, 1.00)
+    Spine1: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1]  localPos=(0.00, 0.00, 0.00)  localRot=(355.18, 0.00, 0.00)  localScale=(1.00, 1.00, 1.00)
+    Spine2: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2]  localPos=(0.00, 0.00, 0.00)  localRot=(9.93, 0.00, 0.00)  localScale=(1.00, 1.00, 1.00)
+    Neck: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > Neck]  localPos=(0.00, 0.00, 0.00)  localRot=(5.32, 354.14, 359.45)  localScale=(1.00, 1.00, 1.00)
+    Head: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > Neck > Head]  localPos=(0.00, 0.00, 0.00)  localRot=(0.00, 95.84, 353.46)  localScale=(1.00, 1.00, 1.00)
+    LeftShoulder: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > LeftShoulder]  localPos=(0.00, 0.00, 0.00)  localRot=(271.12, 275.12, 152.80)  localScale=(1.00, 1.00, 1.00)
+    LeftArm: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > LeftShoulder > LeftArm]  localPos=(0.00, 0.00, 0.00)  localRot=(350.25, 358.19, 14.40)  localScale=(1.00, 1.00, 1.00)
+    LeftForeArm: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > LeftShoulder > LeftArm > LeftForeArm]  localPos=(0.00, 0.00, 0.00)  localRot=(13.08, 359.06, 7.90)  localScale=(1.00, 1.00, 1.00)
+    LeftHand: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > LeftShoulder > LeftArm > LeftForeArm > LeftHand]  localPos=(0.00, 0.00, 0.00)  localRot=(358.01, 2.00, 359.75)  localScale=(1.00, 1.00, 1.00)
+    RightShoulder: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > RightShoulder]  localPos=(0.00, 0.00, 0.00)  localRot=(271.12, 84.88, 207.20)  localScale=(1.00, 1.00, 1.00)
+    RightArm: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > RightShoulder > RightArm]  localPos=(0.00, 0.00, 0.00)  localRot=(350.25, 1.81, 345.60)  localScale=(1.00, 1.00, 1.00)
+    RightForeArm: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > RightShoulder > RightArm > RightForeArm]  localPos=(0.00, 0.00, 0.00)  localRot=(13.08, 0.94, 352.10)  localScale=(1.00, 1.00, 1.00)
+    RightHand: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > RightShoulder > RightArm > RightForeArm > RightHand]  localPos=(0.00, 0.00, 0.00)  localRot=(358.01, 358.00, 0.25)  localScale=(1.00, 1.00, 1.00)
+    LeftUpLeg: chain=[Visual > TheCharred > Armature > Root > Hips > LeftUpLeg]  localPos=(0.00, 0.00, 0.00)  localRot=(359.81, 180.00, 180.00)  localScale=(1.00, 1.00, 1.00)
+    LeftLeg: chain=[Visual > TheCharred > Armature > Root > Hips > LeftUpLeg > LeftLeg]  localPos=(0.00, 0.01, 0.00)  localRot=(7.08, 359.85, 0.15)  localScale=(1.00, 1.00, 1.00)
+    LeftFoot: chain=[Visual > TheCharred > Armature > Root > Hips > LeftUpLeg > LeftLeg > LeftFoot]  localPos=(0.00, 0.01, 0.00)  localRot=(288.19, 0.67, 359.45)  localScale=(1.00, 1.00, 1.00)
+    RightUpLeg: chain=[Visual > TheCharred > Armature > Root > Hips > RightUpLeg]  localPos=(0.00, 0.00, 0.00)  localRot=(359.81, 180.00, 180.00)  localScale=(1.00, 1.00, 1.00)
+    RightLeg: chain=[Visual > TheCharred > Armature > Root > Hips > RightUpLeg > RightLeg]  localPos=(0.00, 0.01, 0.00)  localRot=(7.08, 0.15, 359.85)  localScale=(1.00, 1.00, 1.00)
+    RightFoot: chain=[Visual > TheCharred > Armature > Root > Hips > RightUpLeg > RightLeg > RightFoot]  localPos=(0.00, 0.01, 0.00)  localRot=(288.19, 359.33, 0.55)  localScale=(1.00, 1.00, 1.00)
+
+--- Vanilla AttachArmor state (armor SMR as vanilla left it) ---
+  SMR 'Padded_Cuirrass': bones=56, rootBone='Root'
+  SMR transform: localPos=(0.00, 0.00, 0.00), localRot=(270.02, 0.00, 0.00), localScale=(100.00, 100.00, 100.00)
+  SMR localToWorld row0=((-50.02, -74.82, 0.00, 83.05))
+  SMR localToWorld row1=((0.00, 0.00, 90.00, 50.72))
+  SMR localToWorld row2=((-74.82, 50.02, 0.00, -9746.79))
+  SMR localToWorld row3=((0.00, 0.00, 0.00, 1.00))
+  Vanilla bone array (56 entries):
+    [0] 'Root'  worldPos=(83.05, 50.72, -9746.79)
+    [1] 'Hips'  worldPos=(83.04, 51.98, -9746.79)
+    [2] 'Spine'  worldPos=(83.04, 52.13, -9746.79)
+    [3] 'Spine1'  worldPos=(83.03, 52.36, -9746.78)
+    [4] 'Spine2'  worldPos=(83.00, 52.55, -9746.76)
+    [5] 'Neck'  worldPos=(83.01, 52.73, -9746.76)
+    [6] 'Head'  worldPos=(83.02, 52.89, -9746.77)
+    [7] 'Jaw'  worldPos=(83.05, 52.90, -9746.79)
+    [8] 'LeftShoulder'  worldPos=(83.11, 52.68, -9746.80)
+    [9] 'LeftArm'  worldPos=(83.16, 52.68, -9746.53)
+    [10] 'LeftForeArm'  worldPos=(83.32, 52.61, -9746.21)
+    [11] 'LeftHand'  worldPos=(83.51, 52.63, -9745.92)
+    [12] 'LeftHandThumb1'  worldPos=(83.58, 52.62, -9745.91)
+    [13] 'LeftHandThumb2'  worldPos=(83.63, 52.59, -9745.90)
+    [14] 'LeftHandThumb3'  worldPos=(83.66, 52.55, -9745.85)
+    [15] 'LeftHandIndex1'  worldPos=(83.63, 52.64, -9745.82)
+    [16] 'LeftHandIndex2'  worldPos=(83.66, 52.64, -9745.79)
+    [17] 'LeftHandIndex3'  worldPos=(83.67, 52.62, -9745.77)
+    [18] 'LeftHandMiddle1'  worldPos=(83.60, 52.64, -9745.80)
+    [19] 'LeftHandMiddle2'  worldPos=(83.64, 52.64, -9745.76)
+    [20] 'LeftHandMiddle3'  worldPos=(83.65, 52.62, -9745.73)
+    [21] 'LeftHandRing1'  worldPos=(83.57, 52.63, -9745.80)
+    [22] 'LeftHandRing2'  worldPos=(83.59, 52.62, -9745.76)
+    [23] 'LeftHandRing3'  worldPos=(83.61, 52.61, -9745.73)
+    [24] 'LeftHandPinky1'  worldPos=(83.54, 52.61, -9745.81)
+    [25] 'LeftHandPinky2'  worldPos=(83.55, 52.59, -9745.78)
+    [26] 'LeftHandPinky3'  worldPos=(83.56, 52.58, -9745.76)
+    [27] 'Attach.l'  worldPos=(83.57, 52.60, -9745.84)
+    [28] 'RightShoulder'  worldPos=(83.08, 52.68, -9746.84)
+    [29] 'RightArm'  worldPos=(82.85, 52.68, -9747.00)
+    [30] 'RightForeArm'  worldPos=(82.62, 52.61, -9747.26)
+    [31] 'RightHand'  worldPos=(82.42, 52.63, -9747.55)
+    [32] 'RightHandThumb1'  worldPos=(82.44, 52.62, -9747.62)
+    [33] 'RightHandThumb2'  worldPos=(82.45, 52.59, -9747.67)
+    [34] 'RightHandThumb3'  worldPos=(82.42, 52.55, -9747.71)
+    [35] 'RightHandIndex1'  worldPos=(82.38, 52.64, -9747.70)
+    [36] 'RightHandIndex2'  worldPos=(82.35, 52.64, -9747.73)
+    [37] 'RightHandIndex3'  worldPos=(82.34, 52.62, -9747.76)
+    [38] 'RightHandMiddle1'  worldPos=(82.35, 52.64, -9747.68)
+    [39] 'RightHandMiddle2'  worldPos=(82.32, 52.64, -9747.73)
+    [40] 'RightHandMiddle3'  worldPos=(82.30, 52.62, -9747.76)
+    [41] 'RightHandRing1'  worldPos=(82.33, 52.63, -9747.65)
+    [42] 'RightHandRing2'  worldPos=(82.30, 52.62, -9747.69)
+    [43] 'RightHandRing3'  worldPos=(82.29, 52.61, -9747.71)
+    [44] 'RightHandPinky1'  worldPos=(82.33, 52.61, -9747.62)
+    [45] 'RightHandPinky2'  worldPos=(82.30, 52.59, -9747.64)
+    [46] 'RightHandPinky3'  worldPos=(82.29, 52.58, -9747.65)
+    [47] 'Attach.r'  worldPos=(82.37, 52.60, -9747.64)
+    [48] 'LeftUpLeg'  worldPos=(83.14, 51.97, -9746.65)
+    [49] 'LeftLeg'  worldPos=(83.14, 51.33, -9746.65)
+    [50] 'LeftFoot'  worldPos=(83.08, 50.80, -9746.61)
+    [51] 'LeftToeBase'  worldPos=(83.22, 50.72, -9746.70)
+    [52] 'RightUpLeg'  worldPos=(82.95, 51.97, -9746.93)
+  Vanilla mesh bind poses (53 entries, showing diag bones):
+    [1] 'Hips' pos=(-0.00015,-0.00098,-0.01667) rot=(274.5,0.0,0.0)
+    [2] 'Spine' pos=(-0.00015,0.00036,-0.00048) rot=(275.7,0.0,0.0)
+    [3] 'Spine1' pos=(-0.00015,0.00120,0.00761) rot=(275.7,0.0,0.0)
+    [4] 'Spine2' pos=(-0.00015,0.00212,0.01645) rot=(305.0,175.4,185.5)
+    [5] 'Neck' pos=(-0.00039,-0.00043,0.01993) rot=(292.0,90.0,180.0)
+    [6] 'Head' pos=(-0.00039,-0.00470,0.02226) rot=(28.4,180.0,180.0)
+    [8] 'LeftShoulder' pos=(-0.01309,0.00220,0.01246) rot=(58.4,179.6,269.9)
+    [9] 'LeftArm' pos=(-0.02303,0.00219,-0.00290) rot=(57.6,178.8,269.1)
+    [10] 'LeftForeArm' pos=(-0.03135,0.00205,-0.01534) rot=(50.2,177.9,271.9)
+    [11] 'LeftHand' pos=(-0.03237,-0.00076,-0.01752) rot=(43.5,138.1,216.5)
+    [28] 'RightShoulder' pos=(0.02274,0.00219,-0.00290) rot=(57.6,181.2,90.9)
+    [29] 'RightArm' pos=(0.03106,0.00205,-0.01534) rot=(50.2,182.1,88.1)
+    [30] 'RightForeArm' pos=(0.03207,-0.00076,-0.01752) rot=(43.5,221.9,143.5)
+    [31] 'RightHand' pos=(0.03346,-0.00263,-0.01962) rot=(49.8,227.6,121.0)
+    [48] 'LeftUpLeg' pos=(-0.00593,-0.00671,-0.07459) rot=(2.4,351.0,186.7)
+    [49] 'LeftLeg' pos=(0.00568,-0.00068,-0.01698) rot=(86.0,193.1,13.1)
+    [50] 'LeftFoot' pos=(0.00610,0.00112,-0.04246) rot=(85.7,187.1,7.1)
+    [52] 'RightUpLeg' pos=(0.00564,-0.00671,-0.07459) rot=(2.4,9.0,173.3)
+=== END BIND-POSE DIAGNOSTIC DUMP ===
