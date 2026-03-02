@@ -1,73 +1,48 @@
-# Ashlands Reborn - Chat Log
+# Ashlands Reborn - Development Status
 
-A summary of the conversation that led to the plan and key decisions.
+## Current State (2026-03-02)
 
----
+### What Works
+- **Legs (knightlegs)**: Essentially perfect. Uses charred body bind poses with auto-scale correction (`charredBP * scaleMat`).
+- **Cape (ss_storrcape)**: Correct size and shape. Same approach as legs.
+- **Sword (Krom)**: Working. Scale-adjusted rigid attachment.
+- **Helmet**: Working (unconditional swap with refresh logic).
 
-## Summary
+### Chest Armor - Partially Working (knightchest)
+- **Shape**: Well-formed and correctly shaped using the **runtime bind-pose approach** (`bp = bone.worldToLocal * smr.localToWorld * scaleAndShift`).
+- **Position**: Floating at knee level instead of the torso. The Hips-centering shift (`Translate(-hipsMeshPos)`) was added but hasn't fully resolved the vertical offset.
+- **Animation**: Does not correctly track the warrior's skeleton. Arms don't follow warrior movements (sword holding, combat). Breathing motion is exaggerated. The chest follows the warrior's movement loosely like a ragdoll.
 
-Discussion covered the feasibility of modding Valheim to create "Ashlands Reborn"—transforming the Ashlands biome from dark/depressing to beautiful/uplifting while keeping gameplay unchanged. A detailed plan was created and saved as `ASHLANDS_REBORN_PLAN.md`.
+### Why Two Different Bind-Pose Approaches
+- **Legs/Cape**: The charred body's rest-pose bind poses (`charredBP * scaleMat`) work perfectly. The bone orientation differences between player and charred skeletons are manageable for lower-body bones.
+- **Chest**: The same rest-pose approach causes "explosions" (spirals of long triangles). The diagnostic dump shows ~177-degree rotation deltas on arm/shoulder bones between player and charred bind poses. The runtime approach avoids this by using actual bone transforms at the current animation frame, producing correct mesh shape.
 
----
+### Key Diagnostic Findings
+- Player and Charred share the same bone names but have significantly different bone orientations at rest, especially for upper-body bones (LeftShoulder: 176.3 deg delta, LeftArm: 176.5 deg, etc.)
+- Lower-body bones also have ~180 deg deltas but legs still work with charred BPs (likely because the rotation is a clean 180-flip that preserves shape)
+- Upper-body rotations are not clean flips (e.g., 176.3 deg, not 180 deg), causing mesh distortion
+- The Charred skeleton has an extra `Root` bone between `Armature` and `Hips`
+- Armature has localScale=(100,100,100) with character scale 0.9, giving worldScale=90
+- The armor SMR has localRot=(270,0,0) and localScale=(100,100,100)
 
-## Key Q&A
+### Approaches Tried and Failed for Chest
+1. **charredBP * scaleMat** (same as legs): Exploded/spirals
+2. **Scale correction on fallback BPs + all-SMR collection**: Worse (legs/cape also broke)
+3. **Scale-only approach**: Broke everything
+4. **Hybrid (charred translation+scale, player rotation)**: Still exploded
+5. **Rest-pose BPs + coordinate-space correction** (`bodyBP * bodySMR.W2L * armorSMR.L2W * scale`): Swirling armor
+6. **Hips-anchored BPs** (`bodyBP * hipsBP^-1 * Hips.W2L * armorSMR.L2W * scale`): Still spirals
+7. **Runtime BPs** (`bone.W2L * smr.L2W * scale`): Well-formed but at knee level, poor animation tracking <-- CURRENT for chest
+8. **Runtime BPs + Hips shift**: Same as #7 but with Hips centering attempt
 
-### What is Harmony?
+### Next Steps for Chest
+- The runtime approach gives correct shape. The remaining problems are position (vertical offset) and animation tracking.
+- Position: The mesh centers on the SMR origin (feet/Armature level). Need to shift it up to the torso. The Hips-centering shift was a first attempt but the offset may need to account for the coordinate space transformation (the SMR has a 270-degree X rotation and 100x scale).
+- Animation: At the captured frame, animation deltas are zero by definition. As bones animate away from the captured pose, the deltas should accumulate. The poor tracking may be because the Hips shift places vertices at the wrong relative positions to bones, or because the captured frame's bone orientations differ enough from subsequent frames.
+- Alternative: Consider a rigid-attach approach for the chest (bake mesh, parent to Spine2) since knight armor is rigid plate anyway.
 
-Harmony (HarmonyX in BepInEx) is a .NET library that patches game methods at runtime. You use Prefix (runs before) or Postfix (runs after) patches to change behavior without editing the game's compiled code. Example: a Prefix returning `false` can skip the original method entirely (e.g., infinite stamina).
-
-### Can you write the patches?
-
-Yes. I can write the Harmony patches for the Ashlands weather/environment override. I'd need the Valheim install path to reference assemblies and confirm type/method names. I can also search existing mod sources for EnvMan/ZoneSystem usage.
-
-### Can you compile things?
-
-Yes. I can run `dotnet build` or `msbuild` to compile C# projects. I can write the code and run the build; you copy the DLL to BepInEx/plugins and test in-game.
-
-### In-game toggles for the mod?
-
-Yes. Most BepInEx mods use **ConfigurationManager** (often F1 keybind) for in-game config. We can add toggles like: Phase 1 weather override on/off, Phase 2 monster reskins on/off, ground textures on/off, water color on/off. Each would be a `ConfigEntry<bool>` in the plugin.
-
-### Do you save conversations and plans?
-
-- **Plans:** Yes. The plan was saved to the Cursor plans folder and later copied to `ASHLANDS_REBORN_PLAN.md`.
-- **Conversations:** Cursor keeps chat history in the IDE. I don't retain memory across sessions. To continue later: open the plan file and reference it in a new chat with @.
-
----
-
-## Files in This Project
-
-| File | Purpose |
-|------|---------|
-| `ASHLANDS_REBORN_PLAN.md` | Full mod plan (tools, phases, testing, caveats) |
-| `CHAT_LOG.md` | This file—conversation summary |
-| `AshlandsReborn/` | BepInEx plugin: Ashlands weather override (Phase 1) |
-
----
-
-## Current Status (2025-02-15)
-
-**What works**
-- Plugin loads without errors (Harmony patches apply successfully)
-- Switched from NuGet HarmonyX to game’s `0Harmony.dll` in `BepInEx/core` to fix the `PerTypeValues` type initializer exception
-- Config: `EnableWeatherOverride` (default ON)
-- Patch applies to `EnvMan.Update()`; when player is in Ashlands, calls `SetEnv` / `SetEnvironment` via reflection
-
-**What doesn’t (yet)**
-- Weather/environment in Ashlands is not actually changing; the override runs but the game’s visuals are unchanged
-
-**Next steps for next session**
-- ~~Inspect `EnvMan`~~ Done (see below).
-
-**EnvMan investigation (2025-02-16)**
-
-Decompiled `assembly_valheim` and found:
-
-- **SetForceEnvironment(string env)** is the public API. Same as `env` console command and EnvZone. Takes env name (e.g. `"Clear"`).
-- **m_forceEnv** – when set, FixedUpdate uses it instead of biome-selected env.
-- **GetCurrentEnvironment()** returns current EnvSetup; **m_name** is the env name (e.g. `"Clear"`, `"Ashlands_rain"`).
-- **Flow**: `GetEnvironmentOverride()` → `m_debugEnv` or EnvZone; `UpdateEnvironment()` → `QueueEnvironment(name)` → `GetEnv(name)` looks up in `m_environments` by name.
-
-**Fix applied**: Call `SetForceEnvironment("Clear")` when in Ashlands, `SetForceEnvironment("")` when exiting. Use `GetCurrentEnvironment()?.m_name` for logging.
-
-*Generated from chat session*
+### File Overview
+- `AshlandsReborn/Patches/CharredWarriorPatches.cs`: All armor/helmet/sword swap logic, bind-pose computation, diagnostic dump
+- `AshlandsReborn/Plugin.cs`: BepInEx plugin entry, config entries, refresh/revert commands
+- `BIND-POSE DIAGNOSTIC DUMP.txt`: Per-bone comparison of player vs charred bind poses, skeleton hierarchy, vanilla AttachArmor state
+- `ARMOR BONE MAPPING DUMP.txt`: Per-SMR bone mapping between prefab and charred skeleton

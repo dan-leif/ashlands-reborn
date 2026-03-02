@@ -155,30 +155,19 @@ internal static class CharredWarriorPatches
     [HarmonyPrefix]
     private static void SetHelmetItem_Prefix(VisEquipment __instance, ref string name)
     {
-        if (_suppressSwordSwap) return; // Share the suppression flag
+        if (_suppressSwordSwap) return;
         if (!ShouldSwap()) return;
         if (!IsCharredMelee(__instance.gameObject)) return;
 
-        if (_swapLogCount < 20)
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] SetHelmetItem_Prefix for {__instance.gameObject.name}: '{name}'");
-        
-        // Only swap if it's the charred helmet
-        if (!string.Equals(name, CharredHelmetName, StringComparison.OrdinalIgnoreCase)) return;
+        var targetHelmet = Plugin.CharredWarriorHelmetName?.Value ?? HelmetDrakeName;
+        if (string.IsNullOrEmpty(targetHelmet)) return;
 
-        // Ensure the attachment point exists BEFORE the game calls AttachItem in the postfix flow.
-        // On initial spawn, SetHelmetItem is called during initialization, often BEFORE 
-        // our Awake postfix has had a chance to run.
+        // Already the target — nothing to do
+        if (string.Equals(name, targetHelmet, StringComparison.OrdinalIgnoreCase)) return;
+
+        // Ensure the attachment point exists BEFORE the game calls AttachItem.
         EnsureHelmetTransform(__instance);
 
-        // Store original name for revert (only on first swap)
-        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
-                     ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
-        if (string.IsNullOrEmpty(marker.OriginalHelmetItem))
-            marker.OriginalHelmetItem = name;
-
-        // Get configured helmet
-        var targetHelmet = Plugin.CharredWarriorHelmetName?.Value ?? HelmetDrakeName;
-        
         // Safety check: verify prefab exists in ZNetScene
         if (targetHelmet != HelmetDrakeName && ZNetScene.instance != null)
         {
@@ -190,9 +179,15 @@ internal static class CharredWarriorPatches
             }
         }
 
-        name = targetHelmet;
+        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
+                     ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+        if (!marker.HelmetSwapped)
+            marker.OriginalHelmetItem = name;
 
-        if (_swapLogCount < 10)
+        name = targetHelmet;
+        marker.HelmetSwapped = true;
+
+        if (_swapLogCount++ < 10)
             Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred_Melee helmet: '{marker.OriginalHelmetItem}' \u2192 '{name}'");
     }
 
@@ -235,12 +230,13 @@ internal static class CharredWarriorPatches
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
                      ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
-        if (string.IsNullOrEmpty(marker.OriginalChestItem))
+        if (!marker.ChestSwapped)
             marker.OriginalChestItem = name;
 
         name = target;
+        marker.ChestSwapped = true;
         HideBodyVisuals(__instance, true);
-        __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances));
+        __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances, target, Plugin.CharredWarriorChestScale?.Value ?? 1f));
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetLegItem))]
@@ -253,12 +249,13 @@ internal static class CharredWarriorPatches
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
                      ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
-        if (string.IsNullOrEmpty(marker.OriginalLegItem))
+        if (!marker.LegsSwapped)
             marker.OriginalLegItem = name;
 
         name = target;
+        marker.LegsSwapped = true;
         HideBodyVisuals(__instance, true);
-        __instance.StartCoroutine(RemapArmorBones(__instance, FLegItemInstances));
+        __instance.StartCoroutine(RemapArmorBones(__instance, FLegItemInstances, target, Plugin.CharredWarriorLegsScale?.Value ?? 1f));
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetShoulderItem))]
@@ -271,21 +268,420 @@ internal static class CharredWarriorPatches
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
                      ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
-        if (string.IsNullOrEmpty(marker.OriginalShoulderItem))
+        if (!marker.ShoulderSwapped)
             marker.OriginalShoulderItem = name;
 
         name = target;
-        __instance.StartCoroutine(RemapArmorBones(__instance, FShoulderItemInstances));
+        marker.ShoulderSwapped = true;
+        __instance.StartCoroutine(RemapArmorBones(__instance, FShoulderItemInstances, target, Plugin.CharredWarriorCapeScale?.Value ?? 1f));
     }
 
-    private static System.Collections.IEnumerator RemapArmorBones(VisEquipment vis, FieldInfo? instanceField)
+    /// <summary>
+    /// Maps player skeleton bone names to Charred_Melee equivalents where they differ.
+    /// Populated from diagnostic bone dumps. Empty entries mean names match directly.
+    /// </summary>
+    private static readonly Dictionary<string, string> PlayerToCharredBoneMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Will be populated after first diagnostic dump shows mismatched names.
+        // Example: { "PlayerBoneName", "CharredBoneName" }
+    };
+
+    private static bool _armorBoneDumpDone;
+    private static bool _bindPoseDiagDone;
+
+    private static Dictionary<string, Transform> BuildCharredBoneMap(VisEquipment vis)
+    {
+        var map = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
+        if (vis.m_bodyModel != null)
+        {
+            foreach (var bone in vis.m_bodyModel.bones)
+                if (bone != null) map[bone.name] = bone;
+        }
+        void Collect(Transform t)
+        {
+            if (!map.ContainsKey(t.name)) map[t.name] = t;
+            for (var i = 0; i < t.childCount; i++)
+                Collect(t.GetChild(i));
+        }
+        Collect(vis.transform);
+        return map;
+    }
+
+    /// <summary>
+    /// Reads the original bone names from the armor prefab's attach_skin SMRs.
+    /// These are the bone names the mesh was authored for (player skeleton), before
+    /// vanilla AttachArmor overwrites them with the character's m_bodyModel.bones.
+    /// Returns a dict keyed by SMR name -> ordered bone name array.
+    /// </summary>
+    private static Dictionary<string, string[]>? GetPrefabArmorBoneInfo(string armorItemName)
+    {
+        var prefab = ObjectDB.instance?.GetItemPrefab(armorItemName);
+        if (prefab == null) return null;
+
+        var result = new Dictionary<string, string[]>();
+        for (var i = 0; i < prefab.transform.childCount; i++)
+        {
+            var child = prefab.transform.GetChild(i);
+            if (!child.gameObject.name.StartsWith("attach_skin", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var smr in child.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var boneNames = new string[smr.bones.Length];
+                for (var b = 0; b < smr.bones.Length; b++)
+                    boneNames[b] = smr.bones[b] != null ? smr.bones[b].name : "";
+                result[smr.name] = boneNames;
+            }
+        }
+        return result.Count > 0 ? result : null;
+    }
+
+    private static void DumpArmorBoneMapping(string armorItemName, Dictionary<string, string[]> prefabBoneInfo,
+                                              Dictionary<string, Transform> charBoneMap)
+    {
+        if (_armorBoneDumpDone) return;
+        _armorBoneDumpDone = true;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("=== ARMOR BONE MAPPING DUMP ===");
+        sb.AppendLine($"Armor: '{armorItemName}'");
+
+        sb.AppendLine();
+        sb.AppendLine("--- Charred_Melee available bones ---");
+        foreach (var kvp in charBoneMap)
+            sb.AppendLine($"  '{kvp.Key}'");
+
+        foreach (var kvp in prefabBoneInfo)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"--- Armor SMR '{kvp.Key}' expected bones ({kvp.Value.Length}) ---");
+            var missing = 0;
+            for (var i = 0; i < kvp.Value.Length; i++)
+            {
+                var boneName = kvp.Value[i];
+                var found = charBoneMap.ContainsKey(boneName);
+                string? alt = null;
+                var mapped = !found && PlayerToCharredBoneMap.TryGetValue(boneName, out alt) && charBoneMap.ContainsKey(alt!);
+                var status = found ? "OK" : mapped ? $"MAPPED->{alt}" : "MISSING";
+                sb.AppendLine($"  [{i}] '{boneName}' -> {status}");
+                if (!found && !mapped) missing++;
+            }
+            sb.AppendLine($"  Total: {kvp.Value.Length}, Missing: {missing}");
+        }
+
+        sb.AppendLine("=== END ARMOR BONE MAPPING DUMP ===");
+        Plugin.Log?.LogInfo(sb.ToString());
+    }
+
+    private static readonly string[] DiagBones =
+    {
+        "Hips", "Spine", "Spine1", "Spine2", "Neck", "Head",
+        "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand",
+        "RightShoulder", "RightArm", "RightForeArm", "RightHand",
+        "LeftUpLeg", "LeftLeg", "LeftFoot",
+        "RightUpLeg", "RightLeg", "RightFoot"
+    };
+
+    private static void DumpBindPoseDiagnostic(
+        VisEquipment vis,
+        string armorItemName,
+        Dictionary<string, Matrix4x4>? playerBPMap,
+        Dictionary<string, Matrix4x4> charredBPMap,
+        Dictionary<string, Transform> charBoneMap,
+        SkinnedMeshRenderer armorSMR)
+    {
+        if (_bindPoseDiagDone) return;
+        _bindPoseDiagDone = true;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("=== BIND-POSE DIAGNOSTIC DUMP ===");
+        sb.AppendLine($"Armor: '{armorItemName}', SMR: '{armorSMR.name}'");
+        sb.AppendLine($"Charred m_bodyModel: '{vis.m_bodyModel?.name ?? "NULL"}', bones={vis.m_bodyModel?.bones.Length ?? 0}, rootBone='{vis.m_bodyModel?.rootBone?.name ?? "NULL"}'");
+
+        // --- Phase 1: Per-bone bind-pose comparison ---
+        sb.AppendLine();
+        sb.AppendLine("--- Per-bone bind-pose comparison (Player prefab vs Charred body) ---");
+        sb.AppendLine("Format: bone | playerPos | charredPos | posDelta | playerRotEuler | charredRotEuler | rotDelta(deg) | playerScale | charredScale");
+
+        foreach (var boneName in DiagBones)
+        {
+            Matrix4x4 pBP = Matrix4x4.identity, cBP = Matrix4x4.identity;
+            bool hasPlayer = playerBPMap != null && playerBPMap.TryGetValue(boneName, out pBP);
+            bool hasCharred = charredBPMap.TryGetValue(boneName, out cBP);
+
+            if (!hasPlayer && !hasCharred)
+            {
+                sb.AppendLine($"  {boneName}: MISSING from both");
+                continue;
+            }
+
+            var pPos = hasPlayer ? (Vector3)pBP.inverse.GetColumn(3) : Vector3.zero;
+            var cPos = hasCharred ? (Vector3)cBP.inverse.GetColumn(3) : Vector3.zero;
+            var pRot = hasPlayer ? pBP.rotation.eulerAngles : Vector3.zero;
+            var cRot = hasCharred ? cBP.rotation.eulerAngles : Vector3.zero;
+            var pScale = hasPlayer ? pBP.lossyScale : Vector3.one;
+            var cScale = hasCharred ? cBP.lossyScale : Vector3.one;
+
+            float posDelta = (hasPlayer && hasCharred) ? Vector3.Distance(pPos, cPos) : -1;
+            float rotDelta = (hasPlayer && hasCharred) ? Quaternion.Angle(pBP.rotation, cBP.rotation) : -1;
+
+            sb.AppendLine($"  {boneName}:");
+            if (hasPlayer)
+                sb.AppendLine($"    Player:  pos=({pPos.x:F5},{pPos.y:F5},{pPos.z:F5})  rot=({pRot.x:F1},{pRot.y:F1},{pRot.z:F1})  scale=({pScale.x:F4},{pScale.y:F4},{pScale.z:F4})");
+            else
+                sb.AppendLine($"    Player:  MISSING");
+            if (hasCharred)
+                sb.AppendLine($"    Charred: pos=({cPos.x:F5},{cPos.y:F5},{cPos.z:F5})  rot=({cRot.x:F1},{cRot.y:F1},{cRot.z:F1})  scale=({cScale.x:F4},{cScale.y:F4},{cScale.z:F4})");
+            else
+                sb.AppendLine($"    Charred: MISSING");
+            if (hasPlayer && hasCharred)
+                sb.AppendLine($"    Delta:   posDist={posDelta:F5}  rotAngle={rotDelta:F1}deg");
+        }
+
+        // --- Phase 2: Charred skeleton hierarchy ---
+        sb.AppendLine();
+        sb.AppendLine("--- Charred skeleton hierarchy (parent chain + local transforms) ---");
+
+        // Root transform chain first
+        sb.AppendLine("  Transform chain from root:");
+        var rootChain = new List<Transform>();
+        var cursor = vis.transform;
+        while (cursor != null) { rootChain.Add(cursor); cursor = cursor.parent; }
+        rootChain.Reverse();
+        foreach (var t in rootChain)
+            sb.AppendLine($"    '{t.name}' localPos={t.localPosition} localRot={t.localEulerAngles} localScale={t.localScale}");
+
+        // Armature/Root chain
+        var armature = FindInChildren(vis.transform, "Armature");
+        if (armature != null)
+        {
+            sb.AppendLine($"  Armature -> root chain:");
+            var ac = armature;
+            for (int depth = 0; depth < 5 && ac != null; depth++)
+            {
+                sb.AppendLine($"    '{ac.name}' localPos={ac.localPosition} localRot={ac.localEulerAngles} localScale={ac.localScale} worldScale={ac.lossyScale}");
+                ac = ac.childCount > 0 ? ac.GetChild(0) : null;
+            }
+        }
+
+        // Per diagnostic bone: parent chain + local transform
+        sb.AppendLine("  Per-bone parent chains:");
+        foreach (var boneName in DiagBones)
+        {
+            if (!charBoneMap.TryGetValue(boneName, out var bone)) continue;
+            var chain = new List<string>();
+            var p = bone;
+            while (p != null && p != vis.transform)
+            {
+                chain.Add(p.name);
+                p = p.parent;
+            }
+            chain.Reverse();
+            sb.AppendLine($"    {boneName}: chain=[{string.Join(" > ", chain)}]  localPos={bone.localPosition}  localRot={bone.localEulerAngles}  localScale={bone.localScale}");
+        }
+
+        // --- Phase 4: Vanilla AttachArmor state (BEFORE our remap) ---
+        sb.AppendLine();
+        sb.AppendLine("--- Vanilla AttachArmor state (armor SMR as vanilla left it) ---");
+        sb.AppendLine($"  SMR '{armorSMR.name}': bones={armorSMR.bones.Length}, rootBone='{armorSMR.rootBone?.name ?? "NULL"}'");
+        sb.AppendLine($"  SMR transform: localPos={armorSMR.transform.localPosition}, localRot={armorSMR.transform.localEulerAngles}, localScale={armorSMR.transform.localScale}");
+        sb.AppendLine($"  SMR localToWorld row0=({armorSMR.transform.localToWorldMatrix.GetRow(0)})");
+        sb.AppendLine($"  SMR localToWorld row1=({armorSMR.transform.localToWorldMatrix.GetRow(1)})");
+        sb.AppendLine($"  SMR localToWorld row2=({armorSMR.transform.localToWorldMatrix.GetRow(2)})");
+        sb.AppendLine($"  SMR localToWorld row3=({armorSMR.transform.localToWorldMatrix.GetRow(3)})");
+
+        sb.AppendLine($"  Vanilla bone array ({armorSMR.bones.Length} entries):");
+        for (int i = 0; i < armorSMR.bones.Length && i < 53; i++)
+        {
+            var b = armorSMR.bones[i];
+            sb.AppendLine($"    [{i}] '{b?.name ?? "NULL"}'  worldPos={b?.position.ToString() ?? "N/A"}");
+        }
+
+        var vanillaBPs = armorSMR.sharedMesh?.bindposes;
+        if (vanillaBPs != null)
+        {
+            sb.AppendLine($"  Vanilla mesh bind poses ({vanillaBPs.Length} entries, showing diag bones):");
+            for (int i = 0; i < armorSMR.bones.Length && i < vanillaBPs.Length; i++)
+            {
+                var b = armorSMR.bones[i];
+                if (b == null) continue;
+                bool isDiag = Array.IndexOf(DiagBones, b.name) >= 0;
+                if (!isDiag) continue;
+                var bp = vanillaBPs[i];
+                var pos = (Vector3)bp.inverse.GetColumn(3);
+                var rot = bp.rotation.eulerAngles;
+                sb.AppendLine($"    [{i}] '{b.name}' pos=({pos.x:F5},{pos.y:F5},{pos.z:F5}) rot=({rot.x:F1},{rot.y:F1},{rot.z:F1})");
+            }
+        }
+
+        sb.AppendLine("=== END BIND-POSE DIAGNOSTIC DUMP ===");
+        Plugin.Log?.LogInfo(sb.ToString());
+    }
+
+    /// <summary>
+    /// Returns the original (prefab) mesh for a given armor item's SMR by name.
+    /// Used to avoid scale stacking when cloning meshes for bind-pose scaling.
+    /// </summary>
+    private static Mesh? GetPrefabArmorMesh(string armorItemName, string smrName)
+    {
+        var prefab = ObjectDB.instance?.GetItemPrefab(armorItemName);
+        if (prefab == null) return null;
+
+        Mesh? fallback = null;
+        for (var i = 0; i < prefab.transform.childCount; i++)
+        {
+            var child = prefab.transform.GetChild(i);
+            if (!child.gameObject.name.StartsWith("attach_skin", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var smr in child.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (string.Equals(smr.name, smrName, StringComparison.OrdinalIgnoreCase))
+                    return smr.sharedMesh;
+                fallback ??= smr.sharedMesh;
+            }
+        }
+        return fallback;
+    }
+
+    /// <summary>
+    /// Returns bone-name -> bind-pose matrix from the armor prefab's original SMR.
+    /// These are the PLAYER's bind poses before vanilla overwrites the bone array.
+    /// </summary>
+    private static Dictionary<string, Matrix4x4>? GetPrefabArmorBindPoses(string armorItemName, string smrName)
+    {
+        var prefab = ObjectDB.instance?.GetItemPrefab(armorItemName);
+        if (prefab == null) return null;
+
+        SkinnedMeshRenderer? target = null;
+        SkinnedMeshRenderer? fallback = null;
+
+        for (var i = 0; i < prefab.transform.childCount; i++)
+        {
+            var child = prefab.transform.GetChild(i);
+            if (!child.gameObject.name.StartsWith("attach_skin", StringComparison.OrdinalIgnoreCase))
+                continue;
+            foreach (var smr in child.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (string.Equals(smr.name, smrName, StringComparison.OrdinalIgnoreCase))
+                { target = smr; break; }
+                fallback ??= smr;
+            }
+            if (target != null) break;
+        }
+
+        var use = target ?? fallback;
+        if (use == null) return null;
+
+        var bones = use.bones;
+        var bps = use.sharedMesh.bindposes;
+        var map = new Dictionary<string, Matrix4x4>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < bones.Length && i < bps.Length; i++)
+            if (bones[i] != null) map[bones[i].name] = bps[i];
+        return map.Count > 0 ? map : null;
+    }
+
+    /// <summary>
+    /// Returns bone-name -> bind-pose matrix from the Charred's body model.
+    /// These encode how the Charred's mesh was authored relative to its skeleton.
+    /// </summary>
+    private static Dictionary<string, Matrix4x4> BuildCharredBindPoseMap(VisEquipment vis)
+    {
+        var map = new Dictionary<string, Matrix4x4>(StringComparer.OrdinalIgnoreCase);
+
+        // Collect from m_bodyModel first (primary source)
+        if (vis.m_bodyModel != null && vis.m_bodyModel.sharedMesh != null)
+        {
+            var bones = vis.m_bodyModel.bones;
+            var bps = vis.m_bodyModel.sharedMesh.bindposes;
+            for (int i = 0; i < bones.Length && i < bps.Length; i++)
+                if (bones[i] != null) map[bones[i].name] = bps[i];
+        }
+
+        // Collect from native Charred SMRs only (Eyes, Sinew, Skull) — NOT from armor
+        // SMRs (under attach_skin nodes) which may have player or already-remapped bind poses.
+        foreach (var smr in vis.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            if (smr == null || smr == vis.m_bodyModel || smr.sharedMesh == null) continue;
+            if (IsUnderAttachSkin(smr.transform)) continue;
+            var bones = smr.bones;
+            var bps = smr.sharedMesh.bindposes;
+            for (int i = 0; i < bones.Length && i < bps.Length; i++)
+                if (bones[i] != null && !map.ContainsKey(bones[i].name))
+                    map[bones[i].name] = bps[i];
+        }
+
+        return map;
+    }
+
+    private static bool IsUnderAttachSkin(Transform t)
+    {
+        var parent = t.parent;
+        while (parent != null)
+        {
+            if (parent.name.StartsWith("attach_skin", StringComparison.OrdinalIgnoreCase) ||
+                parent.name.StartsWith("attach(", StringComparison.OrdinalIgnoreCase))
+                return true;
+            parent = parent.parent;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Computes the scale correction factor needed when replacing player bind poses
+    /// with Charred bind poses. The Charred may be modeled at a different internal
+    /// scale (e.g. 0.1x with a 10x root transform to compensate). Player mesh
+    /// vertices are at the player's internal scale and must be shrunk to match.
+    ///
+    /// Returns charredDist / playerDist — post-multiply onto bind poses:
+    ///   correctedBP = charredBP * Scale(correction)
+    /// </summary>
+    private static float ComputeBindPoseScaleCorrection(
+        Dictionary<string, Matrix4x4> playerBPMap,
+        Dictionary<string, Matrix4x4> charredBPMap)
+    {
+        if (!playerBPMap.TryGetValue("Hips", out var pHipsBP) ||
+            !playerBPMap.TryGetValue("Head", out var pHeadBP) ||
+            !charredBPMap.TryGetValue("Hips", out var cHipsBP) ||
+            !charredBPMap.TryGetValue("Head", out var cHeadBP))
+        {
+            Plugin.Log?.LogWarning("[Ashlands Reborn] Could not find Hips/Head in both skeletons for auto-scale. Using 1.0.");
+            return 1f;
+        }
+
+        Vector3 pHipsPos = pHipsBP.inverse.GetColumn(3);
+        Vector3 pHeadPos = pHeadBP.inverse.GetColumn(3);
+        Vector3 cHipsPos = cHipsBP.inverse.GetColumn(3);
+        Vector3 cHeadPos = cHeadBP.inverse.GetColumn(3);
+
+        float playerDist = Vector3.Distance(pHipsPos, pHeadPos);
+        float charredDist = Vector3.Distance(cHipsPos, cHeadPos);
+
+        if (playerDist < 0.001f || charredDist < 0.001f)
+        {
+            Plugin.Log?.LogWarning($"[Ashlands Reborn] Degenerate spine distance: player={playerDist:F4} charred={charredDist:F4}. Using 1.0.");
+            return 1f;
+        }
+
+        float correction = charredDist / playerDist;
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Auto-scale correction: playerSpine={playerDist:F4}, charredSpine={charredDist:F4}, ratio={correction:F4}");
+        return correction;
+    }
+
+    private static System.Collections.IEnumerator RemapArmorBones(
+        VisEquipment vis, FieldInfo? instanceField, string armorItemName, float userScale)
     {
         var marker = vis.GetComponent<AshlandsRebornCharredSwapped>();
         if (marker == null) yield break;
 
-        // Wait for armor instantiation
+        // Yield one frame so vanilla UpdateEquipmentVisuals can process the item
+        // change (destroy old instances, create new ones via AttachArmor). Without
+        // this, the coroutine picks up stale instances from before the swap.
+        yield return null;
+
+        // Wait for new armor instances to appear
         List<GameObject>? instances = null;
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 30; i++)
         {
             if (vis == null) yield break;
             instances = instanceField?.GetValue(vis) as List<GameObject>;
@@ -295,48 +691,184 @@ internal static class CharredWarriorPatches
 
         if (instances == null || instances.Count == 0 || vis == null) yield break;
 
-        // Source of Truth: the character's main body model
         var bodySMR = vis.m_bodyModel;
         if (bodySMR == null) yield break;
 
-        var bodyBones = bodySMR.bones;
         var bodyRoot = bodySMR.rootBone;
+
+        // Name -> Transform map for the Charred's full hierarchy
+        var charBoneMap = BuildCharredBoneMap(vis);
+
+        // Bone-name -> bone-name array per SMR (for logging / bone-array ordering)
+        var prefabBoneInfo = GetPrefabArmorBoneInfo(armorItemName);
+        if (prefabBoneInfo == null)
+        {
+            Plugin.Log?.LogWarning($"[Ashlands Reborn] Could not read bone info from armor prefab '{armorItemName}'. Armor remap skipped.");
+            yield break;
+        }
+
+        DumpArmorBoneMapping(armorItemName, prefabBoneInfo, charBoneMap);
+
+        // Charred bind poses from all SMRs (keyed by bone name)
+        var charredBPMap = BuildCharredBindPoseMap(vis);
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred bind-pose map: {charredBPMap.Count} bones from all SMRs for '{armorItemName}'");
+
+        // --- Diagnostic dump (fires once) for chest debugging ---
+        if (!_bindPoseDiagDone)
+        {
+            var playerBPMapDiag = GetPrefabArmorBindPoses(armorItemName, "");
+            SkinnedMeshRenderer? firstSMR = null;
+            foreach (var go in instances)
+            {
+                if (go == null) continue;
+                firstSMR = go.GetComponentInChildren<SkinnedMeshRenderer>(true);
+                if (firstSMR != null) break;
+            }
+            if (firstSMR != null)
+                DumpBindPoseDiagnostic(vis, armorItemName, playerBPMapDiag, charredBPMap, charBoneMap, firstSMR);
+        }
+
+        var shoulderRot = Plugin.CharredWarriorShoulderRotation?.Value ?? 0f;
 
         foreach (var armorGo in instances)
         {
             if (armorGo == null) continue;
-
-            // Guard: skip if this instance is already remapped
             if (marker.RemappedInstances.Contains(armorGo.GetInstanceID())) continue;
 
-            var smrs = armorGo.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-            foreach (var originalSMR in smrs)
+            // --- Hide LowerCloth (belt/loincloth) on ANY renderer type ---
+            foreach (var renderer in armorGo.GetComponentsInChildren<Renderer>(true))
             {
-                if (originalSMR == null) continue;
+                if (string.Equals(renderer.gameObject.name, "LowerCloth", StringComparison.OrdinalIgnoreCase))
+                    renderer.enabled = false;
+            }
 
-                // --- MESH TRANSFER TECHNIQUE ---
-                // Instead of remapping the armor's SMR (which might have incompatible bindposes), 
-                // we create a NEW SMR on the character that uses the character's exact rig structure.
-                
-                var syncedObj = new GameObject($"SyncedArmor_{originalSMR.name}");
-                syncedObj.transform.SetParent(vis.transform, false);
-                syncedObj.transform.localPosition = Vector3.zero;
-                syncedObj.transform.localRotation = Quaternion.identity;
+            var smrs = armorGo.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            foreach (var smr in smrs)
+            {
+                if (smr == null) continue;
 
-                var newSMR = syncedObj.AddComponent<SkinnedMeshRenderer>();
-                newSMR.sharedMesh = originalSMR.sharedMesh;
-                newSMR.sharedMaterials = originalSMR.sharedMaterials;
-                newSMR.bones = bodyBones; // Use Warrior's direct bone array
-                newSMR.rootBone = bodyRoot;
-                newSMR.updateWhenOffscreen = true;
-                
-                // Keep track for cleanup
-                marker.SyncedObjects.Add(syncedObj);
+                if (string.Equals(smr.gameObject.name, "LowerCloth", StringComparison.OrdinalIgnoreCase))
+                    continue;
 
-                // Hide the original part of the armor prefab
-                originalSMR.enabled = false;
-                
-                Plugin.Log?.LogInfo($"[Ashlands Reborn] Mesh Transfer Sync: Created {syncedObj.name} for {vis.gameObject.name}");
+                string[]? prefabBoneNames = null;
+                if (prefabBoneInfo.TryGetValue(smr.name, out var names))
+                    prefabBoneNames = names;
+                else if (prefabBoneInfo.Count == 1)
+                {
+                    foreach (var v in prefabBoneInfo.Values) { prefabBoneNames = v; break; }
+                }
+
+                if (prefabBoneNames == null || prefabBoneNames.Length == 0)
+                {
+                    Plugin.Log?.LogWarning($"[Ashlands Reborn] No prefab bone info for SMR '{smr.name}' in '{armorItemName}'. Skipping.");
+                    continue;
+                }
+
+                // --- Player's original bind poses for scale computation ---
+                var playerBPMap = GetPrefabArmorBindPoses(armorItemName, smr.name);
+
+                // --- Auto-compute scale correction ---
+                float autoCorrection = 1f;
+                if (playerBPMap != null)
+                    autoCorrection = ComputeBindPoseScaleCorrection(playerBPMap, charredBPMap);
+                float totalScale = autoCorrection * userScale;
+                var scaleMat = Matrix4x4.Scale(Vector3.one * totalScale);
+
+                // --- Build bone array FIRST (needed for runtime bind pose computation) ---
+                var newBones = new Transform[prefabBoneNames.Length];
+                var missingCount = 0;
+                for (int i = 0; i < prefabBoneNames.Length; i++)
+                {
+                    var boneName = prefabBoneNames[i];
+                    if (charBoneMap.TryGetValue(boneName, out var t))
+                        newBones[i] = t;
+                    else if (PlayerToCharredBoneMap.TryGetValue(boneName, out var mapped) && charBoneMap.TryGetValue(mapped, out t))
+                        newBones[i] = t;
+                    else
+                    {
+                        newBones[i] = bodyRoot!;
+                        missingCount++;
+                    }
+                }
+
+                // --- Clone mesh from prefab (prevents stacking) and compute bind poses ---
+                var prefabMesh = GetPrefabArmorMesh(armorItemName, smr.name);
+                var baseMesh = prefabMesh ?? smr.sharedMesh;
+                var newMesh = UObject.Instantiate(baseMesh);
+                var originalBPs = newMesh.bindposes;
+                var newBPs = new Matrix4x4[originalBPs.Length];
+
+                bool isChest = (instanceField == FChestItemInstances);
+
+                if (isChest)
+                {
+                    // Runtime bind poses for chest: compute from actual bone transforms.
+                    // Rest-pose BPs cause spirals because Charred arm/shoulder rest
+                    // orientations differ ~177 deg from runtime orientations.
+                    // Shift mesh so Hips region is at origin (torso, not feet).
+                    Vector3 hipsMeshPos = Vector3.zero;
+                    if (playerBPMap != null && playerBPMap.TryGetValue("Hips", out var hpBP))
+                        hipsMeshPos = (Vector3)hpBP.inverse.GetColumn(3);
+
+                    var scaleAndShift = scaleMat * Matrix4x4.Translate(-hipsMeshPos);
+                    var smrL2W = smr.transform.localToWorldMatrix;
+
+                    for (int i = 0; i < prefabBoneNames.Length && i < originalBPs.Length; i++)
+                        newBPs[i] = newBones[i].worldToLocalMatrix * smrL2W * scaleAndShift;
+                    for (int i = prefabBoneNames.Length; i < originalBPs.Length; i++)
+                        newBPs[i] = originalBPs[i] * scaleMat;
+                }
+                else
+                {
+                    // Charred body bind poses + scale for legs/cape (proven working).
+                    for (int i = 0; i < prefabBoneNames.Length && i < originalBPs.Length; i++)
+                    {
+                        var boneName = prefabBoneNames[i];
+                        Matrix4x4 cBP;
+                        if (charredBPMap.TryGetValue(boneName, out cBP) ||
+                            (PlayerToCharredBoneMap.TryGetValue(boneName, out var mapped) &&
+                             charredBPMap.TryGetValue(mapped, out cBP)))
+                        {
+                            newBPs[i] = cBP * scaleMat;
+                        }
+                        else
+                        {
+                            newBPs[i] = originalBPs[i] * scaleMat;
+                        }
+                    }
+                    for (int i = prefabBoneNames.Length; i < originalBPs.Length; i++)
+                        newBPs[i] = originalBPs[i] * scaleMat;
+                }
+
+                newMesh.bindposes = newBPs;
+                smr.sharedMesh = newMesh;
+
+                // --- SHOULDER ROTATION WRAPPERS ---
+                if (Math.Abs(shoulderRot) > 0.01f)
+                {
+                    for (int i = 0; i < prefabBoneNames.Length; i++)
+                    {
+                        var bn = prefabBoneNames[i];
+                        if (string.Equals(bn, "LeftShoulder", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(bn, "RightShoulder", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var wrapper = new GameObject($"ShoulderAdjust_{bn}");
+                            wrapper.transform.SetParent(newBones[i], false);
+                            wrapper.transform.localRotation = Quaternion.Euler(0, 0, shoulderRot);
+                            newBones[i] = wrapper.transform;
+                            marker.SyncedObjects.Add(wrapper);
+                        }
+                    }
+                }
+
+                smr.bones = newBones;
+                if (bodyRoot != null)
+                    smr.rootBone = bodyRoot;
+
+                if (missingCount > 0)
+                    Plugin.Log?.LogWarning($"[Ashlands Reborn] Armor '{armorItemName}' SMR '{smr.name}': {missingCount}/{prefabBoneNames.Length} bones missing. autoScale={autoCorrection:F4}, userScale={userScale:F2}");
+                else
+                    Plugin.Log?.LogInfo($"[Ashlands Reborn] Armor bind-pose remap (runtime): {smr.name} on {vis.gameObject.name} ({prefabBoneNames.Length} BPs, autoScale={autoCorrection:F4}, userScale={userScale:F2})");
             }
 
             marker.RemappedInstances.Add(armorGo.GetInstanceID());
@@ -484,17 +1016,29 @@ internal static class CharredWarriorPatches
                     if (!string.IsNullOrEmpty(marker.OriginalRightItem))
                         vis.SetRightItem(marker.OriginalRightItem);
                     
-                    if (!string.IsNullOrEmpty(marker.OriginalHelmetItem))
+                    if (marker.HelmetSwapped)
+                    {
+                        FHelmetItem?.SetValue(vis, "_revert");
                         vis.SetHelmetItem(marker.OriginalHelmetItem);
+                    }
 
-                    if (!string.IsNullOrEmpty(marker.OriginalChestItem))
+                    if (marker.ChestSwapped)
+                    {
+                        FChestItem?.SetValue(vis, "_revert");
                         vis.SetChestItem(marker.OriginalChestItem);
+                    }
 
-                    if (!string.IsNullOrEmpty(marker.OriginalLegItem))
+                    if (marker.LegsSwapped)
+                    {
+                        FLegItem?.SetValue(vis, "_revert");
                         vis.SetLegItem(marker.OriginalLegItem);
+                    }
 
-                    if (!string.IsNullOrEmpty(marker.OriginalShoulderItem))
+                    if (marker.ShoulderSwapped)
+                    {
+                        FShoulderItem?.SetValue(vis, "_revert");
                         vis.SetShoulderItem(marker.OriginalShoulderItem, 0);
+                    }
 
                     HideBodyVisuals(vis, false);
                 }
@@ -548,52 +1092,57 @@ internal static class CharredWarriorPatches
             }
 
             // --- Helmet refresh ---
-            var triggerHelmet = marker?.OriginalHelmetItem ?? "";
-            if (string.IsNullOrEmpty(triggerHelmet))
+            var helmetTarget = Plugin.CharredWarriorHelmetName?.Value ?? HelmetDrakeName;
+            if (!string.IsNullOrEmpty(helmetTarget))
             {
-                var cur = FHelmetItem?.GetValue(vis) as string ?? "";
-                if (string.Equals(cur, CharredHelmetName, StringComparison.OrdinalIgnoreCase))
-                    triggerHelmet = cur;
-            }
-            if (!string.IsNullOrEmpty(triggerHelmet))
-            {
-                if (marker != null) marker.OriginalHelmetItem = "";
+                var triggerHelmet = marker?.OriginalHelmetItem ?? "";
+                if (string.IsNullOrEmpty(triggerHelmet))
+                    triggerHelmet = FHelmetItem?.GetValue(vis) as string ?? "";
+                if (string.IsNullOrEmpty(triggerHelmet)) triggerHelmet = "_none";
+
+                if (marker != null) { marker.OriginalHelmetItem = ""; marker.HelmetSwapped = false; }
                 FHelmetItem?.SetValue(vis, "");
                 vis.SetHelmetItem(triggerHelmet);
             }
 
             // --- Chest refresh ---
-            var triggerChest = marker?.OriginalChestItem ?? "";
-            if (string.IsNullOrEmpty(triggerChest))
-                triggerChest = FChestItem?.GetValue(vis) as string ?? "";
-            
-            if (!string.IsNullOrEmpty(triggerChest))
+            var chestTarget = Plugin.CharredWarriorChestName?.Value ?? "";
+            if (!string.IsNullOrEmpty(chestTarget))
             {
-                if (marker != null) marker.OriginalChestItem = "";
+                var triggerChest = marker?.OriginalChestItem ?? "";
+                if (string.IsNullOrEmpty(triggerChest))
+                    triggerChest = FChestItem?.GetValue(vis) as string ?? "";
+                if (string.IsNullOrEmpty(triggerChest)) triggerChest = "_none";
+
+                if (marker != null) { marker.OriginalChestItem = ""; marker.ChestSwapped = false; }
                 FChestItem?.SetValue(vis, "");
                 vis.SetChestItem(triggerChest);
             }
 
             // --- Legs refresh ---
-            var triggerLegs = marker?.OriginalLegItem ?? "";
-            if (string.IsNullOrEmpty(triggerLegs))
-                triggerLegs = FLegItem?.GetValue(vis) as string ?? "";
-
-            if (!string.IsNullOrEmpty(triggerLegs))
+            var legsTarget = Plugin.CharredWarriorLegsName?.Value ?? "";
+            if (!string.IsNullOrEmpty(legsTarget))
             {
-                if (marker != null) marker.OriginalLegItem = "";
+                var triggerLegs = marker?.OriginalLegItem ?? "";
+                if (string.IsNullOrEmpty(triggerLegs))
+                    triggerLegs = FLegItem?.GetValue(vis) as string ?? "";
+                if (string.IsNullOrEmpty(triggerLegs)) triggerLegs = "_none";
+
+                if (marker != null) { marker.OriginalLegItem = ""; marker.LegsSwapped = false; }
                 FLegItem?.SetValue(vis, "");
                 vis.SetLegItem(triggerLegs);
             }
 
             // --- Shoulder refresh ---
-            var triggerShoulder = marker?.OriginalShoulderItem ?? "";
-            if (string.IsNullOrEmpty(triggerShoulder))
-                triggerShoulder = FShoulderItem?.GetValue(vis) as string ?? "";
-
-            if (!string.IsNullOrEmpty(triggerShoulder))
+            var shoulderTarget = Plugin.CharredWarriorShoulderName?.Value ?? "";
+            if (!string.IsNullOrEmpty(shoulderTarget))
             {
-                if (marker != null) marker.OriginalShoulderItem = "";
+                var triggerShoulder = marker?.OriginalShoulderItem ?? "";
+                if (string.IsNullOrEmpty(triggerShoulder))
+                    triggerShoulder = FShoulderItem?.GetValue(vis) as string ?? "";
+                if (string.IsNullOrEmpty(triggerShoulder)) triggerShoulder = "_none";
+
+                if (marker != null) { marker.OriginalShoulderItem = ""; marker.ShoulderSwapped = false; }
                 FShoulderItem?.SetValue(vis, "");
                 vis.SetShoulderItem(triggerShoulder, 0);
             }
@@ -624,6 +1173,9 @@ internal static class CharredWarriorPatches
 
                 EnsureHelmetTransform(vis);
             }
+
+            if (ShouldSwap())
+                __instance.StartCoroutine(ForceEquipAfterSpawn(__instance));
         }
 
         // Discovery dump fires only once per session
@@ -632,6 +1184,73 @@ internal static class CharredWarriorPatches
 
         _dumpDone = true;
         DumpCharredWarrior(__instance, prefabName);
+    }
+
+    /// <summary>
+    /// Waits for a Charred_Melee to finish its initial equip phase, then force-equips
+    /// any missing armor slots. This ensures ALL Charred get the custom armor, not
+    /// just those that randomly spawned with equipment in those slots.
+    /// </summary>
+    private static System.Collections.IEnumerator ForceEquipAfterSpawn(Humanoid humanoid)
+    {
+        // Wait for random equip to settle (game needs several frames after Awake)
+        for (int i = 0; i < 10; i++) yield return null;
+
+        if (humanoid == null || !ShouldSwap()) yield break;
+
+        var vis = humanoid.GetComponent<VisEquipment>();
+        if (vis == null) yield break;
+
+        var marker = vis.GetComponent<AshlandsRebornCharredSwapped>()
+                     ?? vis.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+
+        // Helmet
+        var helmetTarget = Plugin.CharredWarriorHelmetName?.Value ?? HelmetDrakeName;
+        if (!string.IsNullOrEmpty(helmetTarget) && !marker.HelmetSwapped)
+        {
+            var curHelmet = FHelmetItem?.GetValue(vis) as string ?? "";
+            if (!string.Equals(curHelmet, helmetTarget, StringComparison.OrdinalIgnoreCase))
+            {
+                FHelmetItem?.SetValue(vis, "");
+                vis.SetHelmetItem(curHelmet);
+            }
+        }
+
+        // Chest
+        var chestTarget = Plugin.CharredWarriorChestName?.Value ?? "";
+        if (!string.IsNullOrEmpty(chestTarget) && !marker.ChestSwapped)
+        {
+            var curChest = FChestItem?.GetValue(vis) as string ?? "";
+            if (!string.Equals(curChest, chestTarget, StringComparison.OrdinalIgnoreCase))
+            {
+                FChestItem?.SetValue(vis, "");
+                vis.SetChestItem(curChest);
+            }
+        }
+
+        // Legs
+        var legsTarget = Plugin.CharredWarriorLegsName?.Value ?? "";
+        if (!string.IsNullOrEmpty(legsTarget) && !marker.LegsSwapped)
+        {
+            var curLegs = FLegItem?.GetValue(vis) as string ?? "";
+            if (!string.Equals(curLegs, legsTarget, StringComparison.OrdinalIgnoreCase))
+            {
+                FLegItem?.SetValue(vis, "");
+                vis.SetLegItem(curLegs);
+            }
+        }
+
+        // Shoulder/Cape
+        var shoulderTarget = Plugin.CharredWarriorShoulderName?.Value ?? "";
+        if (!string.IsNullOrEmpty(shoulderTarget) && !marker.ShoulderSwapped)
+        {
+            var curShoulder = FShoulderItem?.GetValue(vis) as string ?? "";
+            if (!string.Equals(curShoulder, shoulderTarget, StringComparison.OrdinalIgnoreCase))
+            {
+                FShoulderItem?.SetValue(vis, "");
+                vis.SetShoulderItem(curShoulder, 0);
+            }
+        }
     }
 
     private static void FindGameObjectByPrefabName(Transform root, string prefabName, List<GameObject> results)
@@ -790,6 +1409,10 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public string OriginalChestItem = "";
     public string OriginalLegItem = "";
     public string OriginalShoulderItem = "";
+    public bool HelmetSwapped;
+    public bool ChestSwapped;
+    public bool LegsSwapped;
+    public bool ShoulderSwapped;
     public List<int> RemappedInstances = new();
     public List<GameObject> SyncedObjects = new();
 
