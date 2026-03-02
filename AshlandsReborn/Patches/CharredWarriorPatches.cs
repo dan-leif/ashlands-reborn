@@ -52,7 +52,7 @@ internal static class CharredWarriorPatches
     private static int  _swapLogCount;
     private static bool _dumpDone;
 
-    // Sword swap active when master switch + EnableCharredWarriorSwap are on
+    // Swap active when master switch + EnableCharredWarriorSwap are on
     private static bool ShouldSwap() =>
         (Plugin.MasterSwitch?.Value ?? false) &&
         (Plugin.EnableCharredWarriorSwap?.Value ?? false);
@@ -69,12 +69,13 @@ internal static class CharredWarriorPatches
     private static bool IsCharredMelee(GameObject go) =>
         GetPrefabName(go) == CharredMeleePrefab;
 
-    private static Transform? FindInChildren(Transform parent, string name)
+    private static Transform? FindInChildren(Transform parent, string name, Transform? skip = null)
     {
-        if (parent.name == name) return parent;
+        if (parent == skip) return null;
+        if (parent.name.Equals(name, StringComparison.OrdinalIgnoreCase)) return parent;
         for (var i = 0; i < parent.childCount; i++)
         {
-            var found = FindInChildren(parent.GetChild(i), name);
+            var found = FindInChildren(parent.GetChild(i), name, skip);
             if (found != null) return found;
         }
         return null;
@@ -279,10 +280,10 @@ internal static class CharredWarriorPatches
 
     private static System.Collections.IEnumerator RemapArmorBones(VisEquipment vis, FieldInfo? instanceField)
     {
-        var fieldName = instanceField?.Name ?? "null";
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] RemapArmorBones started for {vis.gameObject.name}, field: {fieldName}");
+        var marker = vis.GetComponent<AshlandsRebornCharredSwapped>();
+        if (marker == null) yield break;
 
-        // Wait for the game to actually instantiate the armor GameObjects
+        // Wait for armor instantiation
         List<GameObject>? instances = null;
         for (int i = 0; i < 20; i++)
         {
@@ -292,68 +293,83 @@ internal static class CharredWarriorPatches
             yield return null;
         }
 
-        if (instances == null || instances.Count == 0)
-        {
-            Plugin.Log?.LogWarning($"[Ashlands Reborn] RemapArmorBones: Armor instances not found after 20 frames for {vis.gameObject.name} ({fieldName})");
-            yield break;
-        }
+        if (instances == null || instances.Count == 0 || vis == null) yield break;
+
+        // Source of Truth: the character's main body model
+        var bodySMR = vis.m_bodyModel;
+        if (bodySMR == null) yield break;
+
+        var bodyBones = bodySMR.bones;
+        var bodyRoot = bodySMR.rootBone;
 
         foreach (var armorGo in instances)
         {
             if (armorGo == null) continue;
 
+            // Guard: skip if this instance is already remapped
+            if (marker.RemappedInstances.Contains(armorGo.GetInstanceID())) continue;
+
             var smrs = armorGo.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] RemapArmorBones: Found {smrs.Length} SMRs on {armorGo.name}");
-
-            if (smrs.Length == 0) continue;
-
-            var root = vis.transform;
-            
-            foreach (var smr in smrs)
+            foreach (var originalSMR in smrs)
             {
-                var newBones = new Transform[smr.bones.Length];
-                int remappedCount = 0;
-                int fallbackCount = 0;
+                if (originalSMR == null) continue;
 
-                for (int i = 0; i < smr.bones.Length; i++)
-                {
-                    var originalBone = smr.bones[i];
-                    if (originalBone == null) continue;
-
-                    var targetBone = FindInChildren(root, originalBone.name);
-                    if (targetBone != null)
-                    {
-                        newBones[i] = targetBone;
-                        remappedCount++;
-                    }
-                    else
-                    {
-                        newBones[i] = root;
-                        fallbackCount++;
-                    }
-                }
-                smr.bones = newBones;
+                // --- MESH TRANSFER TECHNIQUE ---
+                // Instead of remapping the armor's SMR (which might have incompatible bindposes), 
+                // we create a NEW SMR on the character that uses the character's exact rig structure.
                 
-                if (smr.rootBone != null)
-                {
-                    var newRoot = FindInChildren(root, smr.rootBone.name);
-                    if (newRoot != null) smr.rootBone = newRoot;
-                }
+                var syncedObj = new GameObject($"SyncedArmor_{originalSMR.name}");
+                syncedObj.transform.SetParent(vis.transform, false);
+                syncedObj.transform.localPosition = Vector3.zero;
+                syncedObj.transform.localRotation = Quaternion.identity;
 
-                Plugin.Log?.LogInfo($"[Ashlands Reborn] Remapped SMR '{smr.name}': {remappedCount} mapped, {fallbackCount} fallbacks to root.");
+                var newSMR = syncedObj.AddComponent<SkinnedMeshRenderer>();
+                newSMR.sharedMesh = originalSMR.sharedMesh;
+                newSMR.sharedMaterials = originalSMR.sharedMaterials;
+                newSMR.bones = bodyBones; // Use Warrior's direct bone array
+                newSMR.rootBone = bodyRoot;
+                newSMR.updateWhenOffscreen = true;
+                
+                // Keep track for cleanup
+                marker.SyncedObjects.Add(syncedObj);
+
+                // Hide the original part of the armor prefab
+                originalSMR.enabled = false;
+                
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] Mesh Transfer Sync: Created {syncedObj.name} for {vis.gameObject.name}");
             }
+
+            marker.RemappedInstances.Add(armorGo.GetInstanceID());
         }
+    }
+
+    private static void CleanupSyncedArmor(VisEquipment vis)
+    {
+        var marker = vis.GetComponent<AshlandsRebornCharredSwapped>();
+        if (marker == null) return;
+        
+        foreach (var obj in marker.SyncedObjects)
+        {
+            if (obj != null) UObject.Destroy(obj);
+        }
+        marker.SyncedObjects.Clear();
+        marker.RemappedInstances.Clear();
     }
 
     private static void HideBodyVisuals(VisEquipment vis, bool hide)
     {
-        // Charred_Melee_Vis is the main body mesh. 
-        // When wearing full knight armor, we usually want to hide the skeletal body to prevent clipping.
-        var body = FindInChildren(vis.transform, "Charred_Melee_Vis");
-        if (body != null)
+        // Charred_Melee is composed of several meshes.
+        // According to logs: "Body", "Eyes", "Sinew", "Skull"
+        string[] bodyParts = { "Body", "Eyes", "Sinew", "Skull", "Charred_Melee_Vis" };
+        
+        foreach (var partName in bodyParts)
         {
-            var renderer = body.GetComponent<Renderer>();
-            if (renderer != null) renderer.enabled = !hide;
+            var part = FindInChildren(vis.transform, partName);
+            if (part != null)
+            {
+                var renderer = part.GetComponent<Renderer>();
+                if (renderer != null) renderer.enabled = !hide;
+            }
         }
     }
 
@@ -464,6 +480,7 @@ internal static class CharredWarriorPatches
                 var vis = marker.GetComponent<VisEquipment>();
                 if (vis != null)
                 {
+                    CleanupSyncedArmor(vis);
                     if (!string.IsNullOrEmpty(marker.OriginalRightItem))
                         vis.SetRightItem(marker.OriginalRightItem);
                     
@@ -512,6 +529,7 @@ internal static class CharredWarriorPatches
             if (vis == null) continue;
 
             var marker = humanoid.GetComponent<AshlandsRebornCharredSwapped>();
+            if (marker != null) CleanupSyncedArmor(vis);
 
             // --- Sword refresh ---
             marker = humanoid.GetComponent<AshlandsRebornCharredSwapped>();
@@ -772,6 +790,8 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public string OriginalChestItem = "";
     public string OriginalLegItem = "";
     public string OriginalShoulderItem = "";
+    public List<int> RemappedInstances = new();
+    public List<GameObject> SyncedObjects = new();
 
     /// <summary>True when we've scaled the Krom weapon (avoids re-scaling every frame).</summary>
     public bool KromScaled;
