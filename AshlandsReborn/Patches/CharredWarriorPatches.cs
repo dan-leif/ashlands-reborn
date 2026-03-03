@@ -805,18 +805,78 @@ internal static class CharredWarriorPatches
                     // Runtime bind poses for chest: compute from actual bone transforms.
                     // Rest-pose BPs cause spirals because Charred arm/shoulder rest
                     // orientations differ ~177 deg from runtime orientations.
-                    // Shift mesh so Hips region is at origin (torso, not feet).
-                    Vector3 hipsMeshPos = Vector3.zero;
-                    if (playerBPMap != null && playerBPMap.TryGetValue("Hips", out var hpBP))
-                        hipsMeshPos = (Vector3)hpBP.inverse.GetColumn(3);
+                    //
+                    // History:
+                    //   "chest-formed-at-feet" (v0): hipsMeshPos from player prefab BP.
+                    //     Shift was ~(0,0,-0.02) — nearly zero — mesh appeared at feet.
+                    //   v1 "chest disappeared": world-space shift inserted after smrL2W.
+                    //     All bones got the same constant BP, mesh collapsed to a point.
+                    //   v2: InverseTransformPoint(hipsWorldPos) → also ~zero because SMR
+                    //     origin is already near the Hips bone in world space.
+                    //   v3 (current): use charredBPMap["Hips"].inverse to get the Hips
+                    //     bone's position in mesh/bind-pose space. This is the offset
+                    //     needed to shift vertices so the torso sits at the mesh origin.
+                    //
+                    // Formula: BP[i] = bone[i].W2L * smrL2W * scaleMat * Translate(-hipsBPMeshPos)
 
-                    var scaleAndShift = scaleMat * Matrix4x4.Translate(-hipsMeshPos);
                     var smrL2W = smr.transform.localToWorldMatrix;
+
+                    // --- Diagnostic: compare all candidate shift sources ---
+                    Vector3 hipsMeshPosPlayer = Vector3.zero;
+                    if (playerBPMap != null && playerBPMap.TryGetValue("Hips", out var hpBPPlayer))
+                        hipsMeshPosPlayer = (Vector3)hpBPPlayer.inverse.GetColumn(3);
+
+                    Vector3 hipsBPMeshPos = Vector3.zero; // Hips pos in Charred mesh/bind-pose space
+                    if (charredBPMap.TryGetValue("Hips", out var cHipsBP))
+                        hipsBPMeshPos = (Vector3)cHipsBP.inverse.GetColumn(3);
+
+                    Transform? hipsBoneTr = null;
+                    charBoneMap.TryGetValue("Hips", out hipsBoneTr);
+                    Vector3 hipsWorldPos = hipsBoneTr != null ? hipsBoneTr.position : Vector3.zero;
+                    Vector3 hipsLocalPos = smr.transform.InverseTransformPoint(hipsWorldPos);
+
+                    // Spine2 bind-pose pos for reference
+                    Vector3 spine2BPMeshPos = Vector3.zero;
+                    if (charredBPMap.TryGetValue("Spine2", out var cSpine2BP))
+                        spine2BPMeshPos = (Vector3)cSpine2BP.inverse.GetColumn(3);
+
+                    Plugin.Log?.LogInfo(
+                        $"[Ashlands Reborn] Chest BP diag v3 | SMR='{smr.name}'" +
+                        $"\n  hipsMeshPosPlayer  (player prefab BP inverse.pos)   = {hipsMeshPosPlayer}" +
+                        $"\n  hipsBPMeshPos      (charred BP inverse.pos for Hips) = {hipsBPMeshPos}" +
+                        $"\n  spine2BPMeshPos    (charred BP inverse.pos Spine2)   = {spine2BPMeshPos}" +
+                        $"\n  hipsWorldPos       (Hips bone world pos)             = {hipsWorldPos}" +
+                        $"\n  hipsLocalPos       (Hips via InverseTransformPoint)  = {hipsLocalPos}" +
+                        $"\n  smrL2W.pos         (SMR origin world)                = {(Vector3)smrL2W.GetColumn(3)}" +
+                        $"\n  scaleMat           (autoCorr*userScale)              = {totalScale:F4}" +
+                        $"\n  SMR localPos={smr.transform.localPosition}  localRot={smr.transform.localEulerAngles}  localScale={smr.transform.localScale}");
+
+                    // Use the Charred skeleton's own Hips bind-pose mesh-space position as the shift.
+                    // The Charred body mesh is authored at its own skeleton's scale, so this correctly
+                    // encodes how far the Hips bone is from the mesh origin in vertex space.
+                    var scaleAndShift = scaleMat * Matrix4x4.Translate(-hipsBPMeshPos);
 
                     for (int i = 0; i < prefabBoneNames.Length && i < originalBPs.Length; i++)
                         newBPs[i] = newBones[i].worldToLocalMatrix * smrL2W * scaleAndShift;
                     for (int i = prefabBoneNames.Length; i < originalBPs.Length; i++)
                         newBPs[i] = originalBPs[i] * scaleMat;
+
+                    // Log the resulting BP for the Hips bone
+                    for (int i = 0; i < prefabBoneNames.Length && i < newBPs.Length; i++)
+                    {
+                        if (string.Equals(prefabBoneNames[i], "Hips", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var bp = newBPs[i];
+                            Plugin.Log?.LogInfo(
+                                $"[Ashlands Reborn] Chest BP diag v3 | Hips newBP[{i}]:" +
+                                $"\n  row0={bp.GetRow(0)}" +
+                                $"\n  row1={bp.GetRow(1)}" +
+                                $"\n  row2={bp.GetRow(2)}" +
+                                $"\n  row3={bp.GetRow(3)}" +
+                                $"\n  inverse.pos={(Vector3)bp.inverse.GetColumn(3)}");
+                            break;
+                        }
+                    }
                 }
                 else
                 {
@@ -841,7 +901,28 @@ internal static class CharredWarriorPatches
                 }
 
                 newMesh.bindposes = newBPs;
+
+                if (isChest)
+                {
+                    // Recalculate mesh bounds so Unity doesn't frustum-cull the chest.
+                    // When we replace sharedMesh with a cloned+modified mesh, the bounds
+                    // may still reflect the original (pre-remap) vertex positions, causing
+                    // the SMR to be culled when the camera isn't aimed at the feet.
+                    newMesh.RecalculateBounds();
+                    var boundsAfter = newMesh.bounds;
+                    Plugin.Log?.LogInfo(
+                        $"[Ashlands Reborn] Chest bounds | SMR='{smr.name}'" +
+                        $"  newBounds center={boundsAfter.center}  size={boundsAfter.size}");
+                }
+
                 smr.sharedMesh = newMesh;
+
+                if (isChest)
+                {
+                    // Defeat frustum culling while we diagnose position.
+                    // This forces the SMR to render regardless of camera angle.
+                    smr.updateWhenOffscreen = true;
+                }
 
                 // --- SHOULDER ROTATION WRAPPERS ---
                 if (Math.Abs(shoulderRot) > 0.01f)
