@@ -46,7 +46,8 @@
   <ItemGroup Condition="!Exists('$(GamePath)\BepInEx\core\BepInEx.dll') and Exists('$(LibDir)\assembly_valheim.dll')">
     <Reference Include="assembly_valheim" HintPath="$(LibDir)\assembly_valheim.dll" Private="False" />
   </ItemGroup>
-  <ItemGroup>
+  <!-- NuGet UnityEngine only as last resort when neither game path nor Lib has the assemblies -->
+  <ItemGroup Condition="!Exists('$(GamePath)\BepInEx\core\BepInEx.dll') and !Exists('$(LibDir)\Assembly-CSharp.dll')">
     <PackageReference Include="UnityEngine" Version="5.6.1" />
   </ItemGroup>
 
@@ -59,6 +60,28 @@
   <Target Name="CopyToProfile" AfterTargets="Build">
     <MakeDir Directories="$(ProfilePluginsPath)\AshlandsReborn" />
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(ProfilePluginsPath)\AshlandsReborn" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!--
+    Create a Thunderstore-compatible zip for local import into r2modman.
+    Only runs when icon.png exists alongside this project file.
+    Import the zip into r2modman once via: profile → ⋮ → Import local mod.
+    Subsequent builds update the DLL in-place; no re-import needed.
+  -->
+  <Target Name="CreateThunderstorePackage" AfterTargets="Build"
+          Condition="Exists('$(MSBuildThisFileDirectory)icon.png')">
+    <PropertyGroup>
+      <PkgStaging>$(OutputPath)pkg-staging\</PkgStaging>
+      <PkgZip>$(OutputPath)$(AssemblyName).zip</PkgZip>
+    </PropertyGroup>
+    <MakeDir Directories="$(PkgStaging)plugins\$(AssemblyName)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)manifest.json" DestinationFolder="$(PkgStaging)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)README.md"     DestinationFolder="$(PkgStaging)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)icon.png"      DestinationFolder="$(PkgStaging)" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll"         DestinationFolder="$(PkgStaging)plugins\$(AssemblyName)" />
+    <Exec Command="powershell -NoProfile -Command &quot;Remove-Item -LiteralPath '$(PkgZip)' -ErrorAction SilentlyContinue; Compress-Archive -Path '$(PkgStaging)*' -DestinationPath '$(PkgZip)'&quot;" />
+    <RemoveDir Directories="$(PkgStaging)" />
+    <Message Text="Thunderstore package: $(PkgZip)" Importance="High" />
   </Target>
 
 </Project>
