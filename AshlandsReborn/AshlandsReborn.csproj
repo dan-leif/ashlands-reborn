@@ -54,12 +54,18 @@
   <!-- r2modman profile plugins path. Override with: dotnet build -p:ProfilePluginsPath="C:\path\to\profile\BepInEx\plugins" -->
   <PropertyGroup>
     <ProfilePluginsPath Condition="'$(ProfilePluginsPath)' == ''">$(USERPROFILE)\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\plugins</ProfilePluginsPath>
+    <!-- Two levels up from BepInEx\plugins\ -->
+    <ModsYmlPath>$([System.IO.Path]::GetFullPath('$(ProfilePluginsPath)\..\..\mods.yml'))</ModsYmlPath>
   </PropertyGroup>
 
-  <!-- Always copy to profile (r2modman etc.). Override profile: dotnet build -p:ProfilePluginsPath="C:\...\profiles\MyProfile\BepInEx\plugins" -->
+  <!--
+    Copy to r2modman profile, but only when the mod is enabled in mods.yml.
+    If the mod isn't listed yet (pre-import), it deploys by default.
+    Override profile: dotnet build -p:ProfilePluginsPath="C:\...\profiles\MyProfile\BepInEx\plugins"
+  -->
   <Target Name="CopyToProfile" AfterTargets="Build">
     <MakeDir Directories="$(ProfilePluginsPath)\AshlandsReborn" />
-    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(ProfilePluginsPath)\AshlandsReborn" SkipUnchangedFiles="true" />
+    <Exec Command="powershell -NoProfile -Command &quot;$enabled=$true; if(Test-Path '$(ModsYmlPath)'){$inBlock=$false; foreach($l in Get-Content '$(ModsYmlPath)'){if($l -match 'name:\s*Dan Moore-Ashlands Reborn'){$inBlock=$true}; if($inBlock -and $l -match 'enabled:\s*(true|false)'){$enabled=($Matches[1] -eq 'true'); break}; if($inBlock -and $l -match '^-\s'){break}}}; if($enabled){Copy-Item '$(OutputPath)$(AssemblyName).dll' '$(ProfilePluginsPath)\AshlandsReborn\' -Force; Write-Host 'Deployed $(AssemblyName).dll'}else{Write-Host 'Deploy skipped: mod is disabled in r2modman'}&quot;" />
   </Target>
 
   <!--
