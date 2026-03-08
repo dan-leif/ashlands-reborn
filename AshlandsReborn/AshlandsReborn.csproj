@@ -46,25 +46,48 @@
   <ItemGroup Condition="!Exists('$(GamePath)\BepInEx\core\BepInEx.dll') and Exists('$(LibDir)\assembly_valheim.dll')">
     <Reference Include="assembly_valheim" HintPath="$(LibDir)\assembly_valheim.dll" Private="False" />
   </ItemGroup>
-  <ItemGroup>
+  <!-- NuGet UnityEngine only as last resort when neither game path nor Lib has the assemblies -->
+  <ItemGroup Condition="!Exists('$(GamePath)\BepInEx\core\BepInEx.dll') and !Exists('$(LibDir)\Assembly-CSharp.dll')">
     <PackageReference Include="UnityEngine" Version="5.6.1" />
   </ItemGroup>
 
   <!-- r2modman profile plugins path. Override with: dotnet build -p:ProfilePluginsPath="C:\path\to\profile\BepInEx\plugins" -->
   <PropertyGroup>
     <ProfilePluginsPath Condition="'$(ProfilePluginsPath)' == ''">$(USERPROFILE)\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\plugins</ProfilePluginsPath>
+    <!-- Two levels up from BepInEx\plugins\ -->
+    <ModsYmlPath>$([System.IO.Path]::GetFullPath('$(ProfilePluginsPath)\..\..\mods.yml'))</ModsYmlPath>
   </PropertyGroup>
 
-  <!-- Copy built plugin to BepInEx when GamePath has it -->
-  <Target Name="CopyToBepInEx" AfterTargets="Build" Condition="Exists('$(GamePath)\BepInEx\plugins')">
-    <MakeDir Directories="$(GamePath)\BepInEx\plugins\AshlandsReborn" />
-    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(GamePath)\BepInEx\plugins\AshlandsReborn" SkipUnchangedFiles="true" />
-  </Target>
-
-  <!-- Always copy to profile (r2modman etc.). Override profile: dotnet build -p:ProfilePluginsPath="C:\...\profiles\MyProfile\BepInEx\plugins" -->
+  <!--
+    Copy to r2modman profile, but only when the mod is enabled in mods.yml.
+    If the mod isn't listed yet (pre-import), it deploys by default.
+    Override profile: dotnet build -p:ProfilePluginsPath="C:\...\profiles\MyProfile\BepInEx\plugins"
+  -->
   <Target Name="CopyToProfile" AfterTargets="Build">
     <MakeDir Directories="$(ProfilePluginsPath)\AshlandsReborn" />
-    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(ProfilePluginsPath)\AshlandsReborn" SkipUnchangedFiles="true" />
+    <Exec Command="powershell -NoProfile -Command &quot;$enabled=$true; if(Test-Path '$(ModsYmlPath)'){$inBlock=$false; foreach($l in Get-Content '$(ModsYmlPath)'){if($l -match 'name:\s*Dan Moore-Ashlands Reborn'){$inBlock=$true}; if($inBlock -and $l -match 'enabled:\s*(true|false)'){$enabled=($Matches[1] -eq 'true'); break}; if($inBlock -and $l -match '^-\s'){break}}}; if($enabled){Copy-Item '$(OutputPath)$(AssemblyName).dll' '$(ProfilePluginsPath)\AshlandsReborn\' -Force; Write-Host 'Deployed $(AssemblyName).dll'}else{Write-Host 'Deploy skipped: mod is disabled in r2modman'}&quot;" />
+  </Target>
+
+  <!--
+    Create a Thunderstore-compatible zip for local import into r2modman.
+    Only runs when icon.png exists alongside this project file.
+    Import the zip into r2modman once via: profile → ⋮ → Import local mod.
+    Subsequent builds update the DLL in-place; no re-import needed.
+  -->
+  <Target Name="CreateThunderstorePackage" AfterTargets="Build"
+          Condition="Exists('$(MSBuildThisFileDirectory)icon.png')">
+    <PropertyGroup>
+      <PkgStaging>$(OutputPath)pkg-staging\</PkgStaging>
+      <PkgZip>$(OutputPath)$(AssemblyName).zip</PkgZip>
+    </PropertyGroup>
+    <MakeDir Directories="$(PkgStaging)plugins\$(AssemblyName)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)manifest.json" DestinationFolder="$(PkgStaging)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)README.md"     DestinationFolder="$(PkgStaging)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)icon.png"      DestinationFolder="$(PkgStaging)" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll"         DestinationFolder="$(PkgStaging)plugins\$(AssemblyName)" />
+    <Exec Command="powershell -NoProfile -Command &quot;Remove-Item -LiteralPath '$(PkgZip)' -ErrorAction SilentlyContinue; Compress-Archive -Path '$(PkgStaging)*' -DestinationPath '$(PkgZip)'&quot;" />
+    <RemoveDir Directories="$(PkgStaging)" />
+    <Message Text="Thunderstore package: $(PkgZip)" Importance="High" />
   </Target>
 
 </Project>
