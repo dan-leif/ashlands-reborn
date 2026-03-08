@@ -8,7 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Plugin GUID: `com.ashlandsreborn.weather`
 - Target: .NET 4.7.2, `valheim.exe` process
-- BepInEx dependency: 5.4.2333+
+
+**Required mods** (install via r2modman into the "Ashlands Reborn" profile):
+- `denikson-BepInExPack_Valheim` v5.4.2333+ — mod loader
+- `Azumatt-Official_BepInEx_ConfigurationManager` v18.4.1+ — in-game config UI (F1)
+- `southsil-SouthsilArmor` v3.1.8+ — custom armor sets used by CharredWarrior patches
+
+**First-run note for new user accounts**: If SouthsilArmor items are missing in-game and the log shows a `NullReferenceException` in `Localization.SetLanguageFromLocale`, the account has no saved language preference. Fix: launch Valheim via Steam (no mods), go to Options → Language, set English, and exit. Then launch via r2modman normally.
 
 ## Build
 
@@ -17,15 +23,15 @@ cd AshlandsReborn
 dotnet build
 ```
 
-After a successful build, the `.csproj` automatically copies `AshlandsReborn.dll` to:
-1. `{GamePath}\BepInEx\plugins\AshlandsReborn\` (detected via Steam registry)
-2. `%USERPROFILE%\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\plugins\`
+After a successful build, the `.csproj` automatically copies `AshlandsReborn.dll` to the r2modman profile:
+`%USERPROFILE%\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\plugins\`
 
-Override paths at build time:
+Override the profile path at build time:
 ```bash
-dotnet build -p:GamePath="C:\path\to\Valheim"
 dotnet build -p:ProfilePluginsPath="C:\path\to\profile\BepInEx\plugins"
 ```
+
+The game's own `BepInEx\plugins\` folder is intentionally left untouched so vanilla Valheim can run without mods.
 
 If game references are missing, run `CopyRefs.ps1` from the repo root to populate `AshlandsReborn/Lib/` with the required DLLs from your Valheim install.
 
