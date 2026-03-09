@@ -902,19 +902,6 @@ internal static class CharredWarriorPatches
 
                 newMesh.bindposes = newBPs;
 
-                if (isChest)
-                {
-                    // Recalculate mesh bounds so Unity doesn't frustum-cull the chest.
-                    // When we replace sharedMesh with a cloned+modified mesh, the bounds
-                    // may still reflect the original (pre-remap) vertex positions, causing
-                    // the SMR to be culled when the camera isn't aimed at the feet.
-                    newMesh.RecalculateBounds();
-                    var boundsAfter = newMesh.bounds;
-                    Plugin.Log?.LogInfo(
-                        $"[Ashlands Reborn] Chest bounds | SMR='{smr.name}'" +
-                        $"  newBounds center={boundsAfter.center}  size={boundsAfter.size}");
-                }
-
                 smr.sharedMesh = newMesh;
 
                 if (isChest)
