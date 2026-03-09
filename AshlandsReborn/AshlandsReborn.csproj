@@ -64,8 +64,8 @@
     Override profile: dotnet build -p:ProfilePluginsPath="C:\...\profiles\MyProfile\BepInEx\plugins"
   -->
   <Target Name="CopyToProfile" AfterTargets="Build">
-    <MakeDir Directories="$(ProfilePluginsPath)\AshlandsReborn" />
-    <Exec Command="powershell -NoProfile -Command &quot;$enabled=$true; if(Test-Path '$(ModsYmlPath)'){$inBlock=$false; foreach($l in Get-Content '$(ModsYmlPath)'){if($l -match 'name:\s*Dan Moore-Ashlands Reborn'){$inBlock=$true} elseif($inBlock -and $l -match 'enabled:\s*(true|false)'){$enabled=($Matches[1] -eq 'true'); break} elseif($inBlock -and $l -match '^-\s'){break}}}; if($enabled){Copy-Item '$(OutputPath)$(AssemblyName).dll' '$(ProfilePluginsPath)\AshlandsReborn\' -Force; Write-Host 'Deployed $(AssemblyName).dll'}else{Write-Host 'Deploy skipped: mod is disabled in r2modman'}&quot;" />
+    <MakeDir Directories="$(ProfilePluginsPath)\Dan Moore-Ashlands Reborn\AshlandsReborn" />
+    <Exec Command="powershell -NoProfile -Command &quot;$enabled=$true; if(Test-Path '$(ModsYmlPath)'){$inBlock=$false; foreach($l in Get-Content '$(ModsYmlPath)'){if($l -match 'name:\s*Dan Moore-Ashlands Reborn'){$inBlock=$true} elseif($inBlock -and $l -match 'enabled:\s*(true|false)'){$enabled=($Matches[1] -eq 'true'); break} elseif($inBlock -and $l -match '^-\s'){break}}}; if($enabled){Copy-Item '$(OutputPath)$(AssemblyName).dll' '$(ProfilePluginsPath)\Dan Moore-Ashlands Reborn\AshlandsReborn\' -Force; Write-Host 'Deployed $(AssemblyName).dll'}else{Write-Host 'Deploy skipped: mod is disabled in r2modman'}&quot;" />
   </Target>
 
   <!--
