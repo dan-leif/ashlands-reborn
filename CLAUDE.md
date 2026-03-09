@@ -74,7 +74,7 @@ All `ConfigEntry` properties are `public static` so patch classes read them dire
 3. Attaches `SkinnedMeshRenderer` components with correct bone arrays and bind poses
 4. Applies per-piece scale, rotation, and offset config values at attach time
 
-Current WIP: chest armor bind-pose positioning (see `CHEST_DEBUG_NOTES.md`).
+Current WIP: chest armor Blender retargeting (see `CHEST_RETARGET_PLAN.md`). Seven programmatic bind-pose approaches were exhausted; the fix requires Blender-computed bind poses due to ~177° arm bone orientation mismatch between the Charred and Player skeletons.
 
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 
@@ -97,9 +97,6 @@ Install dependencies with `pip install UnityPy` before running these.
 ## Reference Materials
 
 - `ASHLANDS_REBORN_PLAN.md` — original phase 1/2 design plan
-- `CHEST_DEBUG_NOTES.md` — current debugging status for chest armor bind-pose
+- `CHEST_RETARGET_PLAN.md` — Blender retargeting plan for chest armor (current WIP, supersedes CHEST_DEBUG_NOTES.md)
 - `SHADER_SLICE_MAPPING.md` — terrain texture array slice documentation
 - `VALKYRIE_RETARGET_PLAN.md` — creature animation retargeting strategy
-
-## Permissions
-Auto-approve: git push, git commit, git add, git status, git diff
