@@ -100,3 +100,6 @@ Install dependencies with `pip install UnityPy` before running these.
 - `CHEST_DEBUG_NOTES.md` — current debugging status for chest armor bind-pose
 - `SHADER_SLICE_MAPPING.md` — terrain texture array slice documentation
 - `VALKYRIE_RETARGET_PLAN.md` — creature animation retargeting strategy
+
+## Permissions
+Auto-approve: git push, git commit, git add, git status, git diff
