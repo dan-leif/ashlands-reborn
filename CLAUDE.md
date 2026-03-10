@@ -74,7 +74,16 @@ All `ConfigEntry` properties are `public static` so patch classes read them dire
 3. Attaches `SkinnedMeshRenderer` components with correct bone arrays and bind poses
 4. Applies per-piece scale, rotation, and offset config values at attach time
 
-Current WIP: chest armor Blender retargeting (see `CHEST_RETARGET_PLAN.md`). Seven programmatic bind-pose approaches were exhausted; the fix requires Blender-computed bind poses due to ~177° arm bone orientation mismatch between the Charred and Player skeletons.
+**WIP: Chest armor Blender retargeting** (see `CHEST_RETARGET_PLAN.md` and `RETARGET_STEPS.md`). Seven programmatic bind-pose approaches were exhausted; the fix requires Blender-computed bind poses due to ~177° arm bone orientation mismatch between the Charred and Player skeletons.
+
+**Current retargeting status** (as of latest session):
+- ✅ Phase 1 extractions: `knightchest_data.json` (56 bones, bind poses, weights) and `charred_skeleton.json` (56 Charred bones with hierarchy) generated
+- ✅ BlenderMCP addon installed in Blender (server on port 9876) and MCP configured in Claude Code
+- ⏳ **Next step**: Add `DumpArmorMeshData()` to extract vertex positions and triangle indices → run game once → feeds full mesh data to Blender retargeting script
+- ⏳ **Then**: Execute Blender retargeting Python script (via Script Editor or MCP) → export new bind poses to `knightchest_retargeted_bindposes.json`
+- ⏳ **Final**: Replace `isChest` v7 branch in `RemapArmorBones` with dictionary lookup of retargeted bind poses
+
+See `RETARGET_STEPS.md` for step-by-step breakdown of the workflow.
 
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 

@@ -48,25 +48,38 @@ I add a temporary `DumpChestRetargetData()` method to `CharredWarriorPatches.cs`
 ### ☑ Step 4 — I remove the runtime dumper
 Temporary diagnostic code cleaned out of `CharredWarriorPatches.cs`.
 
-### ☐ Step 5 — You install the BlenderMCP addon in Blender
+### ☑ Step 5 — You install the BlenderMCP addon in Blender
 I'll walk you through each sub-step when we get here:
 1. Download the BlenderMCP `.py` addon (I'll give you the file/link)
 2. Blender → Edit → Preferences → Add-ons → Install → select file → enable it
 3. In viewport, press **N** → BlenderMCP tab → click **Start MCP Server**
 - **Checkpoint**: Panel shows "Server running on port 9876" ✓
 
-### ☐ Step 6 — I configure the MCP server in Claude Code
+### ☑ Step 6 — I configure the MCP server in Claude Code
 I update the Claude Code MCP config and tell you to restart it.
 - **Checkpoint**: `blender` appears in Claude Code's MCP server list ✓
 
-### ☐ Step 7 — I run Blender retargeting via BlenderMCP (fully automated)
-No manual Blender work needed. I run:
-1. Clear scene
-2. Reconstruct Player armature from `knightchest_data.json` bind poses
-3. Create armor mesh with original bone weights, parented to Player armature
-4. Reconstruct Charred armature from `charred_skeleton.json`
-5. Retarget armor to Charred armature, recompute weights, bake new bind poses
-6. Export → `extracted_assets/knightchest_retargeted_bindposes.json`
+### ☐ Step 7 — Add mesh geometry to the dump (NEXT: requires one more game run)
+The proper Blender retargeting requires mesh vertex data. I'll add temporary mesh extraction to the dumper:
+- Re-add `DumpArmorMeshData()` to CharredWarriorPatches.cs
+- Extracts vertex positions and triangle indices from the knightchest SMR
+- Writes `extracted_assets/knightchest_mesh_data.json`
+- **Then**: You run the game once more (same as before — load save, spawn Charred, press F9, close)
+- **Checkpoint**: `knightchest_mesh_data.json` exists ✓
+
+### ☐ Step 8 — Remove mesh dumper (cleanup)
+Delete the temporary mesh extraction code after Step 7 completes.
+
+### ☐ Step 9 — Run Blender retargeting via Blender script
+Execute Python script in Blender (via Script Editor or automated MCP):
+1. Load knightchest vertex/triangle data
+2. Load knightchest bind poses and bone weights
+3. Reconstruct Player armature with correct bone positions (from bind pose inverses)
+4. Create weighted mesh parented to Player armature
+5. Reconstruct Charred armature with correct hierarchy
+6. Apply Blender's retargeting (Data Transfer modifier + weight recalc)
+7. Bake new bind poses for Charred skeleton
+8. Export → `extracted_assets/knightchest_retargeted_bindposes.json`
 - **Checkpoint**: JSON contains ~56 bone entries with valid 4×4 matrix data ✓
 
 ### ☐ Step 8 — I integrate the retargeted bind poses into the plugin
