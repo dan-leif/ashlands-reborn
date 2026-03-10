@@ -943,10 +943,19 @@ internal static class CharredWarriorPatches
         // --- RESCUE AND RE-EQUIP ---
         // If the helmet is missing but we now have a valid Head bone, the initial attach likely failed.
         // We trigger a re-equip now that the character is settled.
+        // Root cause of the loop: vanilla SetHelmetItem skips re-attach when m_helmetItem already
+        // equals the target name. Clearing the field first forces vanilla to see it as a new item.
         if (helmetGo == null && head != null && marker != null && !string.IsNullOrEmpty(marker.OriginalHelmetItem))
         {
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] Helmet missing on {vis.gameObject.name} but Head bone is ready. Triggering rescue re-equip.");
-            _suppressSwordSwap = false; // Ensure we don't block the next call
+            if (marker.HelmetRescueCount >= 3)
+            {
+                Plugin.Log?.LogWarning($"[Ashlands Reborn] Helmet rescue gave up after 3 attempts on {vis.gameObject.name}.");
+                yield break;
+            }
+            marker.HelmetRescueCount++;
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Helmet rescue #{marker.HelmetRescueCount} on {vis.gameObject.name}.");
+            FHelmetItem?.SetValue(vis, "");   // force vanilla to treat it as a new item
+            marker.HelmetSwapped = false;     // allow prefix to re-record original
             vis.SetHelmetItem(marker.OriginalHelmetItem);
             yield break; // The new call will start its own coroutine
         }
@@ -1445,6 +1454,9 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
 
     /// <summary>True when we've scaled the helmet (avoids re-scaling every frame).</summary>
     public bool HelmetScaled;
+
+    /// <summary>Counts rescue re-equip attempts; capped to prevent infinite loops.</summary>
+    public int HelmetRescueCount;
 
     /// <summary>
     /// The last helmet instance GameObject we applied transforms to.
