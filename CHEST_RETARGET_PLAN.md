@@ -35,7 +35,12 @@ Both follow the existing UnityPy pattern established in the other 15 scripts.
 
 ---
 
-### Phase 2 — Blender Retargeting via BlenderMCP (Claude-automated)
+### Phase 2 — Blender Retargeting via BlenderMCP (Claude-automated, use **Opus 4.6**)
+
+> Switch model before starting this phase: `/model claude-opus-4-6`
+> The bone transform math and coordinate space reasoning in this phase benefit significantly from Opus.
+> Switch back to Sonnet for Phase 3: `/model claude-sonnet-4-6`
+
 
 **BlenderMCP** lets Claude control Blender directly through an MCP server, automating the entire Phase 2 without any manual Blender work.
 

@@ -1,5 +1,14 @@
 # Chest Armor Retarget — Step-by-Step Walkthrough
 
+## Model Recommendation
+
+| Work type | Model |
+|-----------|-------|
+| C# plugin code (dumper, integration, builds) | Sonnet 4.6 (default) |
+| Blender Python retargeting script, bind pose math, bone transform reasoning | **Opus 4.6** — switch with `/model claude-opus-4-6` before Step 9 |
+
+---
+
 ## Quick Reference
 
 | Step | Who | What |
