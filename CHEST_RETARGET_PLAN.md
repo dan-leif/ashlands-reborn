@@ -136,13 +136,45 @@ if (isChest)
 
 ## Current State of `isChest` Branch
 
-The branch is currently at v7 (`charredBPMap * scaleMat`, no rotation). This is the best programmatic state so far (no explosion for spine bones). It should remain as-is until the Blender bind poses are ready, at which point Phase 3 replaces it entirely.
+✅ **COMPLETED** — Phase 3 implemented. The `isChest` branch now uses dictionary-based bind pose lookup:
 
-## Resuming Next Session
+```csharp
+private static readonly Dictionary<string, Matrix4x4> s_chestRetargetedBPs = new()
+{
+    { "Hips", M4(...) },
+    { "Spine", M4(...) },
+    // ... 51 more bone entries
+};
 
-**First task:** copy this plan to `CHEST_RETARGET_PLAN.md` in the repo root (alongside `CHEST_DEBUG_NOTES.md`), update `CLAUDE.md` to reference it, then start Phase 1 extraction scripts.
+if (isChest)
+{
+    for (int i = 0; i < prefabBoneNames.Length && i < originalBPs.Length; i++)
+    {
+        var boneName = prefabBoneNames[i];
+        newBPs[i] = s_chestRetargetedBPs.TryGetValue(boneName, out var bp)
+            ? bp
+            : originalBPs[i];
+    }
+    for (int i = prefabBoneNames.Length; i < originalBPs.Length; i++)
+        newBPs[i] = originalBPs[i];
+}
+```
 
-**To check BlenderMCP status:** run `claude mcp list` or look for `blender` in the MCP server panel. If missing, follow the setup steps in Phase 2 before proceeding.
+**Current result (v12 hybrid):** Good torso and arms positioned correctly. Arms are somewhat skinny and twisted, but at proper spatial location and animate correctly. Torso is coherent through breathing and combat animations.
+
+**Hybrid approach:** Combines best torso values from v11 (first Blender retargeting run) with arm bone values from v10 (per-bone positional hybrid from second Blender run).
+
+## Session Status
+
+✅ Phase 1 — Extraction scripts completed
+✅ Phase 2 — Blender retargeting completed (two iterations)
+✅ Phase 3 — Plugin integration completed (v12 hybrid deployed)
+
+## Future Improvements
+
+- Arm scale adjustment: Consider applying targeted scale corrections to arm/hand bones to reduce "skinny" appearance while preserving position/orientation
+- Arm twist mitigation: Explore per-bone rotation blending to reduce twisted appearance in fingers/wrists
+- Validation: Full in-game animation testing across all combat moves
 
 ---
 
