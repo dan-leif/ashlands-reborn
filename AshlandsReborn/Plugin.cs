@@ -584,8 +584,10 @@ public class Plugin : BaseUnityPlugin
             if (Input.GetKeyDown(CharredWarriorRefreshKey?.Value ?? KeyCode.F10) && Time.time - _lastCharredRefreshTime >= 1f)
             {
                 _lastCharredRefreshTime = Time.time;
+                // Dump BEFORE refresh — _lastChestSMR is still valid
+                Patches.CharredWarriorPatches.DumpChestMatricesNow();
                 Patches.CharredWarriorPatches.RefreshCharredWarriors();
-                Log.LogInfo("[Ashlands Reborn] Charred Warrior sword and armor refresh triggered");
+                Log.LogInfo("[Ashlands Reborn] Charred Warrior matrix dump + refresh triggered");
             }
         }
 
