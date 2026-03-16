@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using System.Text;
 using HarmonyLib;
@@ -361,6 +362,7 @@ internal static class CharredWarriorPatches
 
     private static bool _armorBoneDumpDone;
     private static bool _bindPoseDiagDone;
+    private static SkinnedMeshRenderer? _lastChestSMR;
 
     private static Dictionary<string, Transform> BuildCharredBoneMap(VisEquipment vis)
     {
@@ -937,6 +939,10 @@ internal static class CharredWarriorPatches
                 if (bodyRoot != null)
                     smr.rootBone = bodyRoot;
 
+                // --- Stash chest SMR reference for on-demand runtime matrix dump ---
+                if (isChest)
+                    _lastChestSMR = smr;
+
                 if (missingCount > 0)
                     Plugin.Log?.LogWarning($"[Ashlands Reborn] Armor '{armorItemName}' SMR '{smr.name}': {missingCount}/{prefabBoneNames.Length} bones missing. autoScale={autoCorrection:F4}, userScale={userScale:F2}");
                 else
@@ -945,6 +951,289 @@ internal static class CharredWarriorPatches
 
             marker.RemappedInstances.Add(armorGo.GetInstanceID());
         }
+    }
+
+    /// <summary>
+    /// Phase 5: Dumps raw Unity runtime matrices for the chest SMR.
+    /// Writes JSON to BepInEx/plugins/chest_runtime_matrices.json.
+    /// Triggered by F9 press (with 2-frame delay for animation update).
+    /// </summary>
+    private static void DumpRuntimeMatrices(SkinnedMeshRenderer smr, string[] boneNames)
+    {
+        try
+        {
+
+            var bones = smr.bones;
+            var mesh = smr.sharedMesh;
+            var bindPoses = mesh.bindposes;
+
+            // Sanity check
+            if (bones.Length != bindPoses.Length)
+                Plugin.Log?.LogWarning($"[RuntimeDump] bones.Length ({bones.Length}) != bindposes.Length ({bindPoses.Length})!");
+
+            // Try to get the prefab mesh for comparison
+            var prefabMesh = GetPrefabArmorMesh("ArmorPaddedCuirass", smr.name);
+            Plugin.Log?.LogInfo($"[RuntimeDump] SMR mesh: name='{mesh.name}', vertexCount={mesh.vertexCount}, isReadable={mesh.isReadable}, subMeshCount={mesh.subMeshCount}");
+            if (prefabMesh != null)
+                Plugin.Log?.LogInfo($"[RuntimeDump] Prefab mesh: name='{prefabMesh.name}', vertexCount={prefabMesh.vertexCount}, isReadable={prefabMesh.isReadable}");
+            else
+                Plugin.Log?.LogInfo("[RuntimeDump] Prefab mesh: null (GetPrefabArmorMesh returned null)");
+
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+
+            // Mesh metadata
+            sb.AppendLine($"  \"mesh_name\": \"{mesh.name}\",");
+            sb.AppendLine($"  \"mesh_vertex_count\": {mesh.vertexCount},");
+            sb.AppendLine($"  \"mesh_is_readable\": {(mesh.isReadable ? "true" : "false")},");
+            if (prefabMesh != null)
+            {
+                sb.AppendLine($"  \"prefab_mesh_name\": \"{prefabMesh.name}\",");
+                sb.AppendLine($"  \"prefab_mesh_vertex_count\": {prefabMesh.vertexCount},");
+                sb.AppendLine($"  \"prefab_mesh_is_readable\": {(prefabMesh.isReadable ? "true" : "false")},");
+            }
+
+            // Dump the PREFAB mesh (actual armor geometry, readable) — full vertices, triangles, bone weights
+            if (prefabMesh != null && prefabMesh.isReadable)
+            {
+                var pVerts = prefabMesh.vertices;
+                var pTris = prefabMesh.triangles;
+                var pBoneNames = new string[0];
+                // Get prefab bone names from prefab SMR
+                {
+                    var pPrefab = ObjectDB.instance?.GetItemPrefab("ArmorPaddedCuirass");
+                    if (pPrefab != null)
+                    {
+                        foreach (Transform child in pPrefab.transform)
+                        {
+                            if (!child.gameObject.name.StartsWith("attach_skin", StringComparison.OrdinalIgnoreCase)) continue;
+                            foreach (var pSmr in child.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                            {
+                                if (pSmr.sharedMesh == prefabMesh)
+                                {
+                                    pBoneNames = new string[pSmr.bones.Length];
+                                    for (int i = 0; i < pSmr.bones.Length; i++)
+                                        pBoneNames[i] = pSmr.bones[i] != null ? pSmr.bones[i].name : "null";
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                sb.AppendLine("  \"prefab_armor_mesh\": {");
+                sb.AppendLine($"    \"vertex_count\": {pVerts.Length},");
+                sb.AppendLine($"    \"triangle_count\": {pTris.Length / 3},");
+                sb.AppendLine($"    \"bone_count\": {pBoneNames.Length},");
+
+                // Bone names
+                sb.Append("    \"bone_names\": [");
+                for (int i = 0; i < pBoneNames.Length; i++)
+                {
+                    sb.Append($"\"{pBoneNames[i]}\"");
+                    if (i < pBoneNames.Length - 1) sb.Append(",");
+                }
+                sb.AppendLine("],");
+
+                // Vertices
+                sb.AppendLine("    \"vertices\": [");
+                for (int i = 0; i < pVerts.Length; i++)
+                {
+                    sb.Append($"      [{pVerts[i].x:G9},{pVerts[i].y:G9},{pVerts[i].z:G9}]");
+                    sb.AppendLine(i < pVerts.Length - 1 ? "," : "");
+                }
+                sb.AppendLine("    ],");
+
+                // Triangles (as triplets)
+                sb.AppendLine("    \"triangles\": [");
+                for (int i = 0; i < pTris.Length; i += 3)
+                {
+                    sb.Append($"      [{pTris[i]},{pTris[i+1]},{pTris[i+2]}]");
+                    sb.AppendLine(i + 3 < pTris.Length ? "," : "");
+                }
+                sb.AppendLine("    ],");
+
+                // Bone weights
+                var pWeights = prefabMesh.boneWeights;
+                sb.AppendLine("    \"boneWeights\": [");
+                for (int i = 0; i < pWeights.Length; i++)
+                {
+                    var w = pWeights[i];
+                    var w0s = w.weight0.ToString("G9"); var w1s = w.weight1.ToString("G9");
+                    var w2s = w.weight2.ToString("G9"); var w3s = w.weight3.ToString("G9");
+                    sb.Append($"      {{\"b0\":{w.boneIndex0},\"w0\":{w0s},\"b1\":{w.boneIndex1},\"w1\":{w1s},\"b2\":{w.boneIndex2},\"w2\":{w2s},\"b3\":{w.boneIndex3},\"w3\":{w3s}}}");
+                    sb.AppendLine(i < pWeights.Length - 1 ? "," : "");
+                }
+                sb.AppendLine("    ],");
+
+                // Bind poses from prefab mesh (original player bind poses)
+                var pBPs = prefabMesh.bindposes;
+                sb.AppendLine("    \"bindposes\": [");
+                for (int i = 0; i < pBPs.Length; i++)
+                {
+                    sb.Append($"      {M4ToJson(pBPs[i])}");
+                    sb.AppendLine(i < pBPs.Length - 1 ? "," : "");
+                }
+                sb.AppendLine("    ]");
+
+                sb.AppendLine("  },");
+            }
+
+            // SMR transform
+            sb.AppendLine("  \"smr_transform\": {");
+            sb.AppendLine($"    \"name\": \"{smr.transform.name}\",");
+            sb.AppendLine($"    \"localToWorldMatrix\": {M4ToJson(smr.transform.localToWorldMatrix)}");
+            sb.AppendLine("  },");
+
+            // Root bone
+            sb.AppendLine("  \"rootBone\": {");
+            sb.AppendLine($"    \"name\": \"{(smr.rootBone != null ? smr.rootBone.name : "null")}\",");
+            sb.AppendLine($"    \"localToWorldMatrix\": {(smr.rootBone != null ? M4ToJson(smr.rootBone.localToWorldMatrix) : "null")}");
+            sb.AppendLine("  },");
+
+            // Bone count / bind pose count
+            sb.AppendLine($"  \"bone_count\": {bones.Length},");
+            sb.AppendLine($"  \"bindpose_count\": {bindPoses.Length},");
+
+            // Bones array: name, localToWorldMatrix
+            sb.AppendLine("  \"bones\": [");
+            for (int i = 0; i < bones.Length; i++)
+            {
+                var bone = bones[i];
+                var name = bone != null ? bone.name : "null";
+                var boneNameFromPrefab = i < boneNames.Length ? boneNames[i] : "?";
+                sb.Append("    { ");
+                sb.Append($"\"index\": {i}, ");
+                sb.Append($"\"name\": \"{name}\", ");
+                sb.Append($"\"prefab_name\": \"{boneNameFromPrefab}\", ");
+                sb.Append($"\"localToWorldMatrix\": {(bone != null ? M4ToJson(bone.localToWorldMatrix) : "null")}");
+                sb.Append(i < bones.Length - 1 ? " },\n" : " }\n");
+            }
+            sb.AppendLine("  ],");
+
+            // Bind poses array (from mesh — these are the v12 values we set)
+            sb.AppendLine("  \"bindposes\": [");
+            for (int i = 0; i < bindPoses.Length; i++)
+            {
+                var boneNameFromPrefab = i < boneNames.Length ? boneNames[i] : "?";
+                sb.Append("    { ");
+                sb.Append($"\"index\": {i}, ");
+                sb.Append($"\"bone_name\": \"{boneNameFromPrefab}\", ");
+                sb.Append($"\"matrix\": {M4ToJson(bindPoses[i])}");
+                sb.Append(i < bindPoses.Length - 1 ? " },\n" : " }\n");
+            }
+            sb.AppendLine("  ],");
+
+            // Dump v12 hardcoded bind poses (from s_chestRetargetedBPs) keyed by bone name
+            sb.AppendLine("  \"v12_bindposes\": [");
+            for (int i = 0; i < bones.Length; i++)
+            {
+                var bn = i < boneNames.Length ? boneNames[i] : "?";
+                var hasV12 = s_chestRetargetedBPs.TryGetValue(bn, out var v12bp);
+                sb.Append("    { ");
+                sb.Append($"\"index\": {i}, ");
+                sb.Append($"\"bone_name\": \"{bn}\", ");
+                sb.Append($"\"has_v12\": {(hasV12 ? "true" : "false")}, ");
+                sb.Append($"\"matrix\": {(hasV12 ? M4ToJson(v12bp) : (i < bindPoses.Length ? M4ToJson(bindPoses[i]) : "null"))}");
+                sb.Append(i < bones.Length - 1 ? " },\n" : " }\n");
+            }
+            sb.AppendLine("  ],");
+
+            // Manual skinning test using hardcoded vertex data from knightchest_mesh_data.json
+            // Tests with BOTH mesh bind poses (Body(Clone) — likely wrong) and v12 hardcoded bind poses
+            {
+                // Build v12 bind pose array indexed by bone position (matching bones[] order)
+                var v12BPs = new Matrix4x4[bones.Length];
+                int v12Hits = 0;
+                for (int i = 0; i < bones.Length; i++)
+                {
+                    var bn = i < boneNames.Length ? boneNames[i] : "";
+                    if (s_chestRetargetedBPs.TryGetValue(bn, out var v12bp))
+                    {
+                        v12BPs[i] = v12bp;
+                        v12Hits++;
+                    }
+                    else
+                    {
+                        v12BPs[i] = i < bindPoses.Length ? bindPoses[i] : Matrix4x4.identity;
+                    }
+                }
+                sb.AppendLine($"  \"v12_bp_matched\": {v12Hits},");
+                sb.AppendLine($"  \"v12_bp_total\": {s_chestRetargetedBPs.Count},");
+
+                // Check if mesh bind poses match v12 values (to detect Body(Clone) overwrite)
+                int bpMatch = 0, bpMismatch = 0;
+                for (int i = 0; i < Math.Min(bindPoses.Length, v12BPs.Length); i++)
+                {
+                    bool match = true;
+                    for (int r = 0; r < 4 && match; r++)
+                        for (int c = 0; c < 4 && match; c++)
+                            if (Math.Abs(bindPoses[i][r, c] - v12BPs[i][r, c]) > 1e-5f)
+                                match = false;
+                    if (match) bpMatch++; else bpMismatch++;
+                }
+                sb.AppendLine($"  \"mesh_vs_v12_match\": {bpMatch},");
+                sb.AppendLine($"  \"mesh_vs_v12_mismatch\": {bpMismatch},");
+
+                var testVerts = new[] {
+                    new { pos = new Vector3(0.108580366f, 0.150748387f, 1.20352566f),
+                          bi = new[]{1,49,2,0}, wt = new[]{0.892056406f, 0.0624691807f, 0.044204291f, 0.00127011503f} },
+                    new { pos = new Vector3(0.167304620f, 0.089224882f, 1.19044089f),
+                          bi = new[]{1,2,49,0}, wt = new[]{0.893103480f, 0.053666711f, 0.053229801f, 0f} },
+                    new { pos = new Vector3(-0.0423966870f, 0.0548427030f, 1.21651220f),
+                          bi = new[]{8,7,3,2}, wt = new[]{0.502074480f, 0.294174800f, 0.161498070f, 0.042252656f} },
+                };
+                sb.AppendLine("  \"skinning_test\": [");
+                for (int ti = 0; ti < testVerts.Length; ti++)
+                {
+                    var tv = testVerts[ti];
+                    // Skin with mesh bind poses (what mesh.bindposes says — may be Body(Clone))
+                    Vector3 skinnedMesh = Vector3.zero;
+                    for (int j = 0; j < 4; j++)
+                    {
+                        if (tv.wt[j] <= 0 || tv.bi[j] >= bones.Length || tv.bi[j] >= bindPoses.Length) continue;
+                        var skinMat = bones[tv.bi[j]].localToWorldMatrix * bindPoses[tv.bi[j]];
+                        skinnedMesh += tv.wt[j] * (Vector3)skinMat.MultiplyPoint3x4(tv.pos);
+                    }
+                    // Skin with v12 hardcoded bind poses (what we actually set in RemapArmorBones)
+                    Vector3 skinnedV12 = Vector3.zero;
+                    for (int j = 0; j < 4; j++)
+                    {
+                        if (tv.wt[j] <= 0 || tv.bi[j] >= bones.Length) continue;
+                        var skinMat = bones[tv.bi[j]].localToWorldMatrix * v12BPs[tv.bi[j]];
+                        skinnedV12 += tv.wt[j] * (Vector3)skinMat.MultiplyPoint3x4(tv.pos);
+                    }
+                    sb.Append($"    {{ \"vertex\": {ti}, ");
+                    sb.Append($"\"original\": [{tv.pos.x:G9},{tv.pos.y:G9},{tv.pos.z:G9}], ");
+                    sb.Append($"\"skinned_mesh_bp\": [{skinnedMesh.x:G9},{skinnedMesh.y:G9},{skinnedMesh.z:G9}], ");
+                    sb.Append($"\"skinned_v12_bp\": [{skinnedV12.x:G9},{skinnedV12.y:G9},{skinnedV12.z:G9}]");
+                    sb.Append(ti < testVerts.Length - 1 ? " },\n" : " }\n");
+                }
+                sb.AppendLine("  ]");
+            }
+
+            sb.AppendLine("}");
+
+            // Write to BepInEx/plugins/ directory (always writable)
+            var pluginsDir = Path.GetDirectoryName(typeof(Plugin).Assembly.Location) ?? ".";
+            var outPath = Path.Combine(pluginsDir, "chest_runtime_matrices.json");
+            File.WriteAllText(outPath, sb.ToString());
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Runtime matrix dump written to: {outPath}");
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Dumped {bones.Length} bones, {bindPoses.Length} bind poses");
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log?.LogError($"[Ashlands Reborn] Runtime matrix dump failed: {ex}");
+        }
+    }
+
+    private static string M4ToJson(Matrix4x4 m)
+    {
+        // Row-major: m.mRC where R=row, C=col — matches Unity's Matrix4x4 layout
+        return $"[{m.m00:G9},{m.m01:G9},{m.m02:G9},{m.m03:G9}," +
+               $"{m.m10:G9},{m.m11:G9},{m.m12:G9},{m.m13:G9}," +
+               $"{m.m20:G9},{m.m21:G9},{m.m22:G9},{m.m23:G9}," +
+               $"{m.m30:G9},{m.m31:G9},{m.m32:G9},{m.m33:G9}]";
     }
 
     private static void CleanupSyncedArmor(VisEquipment vis)
@@ -1138,6 +1427,80 @@ internal static class CharredWarriorPatches
     // -------------------------------------------------------------------------
     // Refresh: re-apply swap to all live Charred_Melee instances
     // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Finds the Padded_Cuirrass SMR on any live Charred_Melee and dumps its matrices.
+    /// Called synchronously BEFORE refresh.
+    /// </summary>
+    internal static void DumpChestMatricesNow()
+    {
+        // Find any Charred_Melee with our armor attached
+        var humanoids = UObject.FindObjectsByType<Humanoid>(FindObjectsSortMode.None);
+        foreach (var humanoid in humanoids)
+        {
+            if (!IsCharredMelee(humanoid.gameObject)) continue;
+            var smrs = humanoid.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] DumpSearch: Charred '{humanoid.gameObject.name}' has {smrs.Length} SMRs");
+            foreach (var smr in smrs)
+            {
+                if (smr == null) continue;
+                var meshName = smr.sharedMesh != null ? smr.sharedMesh.name : "null";
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] DumpSearch:   SMR '{smr.name}', mesh='{meshName}', bones={smr.bones.Length}");
+                if (smr.sharedMesh == null) continue;
+                if (!smr.name.Equals("Padded_Cuirrass", StringComparison.OrdinalIgnoreCase)) continue;
+
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] Found chest SMR: '{smr.name}', mesh='{meshName}', bones={smr.bones.Length}");
+                var bones = smr.bones;
+                var boneNames = new string[bones.Length];
+                for (int i = 0; i < bones.Length; i++)
+                    boneNames[i] = bones[i] != null ? bones[i].name : "null";
+
+                // Try BakeMesh to get the actual rendered vertex positions
+                try
+                {
+                    var bakedMesh = new Mesh();
+                    smr.BakeMesh(bakedMesh);
+                    var bakedVerts = bakedMesh.vertices;
+                    var bakedTris = bakedMesh.triangles;
+                    Plugin.Log?.LogInfo($"[Ashlands Reborn] BakeMesh succeeded: {bakedVerts.Length} verts, {bakedTris.Length/3} tris");
+
+                    // Write baked mesh to separate JSON
+                    var pluginsDir = Path.GetDirectoryName(typeof(Plugin).Assembly.Location) ?? ".";
+                    var bakeSb = new StringBuilder();
+                    bakeSb.AppendLine("{");
+                    bakeSb.AppendLine($"  \"vertex_count\": {bakedVerts.Length},");
+                    bakeSb.AppendLine($"  \"triangle_count\": {bakedTris.Length / 3},");
+                    bakeSb.AppendLine("  \"vertices\": [");
+                    for (int i = 0; i < bakedVerts.Length; i++)
+                    {
+                        bakeSb.Append($"    [{bakedVerts[i].x:G9},{bakedVerts[i].y:G9},{bakedVerts[i].z:G9}]");
+                        bakeSb.AppendLine(i < bakedVerts.Length - 1 ? "," : "");
+                    }
+                    bakeSb.AppendLine("  ],");
+                    bakeSb.AppendLine("  \"triangles\": [");
+                    for (int i = 0; i < bakedTris.Length; i += 3)
+                    {
+                        bakeSb.Append($"    [{bakedTris[i]},{bakedTris[i+1]},{bakedTris[i+2]}]");
+                        bakeSb.AppendLine(i + 3 < bakedTris.Length ? "," : "");
+                    }
+                    bakeSb.AppendLine("  ]");
+                    bakeSb.AppendLine("}");
+                    var bakePath = Path.Combine(pluginsDir, "chest_baked_mesh.json");
+                    File.WriteAllText(bakePath, bakeSb.ToString());
+                    Plugin.Log?.LogInfo($"[Ashlands Reborn] Baked mesh written to: {bakePath}");
+                    UObject.Destroy(bakedMesh);
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Log?.LogWarning($"[Ashlands Reborn] BakeMesh failed: {ex.Message}");
+                }
+
+                DumpRuntimeMatrices(smr, boneNames);
+                return;
+            }
+        }
+        Plugin.Log?.LogWarning("[Ashlands Reborn] No Padded_Cuirrass SMR found on any Charred_Melee for matrix dump.");
+    }
 
     internal static void RefreshCharredWarriors()
     {

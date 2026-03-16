@@ -169,12 +169,100 @@ if (isChest)
 ✅ Phase 1 — Extraction scripts completed
 ✅ Phase 2 — Blender retargeting completed (two iterations)
 ✅ Phase 3 — Plugin integration completed (v12 hybrid deployed)
+✅ Phase 4 — Blender preview scene created for offline visual inspection
+✅ Phase 5, Step 1 — Runtime matrix dump instrumented and captured (`chest_runtime_matrices.json`)
+✅ Phase 5, Step 2 — **Validated simulator built using BakeMesh ground truth** — user confirmed Blender output exactly matches in-game appearance
+⏳ Phase 5, Step 3 — One-bone experiments (NEXT)
+
+## Blender Preview Scene
+
+**File:** `extracted_assets/knightchest_charred_preview.blend`
+
+A persistent Blender scene built via BlenderMCP that allows visual inspection and posing of the chest armor without launching the game:
+
+- **`KnightChest`** mesh — 5,865 vertices / 5,246 faces, bronze/metallic material, loaded from `knightchest_mesh_data.json` in player skeleton T-pose
+- **`CharredArmature`** — 54-bone armature with bones positioned at their vertex-weight centroids (derived directly from bone weight data), ensuring each bone sits at the correct influence location within the mesh
+- **Vertex weights** — all 53 bone vertex groups assigned from game data with up to 4 influences per vertex
+- **Armature modifier** active — enter Pose Mode (`Ctrl+Tab`), select a bone, press `R` to rotate; the mesh deforms in real time
+
+**How bone positions were derived:** Rather than fighting the 5.66× Unity world-scale factor embedded in the bind pose matrices, bone positions were computed as the weighted centroid of all vertices each bone influences. This correctly places each bone inside the region it controls.
+
+**Coordinate system:** Mesh vertices loaded with X negated (`-v[0], v[1], v[2]`) to convert Unity left-handed Z-up to Blender right-handed Z-up.
+
+## v13 Attempts (Failed) — Lessons Learned
+
+Two attempts were made to improve the v12 skinny arms by recomputing bind poses from `charred_skeleton.json` world transforms:
+
+**v13 (full recompute):** Computed `BP[i] = inverse(bone_world[i]) @ meshRoot` for all bones. Failed catastrophically in-game — long shards stretching into the sky. Root cause: bone world matrices built from `charred_skeleton.json` did NOT include the ~5.66× parent game object scale. This caused translation values in the bind poses to be ~100× too large.
+
+**v13_fixed (rotation-only hybrid):** Used v13's 3×3 rotation-scale submatrix with original player translations (near-zero). Looked improved in the Blender simulator but failed in-game with stretched shoulders and distorted arms/fingers. Root cause: the Blender simulator was never validated against known in-game results, so "looks better in Blender" was meaningless.
+
+**Key lesson (from external review):** The simulator must reproduce the known v12 in-game appearance BEFORE it can be trusted to evaluate new candidates. Both v13 attempts skipped this validation step.
+
+## Phase 5 — Runtime Matrix Dump & Validated Simulator
+
+> **Model recommendation:** Use **Opus** (`/model opus`) for this phase — the matrix math and validation logic require careful reasoning.
+
+### Step 1 — ✅ Instrument the game to dump runtime matrices
+
+**Completed.** Added `DumpRuntimeMatrices()` to `CharredWarriorPatches.cs`. Fires automatically on first chest armor apply, writes `chest_runtime_matrices.json` to `BepInEx/plugins/`. Copy saved at `extracted_assets/chest_runtime_matrices.json`.
+
+Add a one-time dump (triggered by F9 or a debug key) that logs the following for the chest SkinnedMeshRenderer after armor is attached:
+
+- `smr.bones[]` array: exact count, exact order, exact names
+- For each bone: `bone.localToWorldMatrix` (full Matrix4x4, not pos/rot decomposition)
+- `smr.transform.localToWorldMatrix` (the renderer's own transform)
+- `smr.rootBone.name` and `smr.rootBone.localToWorldMatrix`
+- `mesh.bindposes[]` array: exact count, exact order
+- Verify: `bones.Length == bindposes.Length` and bone names match bind pose order
+
+Output: JSON file to `BepInEx/plugins/` or game log.
+
+### Step 2 — ✅ Build validated simulator
+
+**Completed.** Validated ground truth captured via `SkinnedMeshRenderer.BakeMesh()`.
+
+**Key discoveries during validation:**
+- `knightchest_mesh_data.json` (5865 verts) is NOT the armor mesh — it's the player **body** mesh from the SouthsilArmor bundle
+- The real armor prefab mesh (`Padded_Cuirrass`) has only **1152 vertices** (thin arm guards + chest plate)
+- Vanilla's `AttachArmor` combines body + armor into `Body(Clone)` (5865 verts, 10 submeshes) — this is what Unity renders
+- Python skinning math was verified to match Unity's C# output within float32 precision (max error 0.0006)
+- Manual skinning with extracted matrices produced chaotic results because the body mesh vertices were authored for Charred skeleton bind poses, not v12 retargeted bind poses
+- **Solution: `BakeMesh()`** captures Unity's own rendered vertex positions directly, bypassing all matrix math
+
+**Ground truth files:**
+- `extracted_assets/chest_baked_mesh.json` — BakeMesh output (5865 verts in SMR local space), convert to Blender with `(-x, -z, y)`
+- `extracted_assets/chest_runtime_matrices.json` — bone L2W, v12 bind poses, prefab armor mesh (1152 verts with vertices/triangles/bone weights/bind poses)
+- `extracted_assets/v12_armor_simulator.blend` — Blender scene with baked mesh visualization
+
+**Validation result:** User confirmed BakeMesh visualization in Blender exactly matches in-game appearance — armored torso with sword-wielding arm raised, good torso shape, thin arms.
+
+### Step 3 — Bind pose experiments (NEXT)
+
+**Workflow for testing bind pose changes:**
+1. Modify bind pose(s) in `s_chestRetargetedBPs` in `CharredWarriorPatches.cs`
+2. `dotnet build` → press F10 in-game → triggers BakeMesh dump
+3. Copy `chest_baked_mesh.json` to `extracted_assets/`
+4. Visualize in Blender via BlenderMCP — convert vertices with `(-x, -z, y)`
+5. Compare against previous BakeMesh ground truth
+
+**Key insight from Step 2:** The combined `Body(Clone)` mesh (5865 verts) contains both Charred body vertices and armor vertices, all skinned with the same v12 bind poses. The body arm vertices were authored for the Charred skeleton's original bind poses — the v12 retargeted arm BPs cause the body's arms to appear thin/twisted. The torso BPs work well because Player and Charred torso orientations are similar.
+
+**Possible approaches:**
+- Blend v12 arm BPs with Charred body arm BPs to find a compromise that works for both body and armor vertices
+- Prevent vanilla mesh combining so body keeps Charred BPs and armor keeps v12 BPs separately
+- Accept thin arms and focus on reducing twist artifacts
+
+### Step 4 — Apply proven improvements
+
+Only apply bind pose changes that have been verified to match between simulator and in-game.
 
 ## Future Improvements
 
 - Arm scale adjustment: Consider applying targeted scale corrections to arm/hand bones to reduce "skinny" appearance while preserving position/orientation
 - Arm twist mitigation: Explore per-bone rotation blending to reduce twisted appearance in fingers/wrists
 - Validation: Full in-game animation testing across all combat moves
+- Blender scene improvement: Could add a Charred Warrior body mesh to the preview scene for full context (blocked on extracting the body mesh)
 
 ---
 
