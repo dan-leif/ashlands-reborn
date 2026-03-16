@@ -248,10 +248,21 @@ Output: JSON file to `BepInEx/plugins/` or game log.
 
 **Key insight from Step 2:** The combined `Body(Clone)` mesh (5865 verts) contains both Charred body vertices and armor vertices, all skinned with the same v12 bind poses. The body arm vertices were authored for the Charred skeleton's original bind poses — the v12 retargeted arm BPs cause the body's arms to appear thin/twisted. The torso BPs work well because Player and Charred torso orientations are similar.
 
+**Blender comparison scene:** `extracted_assets/v12_armor_simulator.blend`
+- Left object (`BakedMesh_GroundTruth`): current v12 in-game appearance captured via BakeMesh (animated pose)
+- Right object (`Reference_RestPose`): rest-pose body+armor mesh from `knightchest_mesh_data.json` showing target arm proportions
+- The reference clearly shows fuller, properly proportioned arms vs v12's thin/distorted arms
+
 **Possible approaches:**
 - Blend v12 arm BPs with Charred body arm BPs to find a compromise that works for both body and armor vertices
 - Prevent vanilla mesh combining so body keeps Charred BPs and armor keeps v12 BPs separately
 - Accept thin arms and focus on reducing twist artifacts
+
+**Iteration workflow:**
+1. Modify bind poses in `s_chestRetargetedBPs` dictionary in `CharredWarriorPatches.cs`
+2. `dotnet build` → press F10 in-game → captures `chest_baked_mesh.json` via BakeMesh
+3. Copy JSON to `extracted_assets/`, load in Blender, compare against reference rest-pose mesh
+4. Repeat until arms match reference proportions
 
 ### Step 4 — Apply proven improvements
 
