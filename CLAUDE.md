@@ -74,16 +74,15 @@ All `ConfigEntry` properties are `public static` so patch classes read them dire
 3. Attaches `SkinnedMeshRenderer` components with correct bone arrays and bind poses
 4. Applies per-piece scale, rotation, and offset config values at attach time
 
-**WIP: Chest armor Blender retargeting** (see `CHEST_RETARGET_PLAN.md` and `RETARGET_STEPS.md`). Seven programmatic bind-pose approaches were exhausted; the fix requires Blender-computed bind poses due to ~177° arm bone orientation mismatch between the Charred and Player skeletons.
+**Chest armor Blender retargeting** (see `CHEST_RETARGET_PLAN.md`). Seven programmatic bind-pose approaches were exhausted; the fix required Blender-computed bind poses due to ~177° arm bone orientation mismatch between the Charred and Player skeletons.
 
-**Current retargeting status** (as of latest session):
-- ✅ Phase 1 extractions: `knightchest_data.json` (56 bones, bind poses, weights) and `charred_skeleton.json` (56 Charred bones with hierarchy) generated
-- ✅ BlenderMCP addon installed in Blender (server on port 9876) and MCP configured in Claude Code
-- ⏳ **Next step**: Add `DumpArmorMeshData()` to extract vertex positions and triangle indices → run game once → feeds full mesh data to Blender retargeting script
-- ⏳ **Then**: Execute Blender retargeting Python script (via Script Editor or MCP) → export new bind poses to `knightchest_retargeted_bindposes.json`
-- ⏳ **Final**: Replace `isChest` v7 branch in `RemapArmorBones` with dictionary lookup of retargeted bind poses
-
-See `RETARGET_STEPS.md` for step-by-step breakdown of the workflow.
+**Retargeting status:**
+- ✅ Phase 1: `knightchest_data.json`, `knightchest_mesh_data.json`, `charred_skeleton.json` extracted
+- ✅ Phase 2: Two Blender retargeting iterations → `knightchest_retargeted_bindposes.json`
+- ✅ Phase 3: `isChest` branch in `RemapArmorBones` uses dictionary lookup of retargeted bind poses (v12 hybrid — good torso, arms somewhat skinny/twisted but correctly positioned)
+- ✅ Phase 4: Blender preview scene saved at `extracted_assets/knightchest_charred_preview.blend`
+- ❌ v13 attempts failed (reconstructed matrices missed parent scale; Blender simulator was unvalidated)
+- ⏳ **Phase 5 (NEXT):** Dump exact runtime matrices from Unity (bone L2W, renderer transform, bind poses in array order), build a validated Blender simulator that reproduces v12 in-game appearance, then iterate one bone at a time. See `CHEST_RETARGET_PLAN.md` Phase 5 for details.
 
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 
