@@ -82,7 +82,8 @@ All `ConfigEntry` properties are `public static` so patch classes read them dire
 - ✅ Phase 3: `isChest` branch in `RemapArmorBones` uses dictionary lookup of retargeted bind poses (v12 hybrid — good torso, arms somewhat skinny/twisted but correctly positioned)
 - ✅ Phase 4: Blender preview scene saved at `extracted_assets/knightchest_charred_preview.blend`
 - ❌ v13 attempts failed (reconstructed matrices missed parent scale; Blender simulator was unvalidated)
-- ⏳ **Phase 5 (NEXT):** Dump exact runtime matrices from Unity (bone L2W, renderer transform, bind poses in array order), build a validated Blender simulator that reproduces v12 in-game appearance, then iterate one bone at a time. See `CHEST_RETARGET_PLAN.md` Phase 5 for details.
+- ✅ Phase 5, Steps 1-2b: Runtime matrix dump, validated BakeMesh simulator, full character visualization scene (`v12_armor_simulator.blend` — Charred body/sinew/skull/eyes + Player naked body side by side)
+- ⏳ **Phase 5, Step 3 (NEXT):** One-bone bind pose experiments to fix thin/distorted arms. See `CHEST_RETARGET_PLAN.md` Phase 5 for details.
 
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 
@@ -91,7 +92,8 @@ All `ConfigEntry` properties are `public static` so patch classes read them dire
 | `MasterSwitch` | F6 | Toggle all features |
 | `TerrainRefreshKey` | F7 | Force terrain vertex color rewrite |
 | `TreeRefreshKey` | F8 | Respawn tree replacements |
-| `CharredWarriorRefreshKey` | F9 | Re-apply Charred Warrior armor |
+| `CharredWarriorRefreshKey` | F10 | Dump chest matrices + re-apply Charred Warrior armor |
+| `DataDumpKey` | F11 | Dump player body mesh + charred sinew positioning data |
 
 ## Asset Extraction Scripts
 
