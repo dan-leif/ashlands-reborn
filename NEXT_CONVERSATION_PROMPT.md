@@ -1,59 +1,77 @@
-# Handoff — Ashlands Reborn, Chest Armor Phase 5 Step 3: Blender Skinning Simulator
+# Handoff — Ashlands Reborn: Chest Armor Phase 5 Step 3
 
 ## Goal
-Fix the skinny/distorted arms on Charred warrior chest armor (Padded_Cuirrass). Build a Blender skinning simulator to iterate arm bind poses without loading the game.
+Begin one-bone bind pose experiments to fix the thin/distorted arms on Padded_Cuirrass chest armor worn by Charred warriors.
 
-## Current status: BLOCKED on coordinate space mismatch
+## Current status: Blender visualization scene complete, ready for experiments
 
-### What works
-- **Skinning math verified**: `skinned_world = sum(w * bone_L2W * v12_BP * v)` matches Unity's skinning test exactly (3 vertices, <0.0001 error)
-- **Matrix parsing**: Unity row-major 16-element arrays → Blender `Matrix((row0,row1,row2,row3))` — NO transpose needed
-- **BakeMesh→Blender conversion**: negate X, subtract centroid to center at origin (verified exact match across all 5865 vertices)
-- **Blender scene** (`extracted_assets/v12_armor_simulator.blend`) has orange (GT) and green (reference) meshes
+### Blender scene: `extracted_assets/v12_armor_simulator.blend`
 
-### What doesn't work
-- **Cannot replicate BakeMesh output** from `knightchest_mesh_data.json` vertices + v12 bind poses + bone L2W
-- `inv(SMR_L2W) * skinned_world` gives vertex range [-0.24, 0.36] but BakeMesh vertices span [0, 2]
-- Affine least-squares solve has 0.2-0.6 residual errors — the mapping is NOT a simple transform
-- **Root cause**: `knightchest_mesh_data.json` vertices are in a DIFFERENT coordinate space than the runtime `Body(Clone)` mesh. Body(Clone) is `mesh_is_readable: false` so its actual vertices were never dumped.
+Side-by-side character visualization with all meshes correctly positioned:
 
-## What to do next: Fix the data gap
+| Object | Type | Verts/Bones | Parent | Location | Status |
+|--------|------|-------------|--------|----------|--------|
+| Charred_Skeleton | ARMATURE | 70 bones | None | X=-3 | OK |
+| Charred_Body | MESH | 2786v | Charred_Skeleton | 0,0,0 | OK |
+| Charred_Skull | MESH | 530v | Charred_Skeleton | 0,0,0 | OK — bind-pose remapped |
+| Charred_Sinew | MESH | 488v | Charred_Skeleton | 0,0,0 | OK — bind-pose remapped |
+| Charred_Eyes | MESH | 12v | Charred_Skeleton | 0,0,0 | OK — bind-pose remapped |
+| Player_Skeleton | ARMATURE | 57 bones | None | X=3 | OK — rotation [90°,0,0] |
+| Player_Body | MESH | 1010v | Player_Skeleton | 0,0,0 | OK — runtime naked body |
+| BakedMesh_GroundTruth | MESH | 5865v | None | X=-1 | Hidden — Phase 5 reference |
+| Reference_RestPose | MESH | 5865v | None | X=1 | Hidden — Phase 5 reference |
+| CharredArmature | ARMATURE | 54 bones | None | 0,0,0 | Hidden — legacy armor sim |
+| KnightChest | MESH | 5865v | CharredArmature | 0,0,0 | Hidden — legacy armor sim |
+| V12_Simulated | MESH | 5865v | None | X=-2.5 | Hidden |
+| V12_Simulator | MESH | 5865v | None | 0,0,0 | Hidden |
+| V13_Fixed | MESH | 5865v | None | X=2.5 | Hidden |
+| Sun | LIGHT | — | None | 2,-2,5 | Hidden |
 
-### Option A (recommended): Dump Body(Clone) vertices from Unity
-Add code in `CharredWarriorPatches.cs` DumpRuntimeMatrices to make the mesh readable and dump its vertices:
-```csharp
-// Before BakeMesh, make mesh readable and dump raw vertices
-var rtMesh = smr.sharedMesh;
-if (!rtMesh.isReadable)
-{
-    // Create a readable copy
-    var readable = new Mesh();
-    readable.indexFormat = rtMesh.indexFormat;
-    // Use Graphics.CopyTexture or mesh copy approach
-}
-// Or simpler: use mesh.vertices which might work even if !isReadable in some Unity versions
-```
-Then add the raw Body(Clone) vertices + bone weights to `chest_runtime_matrices.json`.
+### What was completed this session
+- **Runtime data extraction (F11 key):** Added `DumpPlayerAndSinewData()` to `CharredWarriorPatches.cs`
+  - `player_body_runtime.json` — 1010v naked player body (vertices, triangles, normals, bone weights, bind poses, BakeMesh)
+  - `charred_sinew_data.json` — All 4 Charred mesh parts (Body, Sinew, Skull, Eyes) with transforms, bind poses, BakeMesh
+- **Player_Body replaced:** 1387v clothed bundle mesh → 1010v runtime naked body with 53 bone vertex groups
+- **Sinew/Eyes repositioned:** Per-vertex bind-pose remap (`body_bp⁻¹ × sinew_bp`) fixed positioning to match in-game BakeMesh
+- **Charred_Skeleton rotation fixed** by user in Blender
 
-### Option B: Skip simulator, iterate via Unity
-Modify bind poses in C# → rebuild → F10 BakeMesh → import to Blender → compare. Slower but guaranteed.
+### Key discovery: Sinew scale factor
+The Sinew and Eyes meshes have `localScale=[128.6, 128.6, 128.6]` vs Body's `[100, 100, 100]`. Their bind poses include a 1.286× scale factor. The bind-pose remap formula correctly accounts for this difference.
 
-### Option C: Use prefab mesh (1152 verts) with corrected bind poses
-The prefab Padded_Cuirrass mesh (1152 verts) IS readable and has its own bind poses (scale ~1.0). The v12 bind poses have scale ~0.176. If we can find the transform between these coordinate spaces, we can build a simulator with just the armor portion. This would actually be preferable since we only care about fixing the armor, not the body.
+## Next step: Phase 5 Step 3 — Bind pose experiments
 
-## Key arm bones to experiment with
-`LeftShoulder`, `LeftArm`, `LeftForeArm`, `RightShoulder`, `RightArm`, `RightForeArm` (and hand bones)
+**Iteration workflow:**
+1. Modify bind pose(s) in `s_chestRetargetedBPs` in `CharredWarriorPatches.cs`
+2. `dotnet build` → press F10 in-game → captures `chest_baked_mesh.json` via BakeMesh
+3. Copy JSON to `extracted_assets/`, load in Blender, compare against reference
+4. Repeat until arms match reference proportions
+
+**Possible approaches (from CHEST_RETARGET_PLAN.md):**
+- Blend v12 arm BPs with Charred body arm BPs to find a compromise
+- Prevent vanilla mesh combining so body keeps Charred BPs and armor keeps v12 BPs separately
+- Accept thin arms and focus on reducing twist artifacts
 
 ## Key files
-- `extracted_assets/chest_runtime_matrices.json` — bone L2W, bind poses, prefab mesh (1152v), bone weights
-- `extracted_assets/chest_baked_mesh.json` — BakeMesh ground truth (5865v combined body+armor)
-- `extracted_assets/knightchest_mesh_data.json` — 5865v mesh data (WRONG coordinate space for simulator)
-- `extracted_assets/v12_armor_simulator.blend` — Blender comparison scene
-- `AshlandsReborn/Patches/CharredWarriorPatches.cs:293` — `s_chestRetargetedBPs` dictionary (53 bones)
-- `CHEST_RETARGET_PLAN.md` — full retargeting plan
 
-## Important notes
-- Unity matrices are row-major. JSON arrays are 16 elements in row-major order. In Blender: `Matrix(((arr[0:4]),(arr[4:8]),(arr[8:12]),(arr[12:16])))` — NO transpose.
-- BakeMesh returns vertices in mesh-local space with skinning applied, but the exact transform from `sum(w*L2W*BP*v)` world space back to this local space is NOT simply `inv(SMR_L2W)`.
-- Use **Opus** model for this work (3D matrix math benefits from precise reasoning).
-- The user prefers iterating in Blender over loading the game. Only deploy to Unity for final validation.
+| File | Purpose |
+|------|---------|
+| `AshlandsReborn/Patches/CharredWarriorPatches.cs` | Plugin code — `s_chestRetargetedBPs` dictionary, dump methods |
+| `AshlandsReborn/Plugin.cs` | Key bindings — F10 (chest dump+refresh), F11 (player+sinew dump) |
+| `extracted_assets/v12_armor_simulator.blend` | Blender visualization scene |
+| `extracted_assets/player_body_runtime.json` | 1010v naked player body mesh data |
+| `extracted_assets/charred_sinew_data.json` | Charred mesh transforms and positioning data |
+| `extracted_assets/chest_baked_mesh.json` | BakeMesh ground truth (v12 in-game appearance) |
+| `extracted_assets/chest_runtime_matrices.json` | Runtime bone L2W, bind poses, prefab mesh |
+| `CHEST_RETARGET_PLAN.md` | Full retargeting plan and history |
+
+## Technical notes
+
+- **F10:** Dumps `chest_baked_mesh.json` + `chest_runtime_matrices.json`, then refreshes Charred Warriors
+- **F11:** Dumps `player_body_runtime.json` + `charred_sinew_data.json`
+- **Coordinate conversions:**
+  - Player body (runtime→Blender): `(-x*100, z*100, -y*100)` — accounts for mesh localRotation(-90°X) and localScale(100)
+  - Charred meshes (bundle→Blender): `(-x, y, z) * scale_factor` with armature at origin
+  - BakeMesh→Blender: `(-x, -z, y)` per CHEST_RETARGET_PLAN.md
+- **Bind-pose remap:** `v_new = body_bp⁻¹ × other_bp × v_old` — used for Skull, Sinew, Eyes
+- **Unity matrices:** Row-major 16-element arrays → Blender `Matrix(((arr[0:4]),...))` — NO transpose
+- Use **Opus** model for 3D matrix math work

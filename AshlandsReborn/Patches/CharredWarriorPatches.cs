@@ -1502,6 +1502,375 @@ internal static class CharredWarriorPatches
         Plugin.Log?.LogWarning("[Ashlands Reborn] No Padded_Cuirrass SMR found on any Charred_Melee for matrix dump.");
     }
 
+    // -------------------------------------------------------------------------
+    // Extraction #2: Player body mesh + Charred sinew positioning
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Dumps player body mesh data and charred sinew positioning.
+    /// Called from Plugin.cs on F11 press.
+    /// </summary>
+    internal static void DumpPlayerAndSinewData()
+    {
+        var pluginsDir = Path.GetDirectoryName(typeof(Plugin).Assembly.Location) ?? ".";
+        DumpPlayerBodyMesh(pluginsDir);
+        DumpCharredSinewData(pluginsDir);
+    }
+
+    /// <summary>
+    /// Extracts the local player's body mesh: vertices, triangles, normals,
+    /// bone weights, bone names, bind poses, and BakeMesh verification.
+    /// Output: player_body_runtime.json
+    /// </summary>
+    private static void DumpPlayerBodyMesh(string pluginsDir)
+    {
+        var player = Player.m_localPlayer;
+        if (player == null)
+        {
+            Plugin.Log?.LogWarning("[Ashlands Reborn] DumpPlayerBody: No local player found.");
+            return;
+        }
+
+        var vis = player.GetComponent<VisEquipment>();
+        if (vis == null || vis.m_bodyModel == null)
+        {
+            Plugin.Log?.LogWarning("[Ashlands Reborn] DumpPlayerBody: No VisEquipment or m_bodyModel.");
+            return;
+        }
+
+        var smr = vis.m_bodyModel;
+        var mesh = smr.sharedMesh;
+        if (mesh == null)
+        {
+            Plugin.Log?.LogWarning("[Ashlands Reborn] DumpPlayerBody: sharedMesh is null.");
+            return;
+        }
+
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] DumpPlayerBody: mesh='{mesh.name}', verts={mesh.vertexCount}, readable={mesh.isReadable}, submeshes={mesh.subMeshCount}");
+
+        var bones = smr.bones;
+        var bindPoses = mesh.bindposes;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("{");
+        sb.AppendLine($"  \"source\": \"Player runtime m_bodyModel\",");
+        sb.AppendLine($"  \"mesh_name\": \"{mesh.name}\",");
+        sb.AppendLine($"  \"vertex_count\": {mesh.vertexCount},");
+        sb.AppendLine($"  \"mesh_is_readable\": {(mesh.isReadable ? "true" : "false")},");
+        sb.AppendLine($"  \"submesh_count\": {mesh.subMeshCount},");
+        sb.AppendLine($"  \"bone_count\": {bones.Length},");
+
+        // SMR transform info
+        sb.AppendLine($"  \"smr_transform\": {{");
+        sb.AppendLine($"    \"name\": \"{smr.name}\",");
+        sb.AppendLine($"    \"localPosition\": [{smr.transform.localPosition.x:G9},{smr.transform.localPosition.y:G9},{smr.transform.localPosition.z:G9}],");
+        sb.AppendLine($"    \"localRotation\": [{smr.transform.localRotation.x:G9},{smr.transform.localRotation.y:G9},{smr.transform.localRotation.z:G9},{smr.transform.localRotation.w:G9}],");
+        sb.AppendLine($"    \"localScale\": [{smr.transform.localScale.x:G9},{smr.transform.localScale.y:G9},{smr.transform.localScale.z:G9}],");
+        sb.AppendLine($"    \"localToWorldMatrix\": {M4ToJson(smr.transform.localToWorldMatrix)}");
+        sb.AppendLine("  },");
+        sb.AppendLine($"  \"rootBone\": \"{smr.rootBone?.name ?? "null"}\",");
+
+        // Bone names
+        sb.Append("  \"bone_names\": [");
+        for (int i = 0; i < bones.Length; i++)
+        {
+            sb.Append($"\"{(bones[i] != null ? bones[i].name : "null")}\"");
+            if (i < bones.Length - 1) sb.Append(",");
+        }
+        sb.AppendLine("],");
+
+        // Raw mesh data (only if readable)
+        if (mesh.isReadable)
+        {
+            var verts = mesh.vertices;
+            sb.AppendLine("  \"vertices\": [");
+            for (int i = 0; i < verts.Length; i++)
+            {
+                sb.Append($"    [{verts[i].x:G9},{verts[i].y:G9},{verts[i].z:G9}]");
+                sb.AppendLine(i < verts.Length - 1 ? "," : "");
+            }
+            sb.AppendLine("  ],");
+
+            var tris = mesh.triangles;
+            sb.AppendLine("  \"triangles\": [");
+            for (int i = 0; i < tris.Length; i += 3)
+            {
+                sb.Append($"    [{tris[i]},{tris[i + 1]},{tris[i + 2]}]");
+                sb.AppendLine(i + 3 < tris.Length ? "," : "");
+            }
+            sb.AppendLine("  ],");
+
+            var normals = mesh.normals;
+            if (normals != null && normals.Length > 0)
+            {
+                sb.AppendLine("  \"normals\": [");
+                for (int i = 0; i < normals.Length; i++)
+                {
+                    sb.Append($"    [{normals[i].x:G9},{normals[i].y:G9},{normals[i].z:G9}]");
+                    sb.AppendLine(i < normals.Length - 1 ? "," : "");
+                }
+                sb.AppendLine("  ],");
+            }
+
+            var boneWeights = mesh.boneWeights;
+            if (boneWeights != null && boneWeights.Length > 0)
+            {
+                sb.AppendLine("  \"bone_weights\": [");
+                for (int i = 0; i < boneWeights.Length; i++)
+                {
+                    var bw = boneWeights[i];
+                    sb.Append($"    {{\"b0\":{bw.boneIndex0},\"w0\":{bw.weight0:G9},\"b1\":{bw.boneIndex1},\"w1\":{bw.weight1:G9},\"b2\":{bw.boneIndex2},\"w2\":{bw.weight2:G9},\"b3\":{bw.boneIndex3},\"w3\":{bw.weight3.ToString("G9")}}}");
+                    sb.AppendLine(i < boneWeights.Length - 1 ? "," : "");
+                }
+                sb.AppendLine("  ],");
+            }
+        }
+
+        // Bind poses (always available even if mesh not readable)
+        sb.AppendLine("  \"bind_poses\": [");
+        for (int i = 0; i < bindPoses.Length; i++)
+        {
+            sb.Append($"    {{\"index\":{i},\"bone\":\"{(i < bones.Length && bones[i] != null ? bones[i].name : "?")}\",\"matrix\":{M4ToJson(bindPoses[i])}}}");
+            sb.AppendLine(i < bindPoses.Length - 1 ? "," : "");
+        }
+        sb.AppendLine("  ],");
+
+        // Bone L2W matrices
+        sb.AppendLine("  \"bone_local_to_world\": [");
+        for (int i = 0; i < bones.Length; i++)
+        {
+            if (bones[i] != null)
+                sb.Append($"    {{\"name\":\"{bones[i].name}\",\"localPos\":[{bones[i].localPosition.x:G9},{bones[i].localPosition.y:G9},{bones[i].localPosition.z:G9}],\"matrix\":{M4ToJson(bones[i].localToWorldMatrix)}}}");
+            else
+                sb.Append("    {\"name\":\"null\",\"matrix\":null}");
+            sb.AppendLine(i < bones.Length - 1 ? "," : "");
+        }
+        sb.AppendLine("  ],");
+
+        // BakeMesh for visual verification
+        try
+        {
+            var bakedMesh = new Mesh();
+            smr.BakeMesh(bakedMesh);
+            var bakedVerts = bakedMesh.vertices;
+            sb.AppendLine($"  \"baked_vertex_count\": {bakedVerts.Length},");
+            sb.AppendLine("  \"baked_vertices\": [");
+            for (int i = 0; i < bakedVerts.Length; i++)
+            {
+                sb.Append($"    [{bakedVerts[i].x:G9},{bakedVerts[i].y:G9},{bakedVerts[i].z:G9}]");
+                sb.AppendLine(i < bakedVerts.Length - 1 ? "," : "");
+            }
+            sb.AppendLine("  ]");
+            UObject.Destroy(bakedMesh);
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine($"  \"baked_error\": \"{ex.Message.Replace("\"", "'")}\"");
+        }
+
+        sb.AppendLine("}");
+
+        var outPath = Path.Combine(pluginsDir, "player_body_runtime.json");
+        File.WriteAllText(outPath, sb.ToString());
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Player body mesh dump written to: {outPath}");
+    }
+
+    /// <summary>
+    /// Extracts Charred_Melee sinew mesh positioning data: transform hierarchy,
+    /// bone data, bind poses, and BakeMesh for both Body and Sinew SMRs.
+    /// Output: charred_sinew_data.json
+    /// </summary>
+    private static void DumpCharredSinewData(string pluginsDir)
+    {
+        var humanoids = UObject.FindObjectsByType<Humanoid>(FindObjectsSortMode.None);
+        Humanoid? charred = null;
+        foreach (var h in humanoids)
+        {
+            if (IsCharredMelee(h.gameObject)) { charred = h; break; }
+        }
+        if (charred == null)
+        {
+            Plugin.Log?.LogWarning("[Ashlands Reborn] DumpSinew: No Charred_Melee found in scene.");
+            return;
+        }
+
+        var allSMRs = charred.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        SkinnedMeshRenderer? sinewSMR = null;
+        SkinnedMeshRenderer? bodySMR = null;
+        SkinnedMeshRenderer? skullSMR = null;
+        SkinnedMeshRenderer? eyesSMR = null;
+
+        foreach (var smr in allSMRs)
+        {
+            if (smr == null) continue;
+            if (IsUnderAttachSkin(smr.transform)) continue; // skip armor SMRs
+            var n = smr.name;
+            if (n.Equals("Sinew", StringComparison.OrdinalIgnoreCase)) sinewSMR = smr;
+            else if (n.Equals("Body", StringComparison.OrdinalIgnoreCase)) bodySMR = smr;
+            else if (n.Equals("Skull", StringComparison.OrdinalIgnoreCase)) skullSMR = smr;
+            else if (n.Equals("Eyes", StringComparison.OrdinalIgnoreCase)) eyesSMR = smr;
+        }
+
+        if (sinewSMR == null)
+        {
+            Plugin.Log?.LogWarning("[Ashlands Reborn] DumpSinew: No 'Sinew' SMR found on Charred_Melee.");
+            return;
+        }
+
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] DumpSinew: Found Sinew SMR, bones={sinewSMR.bones.Length}");
+
+        var sb = new StringBuilder();
+        sb.AppendLine("{");
+        sb.AppendLine($"  \"source\": \"Charred_Melee runtime sinew + body comparison\",");
+
+        // Dump each native SMR's transform + mesh data
+        string[] partNames = { "Body", "Sinew", "Skull", "Eyes" };
+        SkinnedMeshRenderer?[] partSMRs = { bodySMR, sinewSMR, skullSMR, eyesSMR };
+
+        sb.AppendLine("  \"parts\": [");
+        for (int p = 0; p < partNames.Length; p++)
+        {
+            var smr = partSMRs[p];
+            if (smr == null) continue;
+
+            sb.AppendLine("    {");
+            sb.AppendLine($"      \"name\": \"{partNames[p]}\",");
+
+            // Transform hierarchy
+            sb.AppendLine("      \"transform\": {");
+            sb.AppendLine($"        \"gameobject\": \"{smr.gameObject.name}\",");
+            sb.AppendLine($"        \"parent\": \"{smr.transform.parent?.name ?? "null"}\",");
+            sb.AppendLine($"        \"localPosition\": [{smr.transform.localPosition.x:G9},{smr.transform.localPosition.y:G9},{smr.transform.localPosition.z:G9}],");
+            sb.AppendLine($"        \"localRotation\": [{smr.transform.localRotation.x:G9},{smr.transform.localRotation.y:G9},{smr.transform.localRotation.z:G9},{smr.transform.localRotation.w:G9}],");
+            sb.AppendLine($"        \"localScale\": [{smr.transform.localScale.x:G9},{smr.transform.localScale.y:G9},{smr.transform.localScale.z:G9}],");
+            sb.AppendLine($"        \"worldPosition\": [{smr.transform.position.x:G9},{smr.transform.position.y:G9},{smr.transform.position.z:G9}],");
+            sb.AppendLine($"        \"localToWorldMatrix\": {M4ToJson(smr.transform.localToWorldMatrix)}");
+            sb.AppendLine("      },");
+
+            // Parent chain (up to 6 levels)
+            sb.Append("      \"parent_chain\": [");
+            var t = smr.transform.parent;
+            for (int d = 0; d < 6 && t != null; d++)
+            {
+                sb.Append($"\"{t.name}\"");
+                t = t.parent;
+                if (t != null && d < 5) sb.Append(",");
+            }
+            sb.AppendLine("],");
+
+            // SMR specifics
+            sb.AppendLine($"      \"rootBone\": \"{smr.rootBone?.name ?? "null"}\",");
+
+            var mesh = smr.sharedMesh;
+            if (mesh != null)
+            {
+                sb.AppendLine($"      \"mesh_name\": \"{mesh.name}\",");
+                sb.AppendLine($"      \"vertex_count\": {mesh.vertexCount},");
+                sb.AppendLine($"      \"mesh_is_readable\": {(mesh.isReadable ? "true" : "false")},");
+
+                var bones = smr.bones;
+                var bps = mesh.bindposes;
+
+                // Bone names
+                sb.Append("      \"bone_names\": [");
+                for (int i = 0; i < bones.Length; i++)
+                {
+                    sb.Append($"\"{(bones[i] != null ? bones[i].name : "null")}\"");
+                    if (i < bones.Length - 1) sb.Append(",");
+                }
+                sb.AppendLine("],");
+
+                // Bind poses
+                sb.AppendLine("      \"bind_poses\": [");
+                for (int i = 0; i < bps.Length; i++)
+                {
+                    sb.Append($"        {{\"index\":{i},\"bone\":\"{(i < bones.Length && bones[i] != null ? bones[i].name : "?")}\",\"matrix\":{M4ToJson(bps[i])}}}");
+                    sb.AppendLine(i < bps.Length - 1 ? "," : "");
+                }
+                sb.AppendLine("      ],");
+
+                // Bone L2W (only first 10 for brevity on Body, all for Sinew)
+                int boneLimit = partNames[p] == "Sinew" ? bones.Length : Math.Min(bones.Length, 10);
+                sb.AppendLine($"      \"bone_local_to_world_count\": {bones.Length},");
+                sb.AppendLine("      \"bone_local_to_world\": [");
+                for (int i = 0; i < boneLimit; i++)
+                {
+                    if (bones[i] != null)
+                        sb.Append($"        {{\"name\":\"{bones[i].name}\",\"matrix\":{M4ToJson(bones[i].localToWorldMatrix)}}}");
+                    else
+                        sb.Append("        {\"name\":\"null\",\"matrix\":null}");
+                    sb.AppendLine(i < boneLimit - 1 ? "," : "");
+                }
+                sb.AppendLine("      ],");
+
+                // Mesh data if readable (vertices, triangles, bone weights)
+                if (mesh.isReadable)
+                {
+                    var verts = mesh.vertices;
+                    sb.AppendLine("      \"vertices\": [");
+                    for (int i = 0; i < verts.Length; i++)
+                    {
+                        sb.Append($"        [{verts[i].x:G9},{verts[i].y:G9},{verts[i].z:G9}]");
+                        sb.AppendLine(i < verts.Length - 1 ? "," : "");
+                    }
+                    sb.AppendLine("      ],");
+
+                    var tris = mesh.triangles;
+                    sb.AppendLine("      \"triangles\": [");
+                    for (int i = 0; i < tris.Length; i += 3)
+                    {
+                        sb.Append($"        [{tris[i]},{tris[i + 1]},{tris[i + 2]}]");
+                        sb.AppendLine(i + 3 < tris.Length ? "," : "");
+                    }
+                    sb.AppendLine("      ],");
+
+                    var boneWeights = mesh.boneWeights;
+                    if (boneWeights != null && boneWeights.Length > 0)
+                    {
+                        sb.AppendLine("      \"bone_weights\": [");
+                        for (int i = 0; i < boneWeights.Length; i++)
+                        {
+                            var bw = boneWeights[i];
+                            sb.Append($"        {{\"b0\":{bw.boneIndex0},\"w0\":{bw.weight0:G9},\"b1\":{bw.boneIndex1},\"w1\":{bw.weight1:G9},\"b2\":{bw.boneIndex2},\"w2\":{bw.weight2:G9},\"b3\":{bw.boneIndex3},\"w3\":{bw.weight3:G9}}}");
+                            sb.AppendLine(i < boneWeights.Length - 1 ? "," : "");
+                        }
+                        sb.AppendLine("      ],");
+                    }
+                }
+            }
+
+            // BakeMesh
+            try
+            {
+                var bakedMesh = new Mesh();
+                smr.BakeMesh(bakedMesh);
+                var bakedVerts = bakedMesh.vertices;
+                sb.AppendLine($"      \"baked_vertex_count\": {bakedVerts.Length},");
+                sb.AppendLine("      \"baked_vertices\": [");
+                for (int i = 0; i < bakedVerts.Length; i++)
+                {
+                    sb.Append($"        [{bakedVerts[i].x:G9},{bakedVerts[i].y:G9},{bakedVerts[i].z:G9}]");
+                    sb.AppendLine(i < bakedVerts.Length - 1 ? "," : "");
+                }
+                sb.AppendLine("      ]");
+                UObject.Destroy(bakedMesh);
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"      \"baked_error\": \"{ex.Message.Replace("\"", "'")}\"");
+            }
+
+            sb.Append("    }");
+            sb.AppendLine(p < partNames.Length - 1 ? "," : "");
+        }
+        sb.AppendLine("  ]");
+        sb.AppendLine("}");
+
+        var outPath = Path.Combine(pluginsDir, "charred_sinew_data.json");
+        File.WriteAllText(outPath, sb.ToString());
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred sinew data written to: {outPath}");
+    }
+
     internal static void RefreshCharredWarriors()
     {
         if (!ShouldSwap()) return;

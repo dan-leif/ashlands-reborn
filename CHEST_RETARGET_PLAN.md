@@ -172,6 +172,7 @@ if (isChest)
 ✅ Phase 4 — Blender preview scene created for offline visual inspection
 ✅ Phase 5, Step 1 — Runtime matrix dump instrumented and captured (`chest_runtime_matrices.json`)
 ✅ Phase 5, Step 2 — **Validated simulator built using BakeMesh ground truth** — user confirmed Blender output exactly matches in-game appearance
+✅ Phase 5, Step 2b — **Full character visualization scene completed** — Charred (body+sinew+skull+eyes) and Player (1010v naked body) side by side, sinew/eyes bind-pose remapped, skeleton rotations fixed
 ⏳ Phase 5, Step 3 — One-bone experiments (NEXT)
 
 ## Blender Preview Scene
@@ -273,7 +274,7 @@ Only apply bind pose changes that have been verified to match between simulator 
 - Arm scale adjustment: Consider applying targeted scale corrections to arm/hand bones to reduce "skinny" appearance while preserving position/orientation
 - Arm twist mitigation: Explore per-bone rotation blending to reduce twisted appearance in fingers/wrists
 - Validation: Full in-game animation testing across all combat moves
-- Blender scene improvement: Could add a Charred Warrior body mesh to the preview scene for full context (blocked on extracting the body mesh)
+- Blender scene improvement: ✅ Charred body + sinew + skull + eyes and Player naked body now in `v12_armor_simulator.blend`
 
 ---
 
