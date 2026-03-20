@@ -57,6 +57,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> CharredWarriorHelmetYaw { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetZOffset { get; private set; } = null!;
     public static ConfigEntry<KeyCode> CharredWarriorRefreshKey { get; private set; } = null!;
+    public static ConfigEntry<KeyCode> DataDumpKey { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
@@ -304,6 +305,12 @@ public class Plugin : BaseUnityPlugin
             KeyCode.F10,
             "Re-apply Charred Warrior sword and armor swap to nearby instances without teleporting.");
 
+        DataDumpKey = Config.Bind(
+            "Creatures",
+            "DataDumpKey",
+            KeyCode.F11,
+            "Dump player body mesh + charred sinew positioning data to BepInEx/plugins/.");
+
         // Migrate renamed/moved config keys
         try
         {
@@ -536,6 +543,7 @@ public class Plugin : BaseUnityPlugin
     private static float _lastTerrainRefreshTime;
     private static float _lastValkyrieRefreshTime;
     private static float _lastCharredRefreshTime;
+    private static float _lastDataDumpTime;
 
     private void Update()
     {
@@ -588,6 +596,12 @@ public class Plugin : BaseUnityPlugin
                 Patches.CharredWarriorPatches.DumpChestMatricesNow();
                 Patches.CharredWarriorPatches.RefreshCharredWarriors();
                 Log.LogInfo("[Ashlands Reborn] Charred Warrior matrix dump + refresh triggered");
+            }
+            if (Input.GetKeyDown(DataDumpKey?.Value ?? KeyCode.F11) && Time.time - _lastDataDumpTime >= 1f)
+            {
+                _lastDataDumpTime = Time.time;
+                Patches.CharredWarriorPatches.DumpPlayerAndSinewData();
+                Log.LogInfo("[Ashlands Reborn] Player body + sinew data dump triggered");
             }
         }
 
