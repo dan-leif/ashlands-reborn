@@ -58,6 +58,11 @@
     <ModsYmlPath>$([System.IO.Path]::GetFullPath('$(ProfilePluginsPath)\..\..\mods.yml'))</ModsYmlPath>
   </PropertyGroup>
 
+  <!-- Embed custom mesh binary for Approach B (Charred knight body) -->
+  <ItemGroup>
+    <EmbeddedResource Include="playdough_mesh.bin" LogicalName="AshlandsReborn.playdough_mesh.bin" />
+  </ItemGroup>
+
   <!--
     Copy to r2modman profile, but only when the mod is enabled in mods.yml.
     If the mod isn't listed yet (pre-import), it deploys by default.

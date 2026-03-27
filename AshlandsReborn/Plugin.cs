@@ -58,6 +58,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> CharredWarriorHelmetZOffset { get; private set; } = null!;
     public static ConfigEntry<KeyCode> CharredWarriorRefreshKey { get; private set; } = null!;
     public static ConfigEntry<KeyCode> DataDumpKey { get; private set; } = null!;
+    public static ConfigEntry<bool> UseCustomKnightBodyMesh { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
@@ -310,6 +311,12 @@ public class Plugin : BaseUnityPlugin
             "DataDumpKey",
             KeyCode.F11,
             "Dump player body mesh + charred sinew positioning data to BepInEx/plugins/.");
+
+        UseCustomKnightBodyMesh = Config.Bind(
+            "Creatures",
+            "UseCustomKnightBodyMesh",
+            false,
+            "Approach B: Replace entire Charred visual with a custom human+armor mesh rigged directly to the Charred skeleton. When false, uses Approach A (bind pose retargeting).");
 
         // Migrate renamed/moved config keys
         try
