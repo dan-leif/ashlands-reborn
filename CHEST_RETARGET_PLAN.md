@@ -173,7 +173,73 @@ if (isChest)
 ✅ Phase 5, Step 1 — Runtime matrix dump instrumented and captured (`chest_runtime_matrices.json`)
 ✅ Phase 5, Step 2 — **Validated simulator built using BakeMesh ground truth** — user confirmed Blender output exactly matches in-game appearance
 ✅ Phase 5, Step 2b — **Full character visualization scene completed** — Charred (body+sinew+skull+eyes) and Player (1010v naked body) side by side, sinew/eyes bind-pose remapped, skeleton rotations fixed
-⏳ Phase 5, Step 3 — One-bone experiments (NEXT)
+⏸️ Phase 5, Step 3 — One-bone experiments (superseded by Approach B)
+
+✅ Approach B, Phase B1 — BakeMesh capture complete; `KnightChest` (5865v) + `KnightLegs` (2912v) imported into `v12_armor_simulator.blend`; `CharredArmature` (54 bones) confirmed; helm deferred; hero set deferred
+✅ Approach B, Phase B2a — Combined mesh T-posed in Blender (2026-03-24)
+✅ Approach B, Phase B2b — Reshape T-posed mesh to fit Charred skeleton, rig, and export (2026-03-26)
+✅ Approach B, Phase B3 — Runtime C# loading, coordinate conversion, in-game display (2026-03-26)
+⏸️ Approach B, Phase B4 — Fix skinning deformation (mesh appears in T-pose, doesn't animate with skeleton)
+
+### Approach B, Phase B2a — T-Pose Combined Mesh (Completed 2026-03-24)
+
+**What was accomplished:**
+- `Player_Working` (9787 verts = 1010 body + 5865 chest armor + 2912 leg armor) is the combined working mesh in `v12_armor_simulator.blend`
+- `Player_Skeleton` armature centered on mesh, connected via Armature modifier
+- `Player_Body` disconnected from `Player_Skeleton` (armature modifier removed) to prevent unintended deformation
+- Arms posed to T-pose by rotating `LeftArm` and `RightArm` bones ~58.3° around bone-local Z axis (using `AXIS_ANGLE` rotation mode); left arm uses positive angle, right arm uses negative
+- **Armor vertex weights transferred from body:** the chest/leg armor vertices originally had incorrect bone weights (many weighted to "Hips"). Used KD-tree nearest-neighbor lookup to copy body vertex weights (distance-weighted blend of 4 nearest body verts) to all 8777 armor vertices
+- **Armpit torso fix:** armor verts in the side-torso region below armpits had arm bone weights causing distortion. Fixed by: (1) replacing with nearest body vertex weights for the warrior's right side, (2) mirroring right-side weights to left side for symmetry
+- **Single vertex fix:** vert 2994 was an outlier under warrior's left shoulder — reassigned from LeftArm=0.943 to Spine=0.716/Spine1=0.167/LeftArm=0.075 to match surrounding torso verts
+- A few minor stray vertices remain but are cosmetically acceptable
+
+### Approach B, Phase B2b — Reshape & Rig to Charred Skeleton (In Progress)
+
+**Steps completed (2026-03-24):**
+
+**Step 1 — Bake T-pose into geometry:** ✅
+- Applied `Player_Skeleton` Armature modifier on `Player_Working` to permanently bake T-pose into vertex positions
+- 9787 verts preserved, 53 vertex groups preserved, 0 modifiers remaining
+- Arms confirmed horizontal (LeftHand/RightHand Z diff = 0.011)
+- `Player_Skeleton` pose reset to rest position
+
+**Step 2 — Reshape to Charred proportions:** ✅
+- Discovered Player mesh was X-mirrored relative to Charred skeleton (Player Left at +X, Charred Left at -X)
+- Applied all object transforms (location, 90° X rotation) → vertices in world space
+- Mirrored mesh in X around center, flipped normals, recalculated normals outside
+- Translated to align mesh center X with Charred center X (-2.0)
+- Per-bone vertex displacement: computed weighted centroid of each bone's vertex group, computed displacement to Charred bone head position, applied weighted displacement to all 9787 vertices
+- All 22 key bones pass containment check (bone head inside mesh vertex cloud)
+- Alignment errors: Head 0.013, Arms 0.012–0.016, Hands 0.076–0.081, Hips 0.068, Feet 0.053
+
+**Current state of `Player_Working`:** Reshaped to Charred proportions, overlaps Charred_Working skeleton. No modifiers, identity object transform, vertices in world space centered on Charred.
+
+**Completed steps 3-4 (2026-03-26):**
+
+3. ✅ Rigged Playdough to `Charred_Working` armature — proximity-based bone weighting (inverse-distance to 54 deformation bone segments, 4 influences per vertex). Blender's automatic weights failed (all-zero) due to armature's -158.65° Z object rotation.
+4. ✅ Exported mesh data as JSON (`extracted_assets/playdough_mesh_data.json`, 1.54 MB), converted to binary (`AshlandsReborn/playdough_mesh.bin`, 728 KB) via `convert_playdough_to_binary.py`.
+
+### Approach B, Phase B3 — Runtime Loading & In-Game Display (Completed 2026-03-26)
+
+**What was built:**
+- `LoadCustomMeshData()` reads embedded binary resource (cached after first load)
+- `ApplyCustomKnightBodyMesh()` coroutine creates Unity Mesh + SkinnedMeshRenderer
+- `UseCustomKnightBodyMesh` config flag (default false) toggles Approach B vs A
+- Bind poses computed at runtime: `bones[i].worldToLocalMatrix * smr.localToWorldMatrix`
+- SMR parented to `vis.transform` with `localRotation = Euler(0, 90, 0)`
+
+**Coordinate conversion bugs fixed:**
+1. `(-x, y, z)` → 1000ft tall statues (missing Y/Z axis swap)
+2. `(-x, z, -y)` → correct height but facing sideways
+3. Added `Euler(0, 90, 0)` on SMR → correct orientation
+
+**In-game result:** Mesh loads, displays upright, faces correct direction, body visuals hidden. **But skinning doesn't deform** — mesh stays in T-pose while creature animates underneath.
+
+**Likely causes of T-pose:**
+- Proximity-based bone weights may not match the runtime skeleton topology well enough
+- Bind poses computed during animation (not rest pose) may encode wrong "rest" state
+- The ~5.66× parent scale on the Charred skeleton may cause near-zero deformation in bind pose math
+- All vertices may effectively be weighted to Root/Hips (proximity weighting in Blender was computed in world space with the armature's -158.65° Z rotation, potentially assigning wrong bones)
 
 ## Blender Preview Scene
 
