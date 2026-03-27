@@ -58,7 +58,19 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> CharredWarriorHelmetZOffset { get; private set; } = null!;
     public static ConfigEntry<KeyCode> CharredWarriorRefreshKey { get; private set; } = null!;
     public static ConfigEntry<KeyCode> DataDumpKey { get; private set; } = null!;
-    public static ConfigEntry<bool> UseCustomKnightBodyMesh { get; private set; } = null!;
+    public static ConfigEntry<bool> EnableBodySwap { get; private set; } = null!;
+    public static ConfigEntry<float> BodySwapColorR { get; private set; } = null!;
+    public static ConfigEntry<float> BodySwapColorG { get; private set; } = null!;
+    public static ConfigEntry<float> BodySwapColorB { get; private set; } = null!;
+    public static ConfigEntry<float> BodySwapEmissionR { get; private set; } = null!;
+    public static ConfigEntry<float> BodySwapEmissionG { get; private set; } = null!;
+    public static ConfigEntry<float> BodySwapEmissionB { get; private set; } = null!;
+    public static ConfigEntry<float> BodySwapYOffset { get; private set; } = null!;
+    public static ConfigEntry<float> BodySwapScale { get; private set; } = null!;
+    public static ConfigEntry<bool> TrimChestArms { get; private set; } = null!;
+    public static ConfigEntry<bool> ShowVanillaChest { get; private set; } = null!;
+    public static ConfigEntry<bool> ShowVanillaShoulders { get; private set; } = null!;
+    public static ConfigEntry<bool> ShowVanillaBracers { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
@@ -312,11 +324,99 @@ public class Plugin : BaseUnityPlugin
             KeyCode.F11,
             "Dump player body mesh + charred sinew positioning data to BepInEx/plugins/.");
 
-        UseCustomKnightBodyMesh = Config.Bind(
+        EnableBodySwap = Config.Bind(
             "Creatures",
-            "UseCustomKnightBodyMesh",
+            "EnableBodySwap",
+            true,
+            "Adds a player body mesh underneath the Charred Warrior armor to provide volumetric deforming limbs.");
+
+        BodySwapColorR = Config.Bind(
+            "Creatures",
+            "BodySwapColorR",
+            0.15f,
+            new ConfigDescription(
+                "Body swap material color — Red channel (0–1).",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        BodySwapColorG = Config.Bind(
+            "Creatures",
+            "BodySwapColorG",
+            0.1f,
+            new ConfigDescription(
+                "Body swap material color — Green channel (0–1).",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        BodySwapColorB = Config.Bind(
+            "Creatures",
+            "BodySwapColorB",
+            0.05f,
+            new ConfigDescription(
+                "Body swap material color — Blue channel (0–1).",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        BodySwapEmissionR = Config.Bind(
+            "Creatures",
+            "BodySwapEmissionR",
+            0.8f,
+            new ConfigDescription(
+                "Body swap eye/glow emission — Red channel (0–1).",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        BodySwapEmissionG = Config.Bind(
+            "Creatures",
+            "BodySwapEmissionG",
+            0.2f,
+            new ConfigDescription(
+                "Body swap eye/glow emission — Green channel (0–1).",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        BodySwapEmissionB = Config.Bind(
+            "Creatures",
+            "BodySwapEmissionB",
+            0.0f,
+            new ConfigDescription(
+                "Body swap eye/glow emission — Blue channel (0–1).",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        BodySwapYOffset = Config.Bind(
+            "Creatures",
+            "BodySwapYOffset",
+            0.0f,
+            new ConfigDescription(
+                "Vertical offset for the body swap mesh.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        BodySwapScale = Config.Bind(
+            "Creatures",
+            "BodySwapScale",
+            1.0f,
+            new ConfigDescription(
+                "Uniform scale multiplier for the body swap mesh.",
+                new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        TrimChestArms = Config.Bind(
+            "Creatures",
+            "TrimChestArms",
+            true,
+            "Remove arm/hand triangles from the chest armor mesh, leaving only the torso plate.");
+
+        ShowVanillaChest = Config.Bind(
+            "Creatures",
+            "ShowVanillaChest",
             false,
-            "Approach B: Replace entire Charred visual with a custom human+armor mesh rigged directly to the Charred skeleton. When false, uses Approach A (bind pose retargeting).");
+            "Also show the vanilla chest piece alongside the custom one (for comparison).");
+
+        ShowVanillaShoulders = Config.Bind(
+            "Creatures",
+            "ShowVanillaShoulders",
+            false,
+            "Also show the vanilla shoulder piece alongside the custom one (for comparison).");
+
+        ShowVanillaBracers = Config.Bind(
+            "Creatures",
+            "ShowVanillaBracers",
+            false,
+            "Also show the vanilla utility/bracer piece alongside the custom one (for comparison).");
 
         // Migrate renamed/moved config keys
         try

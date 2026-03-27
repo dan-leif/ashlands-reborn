@@ -76,20 +76,20 @@ All `ConfigEntry` properties are `public static` so patch classes read them dire
 
 **Chest armor Blender retargeting** (see `CHEST_RETARGET_PLAN.md`). Seven programmatic bind-pose approaches were exhausted; the fix required Blender-computed bind poses due to ~177° arm bone orientation mismatch between the Charred and Player skeletons.
 
-**Two approaches are in flight — Approach A (current, kept as fallback) and Approach B (next implementation):**
+**Hybrid approach (current implementation):**
 
-**Approach A — Bind pose retargeting (v12 hybrid, current code):**
-- ✅ Phase 1–4: Extraction, Blender retargeting, plugin integration, preview scene
-- ✅ Phase 5, Steps 1-2b: Runtime matrix dump, validated BakeMesh simulator, full character visualization scene (`v12_armor_simulator.blend`)
-- Result: Good torso, arms are thin/twisted but correctly positioned. Kept as fallback via `UseCustomKnightBodyMesh = false`.
+The final design combines two layers to work around the ~177° arm bone orientation mismatch:
 
-**Approach B — Custom mesh directly rigged to Charred skeleton (planned next):**
-- Sidesteps the ~177° arm bone orientation mismatch entirely by rigging a new mesh natively to the Charred skeleton rather than retargeting from the Player skeleton.
-- Replaces the **full warrior visual** (hides Charred body/sinew/skull SMRs, adds single custom human+armor combined mesh).
-- No Unity Editor needed — mesh data (vertices, normals, UVs, triangles, bone weights, bind poses) serialized as JSON from Blender and reconstructed as a Unity `Mesh` at runtime.
-- Toggled via new `UseCustomKnightBodyMesh` config flag (default `false` keeps Approach A active).
-- Armor set TBD — user will test SouthsilArmor sets in-game; materials pulled from whatever is equipped at runtime.
-- See plan file for full implementation steps.
+1. **Body swap layer** (`EnableBodySwap = true`, default): The player body mesh (cached from the local Player's `VisEquipment.m_bodyModel` on first Awake) is placed on the Charred skeleton with the player's original bind poses intact. Because both skeletons share Mixamo bone names, GPU skinning deforms it via Charred bones, giving volumetric deforming arms. Color/emission/scale/offset are configurable.
+
+2. **Approach A armor on top** (unchanged): SouthsilArmor pieces attached via Blender-retargeted bind poses. Torso/legs/helm/cape look great. Arm geometry from the chest armor is trimmed via `TrimChestArms = true` (default), leaving only the torso plate — the body swap arms show through instead.
+
+**Key config toggles:**
+- `EnableBodySwap` (bool, default true) — adds the player body mesh layer
+- `TrimChestArms` (bool, default true) — removes arm/hand triangles from chest armor
+- `ShowVanillaChest / ShowVanillaShoulders` (bool, default false) — overlay vanilla pieces for comparison
+- `BodySwapColorR/G/B`, `BodySwapEmissionR/G/B` — material color/emission of the body layer
+- `BodySwapScale`, `BodySwapYOffset` — size and vertical position of the body layer
 
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 
