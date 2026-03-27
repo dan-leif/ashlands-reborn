@@ -76,14 +76,20 @@ All `ConfigEntry` properties are `public static` so patch classes read them dire
 
 **Chest armor Blender retargeting** (see `CHEST_RETARGET_PLAN.md`). Seven programmatic bind-pose approaches were exhausted; the fix required Blender-computed bind poses due to ~177° arm bone orientation mismatch between the Charred and Player skeletons.
 
-**Retargeting status:**
-- ✅ Phase 1: `knightchest_data.json`, `knightchest_mesh_data.json`, `charred_skeleton.json` extracted
-- ✅ Phase 2: Two Blender retargeting iterations → `knightchest_retargeted_bindposes.json`
-- ✅ Phase 3: `isChest` branch in `RemapArmorBones` uses dictionary lookup of retargeted bind poses (v12 hybrid — good torso, arms somewhat skinny/twisted but correctly positioned)
-- ✅ Phase 4: Blender preview scene saved at `extracted_assets/knightchest_charred_preview.blend`
-- ❌ v13 attempts failed (reconstructed matrices missed parent scale; Blender simulator was unvalidated)
-- ✅ Phase 5, Steps 1-2b: Runtime matrix dump, validated BakeMesh simulator, full character visualization scene (`v12_armor_simulator.blend` — Charred body/sinew/skull/eyes + Player naked body side by side)
-- ⏳ **Phase 5, Step 3 (NEXT):** One-bone bind pose experiments to fix thin/distorted arms. See `CHEST_RETARGET_PLAN.md` Phase 5 for details.
+**Two approaches are in flight — Approach A (current, kept as fallback) and Approach B (next implementation):**
+
+**Approach A — Bind pose retargeting (v12 hybrid, current code):**
+- ✅ Phase 1–4: Extraction, Blender retargeting, plugin integration, preview scene
+- ✅ Phase 5, Steps 1-2b: Runtime matrix dump, validated BakeMesh simulator, full character visualization scene (`v12_armor_simulator.blend`)
+- Result: Good torso, arms are thin/twisted but correctly positioned. Kept as fallback via `UseCustomKnightBodyMesh = false`.
+
+**Approach B — Custom mesh directly rigged to Charred skeleton (planned next):**
+- Sidesteps the ~177° arm bone orientation mismatch entirely by rigging a new mesh natively to the Charred skeleton rather than retargeting from the Player skeleton.
+- Replaces the **full warrior visual** (hides Charred body/sinew/skull SMRs, adds single custom human+armor combined mesh).
+- No Unity Editor needed — mesh data (vertices, normals, UVs, triangles, bone weights, bind poses) serialized as JSON from Blender and reconstructed as a Unity `Mesh` at runtime.
+- Toggled via new `UseCustomKnightBodyMesh` config flag (default `false` keeps Approach A active).
+- Armor set TBD — user will test SouthsilArmor sets in-game; materials pulled from whatever is equipped at runtime.
+- See plan file for full implementation steps.
 
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 
