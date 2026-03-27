@@ -53,6 +53,11 @@ internal static class CharredWarriorPatches
     private static int  _swapLogCount;
     private static bool _dumpDone;
 
+    // Player body mesh cache — populated on first Player Awake, used by body swap layer
+    private static Mesh? _cachedPlayerBodyMesh;
+    private static Material? _cachedPlayerBodyMaterial;
+    private static string[]? _cachedPlayerBoneNames;
+
     // Swap active when master switch + EnableCharredWarriorSwap are on
     private static bool ShouldSwap() =>
         (Plugin.MasterSwitch?.Value ?? false) &&
@@ -232,23 +237,25 @@ internal static class CharredWarriorPatches
         if (!marker.ChestSwapped)
             marker.OriginalChestItem = name;
 
-        // Approach B: custom full-body mesh replaces everything
-        if (Plugin.UseCustomKnightBodyMesh?.Value == true)
+        // Body swap layer (volumetric deforming flesh under armor)
+        if (Plugin.EnableBodySwap?.Value == true && !marker.BodySwapApplied)
         {
-            name = "";  // suppress vanilla chest attachment
-            marker.ChestSwapped = true;
             HideBodyVisuals(__instance, true);
-            __instance.StartCoroutine(ApplyCustomKnightBodyMesh(__instance));
-            return;
+            __instance.StartCoroutine(ApplyBodySwapLayer(__instance));
         }
 
-        // Approach A: bind pose retargeting
+        // Approach A: bind pose retargeting armor on top
         var target = Plugin.CharredWarriorChestName?.Value ?? "";
         if (string.IsNullOrEmpty(target)) return;
 
-        name = target;
+        // When ShowVanillaChest is off (default), replace name with custom piece.
+        // When on, vanilla attaches as normal and the coroutine adds custom on top.
+        if (Plugin.ShowVanillaChest?.Value != true)
+            name = target;
+
         marker.ChestSwapped = true;
-        HideBodyVisuals(__instance, true);
+        if (Plugin.EnableBodySwap?.Value != true)
+            HideBodyVisuals(__instance, true);
         __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances, target, Plugin.CharredWarriorChestScale?.Value ?? 1f));
     }
 
@@ -257,13 +264,6 @@ internal static class CharredWarriorPatches
     private static void SetLegItem_Prefix(VisEquipment __instance, ref string name)
     {
         if (!ShouldSwap() || !IsCharredMelee(__instance.gameObject)) return;
-
-        // Approach B: custom mesh includes legs — suppress vanilla leg attachment
-        if (Plugin.UseCustomKnightBodyMesh?.Value == true)
-        {
-            name = "";
-            return;
-        }
 
         var target = Plugin.CharredWarriorLegsName?.Value ?? "";
         if (string.IsNullOrEmpty(target)) return;
@@ -292,7 +292,8 @@ internal static class CharredWarriorPatches
         if (!marker.ShoulderSwapped)
             marker.OriginalShoulderItem = name;
 
-        name = target;
+        if (Plugin.ShowVanillaShoulders?.Value != true)
+            name = target;
         marker.ShoulderSwapped = true;
         __instance.StartCoroutine(RemapArmorBones(__instance, FShoulderItemInstances, target, Plugin.CharredWarriorCapeScale?.Value ?? 1f));
     }
@@ -935,6 +936,10 @@ internal static class CharredWarriorPatches
 
                 newMesh.bindposes = newBPs;
 
+                // Trim arm geometry from chest armor (leaves torso-only plate)
+                if (isChest && (Plugin.TrimChestArms?.Value ?? true))
+                    TrimArmTriangles(newMesh, prefabBoneNames);
+
                 smr.sharedMesh = newMesh;
 
                 // --- SHOULDER ROTATION WRAPPERS ---
@@ -974,227 +979,158 @@ internal static class CharredWarriorPatches
     }
 
     // =====================================================================
-    // Approach B — Custom full-body mesh rigged directly to Charred skeleton
+    // Arm triangle trimming — removes arm/hand geometry from chest armor
     // =====================================================================
 
-    private sealed class CustomMeshData
+    private static readonly HashSet<string> ArmBoneNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        public Vector3[] Vertices = null!;
-        public Vector3[] Normals = null!;
-        public Vector2[] UVs = null!;
-        public BoneWeight[] BoneWeights = null!;
-        public int[] Submesh0Indices = null!;
-        public int[] Submesh1Indices = null!;
-        public string[] BoneNames = null!;
-    }
+        "LeftShoulder",  "LeftArm",  "LeftForeArm",  "LeftHand",
+        "RightShoulder", "RightArm", "RightForeArm", "RightHand",
+        // Finger bones — Left
+        "LeftHandThumb1",  "LeftHandThumb2",  "LeftHandThumb3",
+        "LeftHandIndex1",  "LeftHandIndex2",  "LeftHandIndex3",
+        "LeftHandMiddle1", "LeftHandMiddle2", "LeftHandMiddle3",
+        "LeftHandRing1",   "LeftHandRing2",   "LeftHandRing3",
+        "LeftHandPinky1",  "LeftHandPinky2",  "LeftHandPinky3",
+        // Finger bones — Right
+        "RightHandThumb1",  "RightHandThumb2",  "RightHandThumb3",
+        "RightHandIndex1",  "RightHandIndex2",  "RightHandIndex3",
+        "RightHandMiddle1", "RightHandMiddle2", "RightHandMiddle3",
+        "RightHandRing1",   "RightHandRing2",   "RightHandRing3",
+        "RightHandPinky1",  "RightHandPinky2",  "RightHandPinky3",
+    };
 
-    private static CustomMeshData? _cachedCustomMesh;
-
-    private static CustomMeshData? LoadCustomMeshData()
+    /// <summary>
+    /// Removes triangles from <paramref name="mesh"/> where all 3 vertices have
+    /// more than half their skinning weight on arm/hand bones.
+    /// Operates on all submeshes independently so submesh count is preserved.
+    /// </summary>
+    private static void TrimArmTriangles(Mesh mesh, string[] boneNames)
     {
-        if (_cachedCustomMesh != null) return _cachedCustomMesh;
-
-        try
+        // Build set of bone indices that are arm bones
+        var armIndices = new HashSet<int>();
+        for (int i = 0; i < boneNames.Length; i++)
         {
-            var asm = Assembly.GetExecutingAssembly();
-            using var stream = asm.GetManifestResourceStream("AshlandsReborn.playdough_mesh.bin");
-            if (stream == null)
+            if (ArmBoneNames.Contains(boneNames[i]))
+                armIndices.Add(i);
+        }
+        if (armIndices.Count == 0) return;
+
+        // Per-vertex: sum of weights on arm bone indices
+        var boneWeights = mesh.boneWeights;
+        int vertCount = boneWeights.Length;
+        var armWeightFrac = new float[vertCount];
+        for (int v = 0; v < vertCount; v++)
+        {
+            var bw = boneWeights[v];
+            float armW = 0f;
+            if (armIndices.Contains(bw.boneIndex0)) armW += bw.weight0;
+            if (armIndices.Contains(bw.boneIndex1)) armW += bw.weight1;
+            if (armIndices.Contains(bw.boneIndex2)) armW += bw.weight2;
+            if (armIndices.Contains(bw.boneIndex3)) armW += bw.weight3;
+            armWeightFrac[v] = armW;
+        }
+
+        // For each submesh, rebuild triangle list excluding arm-dominated triangles
+        int totalRemoved = 0;
+        for (int sub = 0; sub < mesh.subMeshCount; sub++)
+        {
+            var tris = mesh.GetTriangles(sub);
+            var kept = new System.Collections.Generic.List<int>(tris.Length);
+            for (int t = 0; t < tris.Length; t += 3)
             {
-                Plugin.Log?.LogError("[Ashlands Reborn] Embedded resource 'playdough_mesh.bin' not found");
-                return null;
-            }
-
-            using var br = new BinaryReader(stream);
-            int vertCount = br.ReadInt32();
-            int boneCount = br.ReadInt32();
-            int sub0IndexCount = br.ReadInt32();
-            int sub1IndexCount = br.ReadInt32();
-
-            var data = new CustomMeshData();
-
-            // Vertices (already in Unity coordinates from converter)
-            data.Vertices = new Vector3[vertCount];
-            for (int i = 0; i < vertCount; i++)
-                data.Vertices[i] = new Vector3(br.ReadSingle(), br.ReadSingle(), br.ReadSingle());
-
-            // Normals
-            data.Normals = new Vector3[vertCount];
-            for (int i = 0; i < vertCount; i++)
-                data.Normals[i] = new Vector3(br.ReadSingle(), br.ReadSingle(), br.ReadSingle());
-
-            // UVs
-            data.UVs = new Vector2[vertCount];
-            for (int i = 0; i < vertCount; i++)
-                data.UVs[i] = new Vector2(br.ReadSingle(), br.ReadSingle());
-
-            // Bone weight indices (4 per vertex)
-            var bwIndices = new int[vertCount * 4];
-            for (int i = 0; i < vertCount * 4; i++)
-                bwIndices[i] = br.ReadInt32();
-
-            // Bone weight values (4 per vertex)
-            var bwValues = new float[vertCount * 4];
-            for (int i = 0; i < vertCount * 4; i++)
-                bwValues[i] = br.ReadSingle();
-
-            // Assemble BoneWeight structs
-            data.BoneWeights = new BoneWeight[vertCount];
-            for (int i = 0; i < vertCount; i++)
-            {
-                data.BoneWeights[i] = new BoneWeight
+                int i0 = tris[t], i1 = tris[t + 1], i2 = tris[t + 2];
+                if (armWeightFrac[i0] > 0.5f && armWeightFrac[i1] > 0.5f && armWeightFrac[i2] > 0.5f)
                 {
-                    boneIndex0 = bwIndices[i * 4 + 0],
-                    boneIndex1 = bwIndices[i * 4 + 1],
-                    boneIndex2 = bwIndices[i * 4 + 2],
-                    boneIndex3 = bwIndices[i * 4 + 3],
-                    weight0 = bwValues[i * 4 + 0],
-                    weight1 = bwValues[i * 4 + 1],
-                    weight2 = bwValues[i * 4 + 2],
-                    weight3 = bwValues[i * 4 + 3],
-                };
+                    totalRemoved++;
+                    continue;
+                }
+                kept.Add(i0); kept.Add(i1); kept.Add(i2);
             }
-
-            // Submesh triangles
-            data.Submesh0Indices = new int[sub0IndexCount];
-            for (int i = 0; i < sub0IndexCount; i++)
-                data.Submesh0Indices[i] = br.ReadInt32();
-
-            data.Submesh1Indices = new int[sub1IndexCount];
-            for (int i = 0; i < sub1IndexCount; i++)
-                data.Submesh1Indices[i] = br.ReadInt32();
-
-            // Bone names
-            data.BoneNames = new string[boneCount];
-            for (int i = 0; i < boneCount; i++)
-            {
-                int len = br.ReadInt32();
-                data.BoneNames[i] = System.Text.Encoding.UTF8.GetString(br.ReadBytes(len));
-            }
-
-            _cachedCustomMesh = data;
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] Loaded custom mesh: {vertCount} verts, {boneCount} bones, {(sub0IndexCount + sub1IndexCount) / 3} tris");
-            return data;
+            mesh.SetTriangles(kept, sub);
         }
-        catch (Exception ex)
-        {
-            Plugin.Log?.LogError($"[Ashlands Reborn] Failed to load custom mesh data: {ex.Message}");
-            return null;
-        }
+
+        if (totalRemoved > 0)
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] TrimArmTriangles: removed {totalRemoved} arm triangles from chest armor");
     }
 
-    private static System.Collections.IEnumerator ApplyCustomKnightBodyMesh(VisEquipment vis)
+    // =====================================================================
+    // Hybrid body swap layer — player mesh underneath Approach A armor
+    // =====================================================================
+
+    private static System.Collections.IEnumerator ApplyBodySwapLayer(VisEquipment vis)
     {
-        // Wait for skeleton to settle after spawn (same delay as helmet code)
-        for (int i = 0; i < 20; i++) yield return null;
+        // 5-frame settle (much shorter than armor — body just needs skeleton to be live)
+        for (int i = 0; i < 5; i++) yield return null;
 
         if (vis == null || !ShouldSwap()) yield break;
 
         var marker = vis.GetComponent<AshlandsRebornCharredSwapped>();
-        if (marker == null) yield break;
+        if (marker == null || marker.BodySwapApplied) yield break;
 
-        var meshData = LoadCustomMeshData();
-        if (meshData == null) yield break;
-
-        var bodySMR = vis.m_bodyModel;
-        if (bodySMR == null)
+        if (_cachedPlayerBodyMesh == null || _cachedPlayerBoneNames == null)
         {
-            Plugin.Log?.LogWarning("[Ashlands Reborn] Approach B: m_bodyModel is null");
+            Plugin.Log?.LogWarning("[Ashlands Reborn] BodySwap: player body mesh not cached yet — skipping");
             yield break;
         }
 
-        var bodyRoot = bodySMR.rootBone ?? bodySMR.transform;
+        var bodySMR = vis.m_bodyModel;
+        if (bodySMR == null) yield break;
 
-        // Build bone map from the Charred skeleton
+        var bodyRoot = bodySMR.rootBone ?? bodySMR.transform;
         var charBoneMap = BuildCharredBoneMap(vis);
 
-        // --- Build bones array ---
-        var boneCount = meshData.BoneNames.Length;
-        var bones = new Transform[boneCount];
-        int missingBones = 0;
+        // Clone the cached player mesh so we can modify it independently per creature
+        var clonedMesh = UObject.Instantiate(_cachedPlayerBodyMesh);
+        clonedMesh.name = "BodySwapLayer";
 
+        // Map player bone names → Charred bone Transforms (1:1 Mixamo names)
+        var boneCount = _cachedPlayerBoneNames.Length;
+        var bones = new Transform[boneCount];
         for (int i = 0; i < boneCount; i++)
         {
-            var boneName = meshData.BoneNames[i];
-            if (charBoneMap.TryGetValue(boneName, out var t))
-                bones[i] = t;
-            else if (PlayerToCharredBoneMap.TryGetValue(boneName, out var mapped) &&
-                     charBoneMap.TryGetValue(mapped, out t))
-                bones[i] = t;
-            else
-            {
-                bones[i] = bodyRoot;
-                missingBones++;
-            }
+            if (!charBoneMap.TryGetValue(_cachedPlayerBoneNames[i], out var t))
+                t = bodyRoot;
+            bones[i] = t;
         }
 
-        // --- Create GameObject with SkinnedMeshRenderer ---
-        // Parent to the creature's visual root (vis.transform), NOT bodyRoot,
-        // so the SMR transform is at the creature's root level.
-        var go = new GameObject("CustomKnightBody");
+        // Create GO parented to vis.transform (same level as armor GOs)
+        var go = new GameObject("BodySwapLayer");
         go.transform.SetParent(vis.transform, false);
-        go.transform.localPosition = Vector3.zero;
-        go.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
-        go.transform.localScale = Vector3.one;
+        go.transform.localPosition = new Vector3(0f, Plugin.BodySwapYOffset?.Value ?? 0f, 0f);
+        go.transform.localRotation = Quaternion.identity;
+        go.transform.localScale = Vector3.one * (Plugin.BodySwapScale?.Value ?? 1f);
 
-        // --- Compute bind poses from actual runtime bone transforms ---
-        // BP[i] = bone[i].worldToLocalMatrix * smr.localToWorldMatrix
-        // At rest: bone.L2W * BP * v_local = smr.L2W * v_local (vertex stays in place)
-        var smrL2W = go.transform.localToWorldMatrix;
-        var bindPoses = new Matrix4x4[boneCount];
-        for (int i = 0; i < boneCount; i++)
-            bindPoses[i] = bones[i].worldToLocalMatrix * smrL2W;
-
-        // --- Create the Unity Mesh ---
-        var mesh = new Mesh();
-        mesh.name = "CustomKnightBody";
-        mesh.vertices = meshData.Vertices;
-        mesh.normals = meshData.Normals;
-        mesh.uv = meshData.UVs;
-        mesh.boneWeights = meshData.BoneWeights;
-        mesh.subMeshCount = 2;
-        mesh.SetTriangles(meshData.Submesh0Indices, 0);
-        mesh.SetTriangles(meshData.Submesh1Indices, 1);
-        mesh.bindposes = bindPoses;
-
+        // Create SMR — keep the player's original bind poses; GPU skinning deforms via Charred bones
         var smr = go.AddComponent<SkinnedMeshRenderer>();
-        smr.sharedMesh = mesh;
+        smr.sharedMesh = clonedMesh;
         smr.bones = bones;
         smr.rootBone = bodyRoot;
 
-        // --- Materials ---
-        var bodyMat = bodySMR.sharedMaterial;
-        Material? armorMat = null;
-
-        var chestName = Plugin.CharredWarriorChestName?.Value ?? "";
-        if (!string.IsNullOrEmpty(chestName))
+        // Material: clone player material and tint it
+        var mat = _cachedPlayerBodyMaterial != null
+            ? UObject.Instantiate(_cachedPlayerBodyMaterial)
+            : new Material(Shader.Find("Standard"));
+        mat.color = new Color(
+            Plugin.BodySwapColorR?.Value ?? 0.15f,
+            Plugin.BodySwapColorG?.Value ?? 0.1f,
+            Plugin.BodySwapColorB?.Value ?? 0.05f,
+            1f);
+        if (mat.HasProperty("_EmissionColor"))
         {
-            var prefab = ObjectDB.instance?.GetItemPrefab(chestName);
-            if (prefab != null)
-            {
-                var prefabSMR = prefab.GetComponentInChildren<SkinnedMeshRenderer>(true);
-                if (prefabSMR != null && prefabSMR.sharedMaterials.Length > 0)
-                    armorMat = prefabSMR.sharedMaterial;
-            }
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", new Color(
+                Plugin.BodySwapEmissionR?.Value ?? 0.8f,
+                Plugin.BodySwapEmissionG?.Value ?? 0.2f,
+                Plugin.BodySwapEmissionB?.Value ?? 0f,
+                1f));
         }
+        smr.material = mat;
 
-        smr.materials = new Material[]
-        {
-            bodyMat ?? new Material(Shader.Find("Standard")),
-            armorMat ?? bodyMat ?? new Material(Shader.Find("Standard")),
-        };
-
-        // Track for cleanup on revert
+        marker.BodySwapApplied = true;
         marker.SyncedObjects.Add(go);
-        _lastChestSMR = smr;
 
-        // --- Debug: log bone/vertex diagnostics ---
-        var headBone = charBoneMap.ContainsKey("Head") ? charBoneMap["Head"] : null;
-        var hipsBone = charBoneMap.ContainsKey("Hips") ? charBoneMap["Hips"] : null;
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] Approach B applied to {vis.gameObject.name}: " +
-            $"{meshData.Vertices.Length} verts, {boneCount} bones ({missingBones} missing), " +
-            $"smr.L2W pos=({smrL2W.m03:F2},{smrL2W.m13:F2},{smrL2W.m23:F2}), " +
-            $"Head=({headBone?.position.x:F2},{headBone?.position.y:F2},{headBone?.position.z:F2}), " +
-            $"Hips=({hipsBone?.position.x:F2},{hipsBone?.position.y:F2},{hipsBone?.position.z:F2})");
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] BodySwap applied to {vis.gameObject.name}: {clonedMesh.vertexCount} verts, {boneCount} bones");
     }
 
     /// <summary>
@@ -1484,13 +1420,14 @@ internal static class CharredWarriorPatches
     {
         var marker = vis.GetComponent<AshlandsRebornCharredSwapped>();
         if (marker == null) return;
-        
+
         foreach (var obj in marker.SyncedObjects)
         {
             if (obj != null) UObject.Destroy(obj);
         }
         marker.SyncedObjects.Clear();
         marker.RemappedInstances.Clear();
+        marker.BodySwapApplied = false;
     }
 
     private static void HideBodyVisuals(VisEquipment vis, bool hide)
@@ -2536,7 +2473,7 @@ internal static class CharredWarriorPatches
                     triggerChest = FChestItem?.GetValue(vis) as string ?? "";
                 if (string.IsNullOrEmpty(triggerChest)) triggerChest = "_none";
 
-                if (marker != null) { marker.OriginalChestItem = ""; marker.ChestSwapped = false; }
+                if (marker != null) { marker.OriginalChestItem = ""; marker.ChestSwapped = false; marker.BodySwapApplied = false; }
                 FChestItem?.SetValue(vis, "");
                 vis.SetChestItem(triggerChest);
             }
@@ -2584,6 +2521,23 @@ internal static class CharredWarriorPatches
     private static void Humanoid_Awake_Postfix(Humanoid __instance)
     {
         var prefabName = GetPrefabName(__instance.gameObject);
+
+        // Cache the player body mesh the first time a Player awakens
+        if (_cachedPlayerBodyMesh == null && __instance is Player player)
+        {
+            var vis = player.GetComponent<VisEquipment>();
+            if (vis?.m_bodyModel?.sharedMesh != null)
+            {
+                _cachedPlayerBodyMesh = UObject.Instantiate(vis.m_bodyModel.sharedMesh);
+                _cachedPlayerBodyMesh.name = "PlayerBodyCached";
+                _cachedPlayerBodyMaterial = vis.m_bodyModel.sharedMaterial;
+                var playerBones = vis.m_bodyModel.bones;
+                _cachedPlayerBoneNames = new string[playerBones.Length];
+                for (int i = 0; i < playerBones.Length; i++)
+                    _cachedPlayerBoneNames[i] = playerBones[i]?.name ?? "";
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] Cached player body mesh: {_cachedPlayerBodyMesh.vertexCount} verts, {playerBones.Length} bones");
+            }
+        }
 
         if (prefabName == CharredMeleePrefab)
         {
@@ -2835,6 +2789,7 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public bool ChestSwapped;
     public bool LegsSwapped;
     public bool ShoulderSwapped;
+    public bool BodySwapApplied;
     public List<int> RemappedInstances = new();
     public List<GameObject> SyncedObjects = new();
 
