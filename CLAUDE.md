@@ -84,6 +84,8 @@ The final design combines two layers to work around the ~177° arm bone orientat
 
 2. **Approach A armor on top** (unchanged): SouthsilArmor pieces attached via Blender-retargeted bind poses. Torso/legs/helm/cape look great. Arm geometry from the chest armor is trimmed via `TrimChestArms = true` (default), leaving only the torso plate — the body swap arms show through instead.
 
+**SouthsilArmor mesh `isReadable=false` constraint**: All SouthsilArmor meshes have `isReadable=false` baked into the asset bundle. This blocks `SetTriangles`, `GetTriangles`, `GetVertices`, and all other mesh data APIs at runtime — even on `UObject.Instantiate()` clones. There is no public Unity API to flip this flag at runtime, and we cannot change import settings on a third-party mod's pre-built bundles. `Mesh.AcquireReadOnlyMeshData()` (Unity 2020.1+) can bypass `isReadable` for reading, but writing requires building a new mesh from scratch.
+
 **Key config toggles:**
 - `EnableBodySwap` (bool, default true) — adds the player body mesh layer
 - `TrimChestArms` (bool, default true) — removes arm/hand triangles from chest armor
