@@ -1053,6 +1053,13 @@ internal static class CharredWarriorPatches
         for (int i = 0; i < vertCount; i++)
             uvs[i] = new Vector2(ReadFloat(), ReadFloat());
 
+        var colors32 = new Color32[vertCount];
+        for (int i = 0; i < vertCount; i++)
+        {
+            byte r = raw[offset++], g = raw[offset++], b = raw[offset++], a = raw[offset++];
+            colors32[i] = new Color32(r, g, b, a);
+        }
+
         var boneWeights = new BoneWeight[vertCount];
         for (int i = 0; i < vertCount; i++)
         {
@@ -1085,6 +1092,7 @@ internal static class CharredWarriorPatches
         mesh.vertices = vertices;
         mesh.normals = normals;
         mesh.uv = uvs;
+        mesh.colors32 = colors32;
         mesh.boneWeights = boneWeights;
         mesh.triangles = triangles;
         mesh.bindposes = bindPoses;
