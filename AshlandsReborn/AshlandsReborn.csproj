@@ -61,7 +61,6 @@
   <!-- Embed custom mesh binaries -->
   <ItemGroup>
     <EmbeddedResource Include="playdough_mesh.bin" LogicalName="AshlandsReborn.playdough_mesh.bin" />
-    <EmbeddedResource Include="Data\knightchest_trimmed.bin" LogicalName="AshlandsReborn.knightchest_trimmed.bin" />
   </ItemGroup>
 
   <!--
