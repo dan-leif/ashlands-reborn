@@ -955,6 +955,20 @@ internal static class CharredWarriorPatches
                 newMesh.bindposes = newBPs;
                 smr.sharedMesh = newMesh;
 
+                // Remap materials to match surviving submeshes in trimmed mesh
+                if (useTrimmedMesh && s_trimmedSubMeshOrigIndices != null)
+                {
+                    var origMats = smr.sharedMaterials;
+                    var newMats = new Material[s_trimmedSubMeshOrigIndices.Length];
+                    for (int mi = 0; mi < s_trimmedSubMeshOrigIndices.Length; mi++)
+                    {
+                        int origIdx = s_trimmedSubMeshOrigIndices[mi];
+                        newMats[mi] = origIdx < origMats.Length ? origMats[origIdx] : origMats[0];
+                    }
+                    smr.sharedMaterials = newMats;
+                    Plugin.Log?.LogInfo($"[Ashlands Reborn] Remapped {newMats.Length} materials for trimmed chest (from {origMats.Length} originals)");
+                }
+
                 // --- SHOULDER ROTATION WRAPPERS ---
                 if (Math.Abs(shoulderRot) > 0.01f)
                 {
@@ -997,6 +1011,8 @@ internal static class CharredWarriorPatches
 
     /// Cached torso-only mesh loaded from embedded resource (arm triangles pre-removed).
     private static Mesh? s_trimmedChestMesh;
+    /// Maps each trimmed submesh index to its original submesh index (for material remapping).
+    private static int[]? s_trimmedSubMeshOrigIndices;
 
     /// <summary>
     /// Loads the pre-trimmed knightchest mesh from an embedded zlib-compressed binary resource.
@@ -1037,9 +1053,10 @@ internal static class CharredWarriorPatches
         int ReadInt() { var v = BitConverter.ToInt32(raw, offset); offset += 4; return v; }
         float ReadFloat() { var v = BitConverter.ToSingle(raw, offset); offset += 4; return v; }
 
+        // v2 header: vertCount, boneCount, subMeshCount
         int vertCount = ReadInt();
-        int triIndexCount = ReadInt();
         int boneCount = ReadInt();
+        int subMeshCount = ReadInt();
 
         var vertices = new Vector3[vertCount];
         for (int i = 0; i < vertCount; i++)
@@ -1072,10 +1089,21 @@ internal static class CharredWarriorPatches
             };
         }
 
-        var triangles = new int[triIndexCount];
-        for (int i = 0; i < triIndexCount; i++)
-            triangles[i] = BitConverter.ToUInt16(raw, offset + i * 2);
-        offset += triIndexCount * 2;
+        // Per-submesh triangle indices
+        var origSubIndices = new int[subMeshCount];
+        var subTriLists = new int[subMeshCount][];
+        int totalTris = 0;
+        for (int s = 0; s < subMeshCount; s++)
+        {
+            origSubIndices[s] = ReadInt();  // original submesh index (for material mapping)
+            int idxCount = ReadInt();
+            var tris = new int[idxCount];
+            for (int i = 0; i < idxCount; i++)
+                tris[i] = BitConverter.ToUInt16(raw, offset + i * 2);
+            offset += idxCount * 2;
+            subTriLists[s] = tris;
+            totalTris += idxCount / 3;
+        }
 
         int bpCount = ReadInt();
         var bindPoses = new Matrix4x4[bpCount];
@@ -1094,12 +1122,15 @@ internal static class CharredWarriorPatches
         mesh.uv = uvs;
         mesh.colors32 = colors32;
         mesh.boneWeights = boneWeights;
-        mesh.triangles = triangles;
+        mesh.subMeshCount = subMeshCount;
+        for (int s = 0; s < subMeshCount; s++)
+            mesh.SetTriangles(subTriLists[s], s);
         mesh.bindposes = bindPoses;
         mesh.RecalculateBounds();
 
         s_trimmedChestMesh = mesh;
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] Loaded trimmed chest mesh: {vertCount} verts, {triIndexCount / 3} tris, {bpCount} bones");
+        s_trimmedSubMeshOrigIndices = origSubIndices;
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Loaded trimmed chest mesh: {vertCount} verts, {totalTris} tris, {bpCount} bones, {subMeshCount} submeshes");
         return mesh;
     }
 
