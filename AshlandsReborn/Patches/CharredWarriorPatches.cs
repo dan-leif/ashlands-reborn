@@ -903,17 +903,18 @@ internal static class CharredWarriorPatches
                 {
                     // Use Blender-retargeted bind poses — precomputed to correctly map
                     // Padded_Cuirrass vertices to the Charred_Melee skeleton's rest pose.
-                    // These account for the ~177° arm bone orientation mismatch between
-                    // Player and Charred skeletons that programmatic approaches couldn't fix.
+                    // These already account for skeleton differences, so only apply
+                    // userScale (CharredWarriorChestScale), NOT autoCorrection.
+                    var chestScaleMat = Matrix4x4.Scale(Vector3.one * userScale);
                     for (int i = 0; i < prefabBoneNames.Length && i < originalBPs.Length; i++)
                     {
                         var boneName = prefabBoneNames[i];
                         newBPs[i] = s_chestRetargetedBPs.TryGetValue(boneName, out var bp)
-                            ? bp
-                            : originalBPs[i];
+                            ? bp * chestScaleMat
+                            : originalBPs[i] * chestScaleMat;
                     }
                     for (int i = prefabBoneNames.Length; i < originalBPs.Length; i++)
-                        newBPs[i] = originalBPs[i];
+                        newBPs[i] = originalBPs[i] * chestScaleMat;
                 }
                 else
                 {
