@@ -228,6 +228,28 @@ def extract_knightchest():
         for bone_pptr in getattr(smr_data, "m_Bones", []):
             bone_names.append(resolve_bone_name(bone_pptr))
 
+        # Submesh info
+        submeshes_raw = getattr(mesh, 'm_SubMeshes', [])
+        submeshes = []
+        for sm in submeshes_raw:
+            submeshes.append({
+                "firstByte": sm.firstByte,
+                "indexCount": sm.indexCount,
+                "firstVertex": sm.firstVertex,
+                "vertexCount": sm.vertexCount,
+            })
+        print(f"  SubMeshes: {len(submeshes)}")
+
+        # Material names on SMR (order matches submesh indices)
+        mat_names = []
+        for mat_pptr in getattr(smr_data, 'm_Materials', []):
+            try:
+                mat = mat_pptr.read()
+                mat_names.append(getattr(mat, 'm_Name', '?'))
+            except:
+                mat_names.append('?')
+        print(f"  Materials: {mat_names}")
+
         print(f"  Extracted: {vert_count} verts, {len(triangles)} tris, {len(bone_names)} bones")
         return {
             "vertices": vertices,
@@ -238,23 +260,49 @@ def extract_knightchest():
             "bone_weights": bone_weights,
             "bone_names": bone_names,
             "bindposes": bindposes,
+            "submeshes": submeshes,
+            "material_names": mat_names,
         }
 
     raise RuntimeError("No SkinnedMeshRenderer with bind poses found")
 
 
 def trim_and_generate(data):
-    """Remove arm triangles, strip unreferenced verts, write binary."""
+    """Remove arm triangles per-submesh, strip unreferenced verts, write binary.
+
+    Binary format v2 (little-endian, zlib-compressed):
+      int32  vertCount
+      int32  boneCount
+      int32  subMeshCount
+      float32[vertCount * 3]   vertices (x,y,z)
+      float32[vertCount * 3]   normals (x,y,z)
+      float32[vertCount * 2]   uvs (u,v)
+      byte[vertCount * 4]      colors32 (r,g,b,a)
+      {int32 b0,b1,b2,b3; float32 w0,w1,w2,w3}[vertCount]  boneWeights
+      -- per submesh (subMeshCount times): --
+      int32  subTriIndexCount
+      uint16[subTriIndexCount]  triangle indices
+      -- end submeshes --
+      int32  bindPoseCount
+      float32[bindPoseCount * 16]  bind poses (column-major)
+    """
     bone_names = data["bone_names"]
     vertices = data["vertices"]
     normals = data["normals"]
     uvs = data["uvs"]
     colors = data["colors"]
-    triangles = data["triangles"]
     bone_weights = data["bone_weights"]
     bindposes = data["bindposes"]
+    submeshes = data["submeshes"]
+    mat_names = data["material_names"]
 
     vert_count = len(vertices)
+
+    # Build flat index list from triangles
+    triangles = data["triangles"]
+    flat_indices = []
+    for tri in triangles:
+        flat_indices.extend(tri)
 
     # Build set of arm bone indices
     arm_bone_indices = set()
@@ -268,30 +316,45 @@ def trim_and_generate(data):
     is_arm_vert = [False] * vert_count
     for vi in range(vert_count):
         bw = bone_weights[vi]
-        # Sum weight on arm bones
-        arm_weight = 0.0
-        for j in range(4):
-            if bw[f"b{j}"] in arm_bone_indices:
-                arm_weight += bw[f"w{j}"]
-        # If majority of weight is on arm bones, mark as arm vertex
+        arm_weight = sum(bw[f"w{j}"] for j in range(4) if bw[f"b{j}"] in arm_bone_indices)
         if arm_weight > 0.5:
             is_arm_vert[vi] = True
 
-    # Remove triangles where ALL three verts are arm verts
-    kept_tris = []
-    for tri in triangles:
-        if is_arm_vert[tri[0]] and is_arm_vert[tri[1]] and is_arm_vert[tri[2]]:
-            continue
-        kept_tris.append(tri)
+    # Process each submesh: remove arm tris, track kept tris per submesh
+    submesh_kept_tris = []  # list of lists of [i0, i1, i2]
+    total_removed = 0
+    total_kept = 0
+    for si, sm in enumerate(submeshes):
+        start_idx = sm["firstByte"] // 2  # uint16 indices
+        end_idx = start_idx + sm["indexCount"]
+        sub_indices = flat_indices[start_idx:end_idx]
 
-    print(f"Triangles: {len(triangles)} -> {len(kept_tris)} (removed {len(triangles) - len(kept_tris)})")
+        kept = []
+        removed = 0
+        for t in range(0, len(sub_indices), 3):
+            i0, i1, i2 = sub_indices[t], sub_indices[t+1], sub_indices[t+2]
+            if is_arm_vert[i0] and is_arm_vert[i1] and is_arm_vert[i2]:
+                removed += 1
+            else:
+                kept.append([i0, i1, i2])
+        total_removed += removed
+        total_kept += len(kept)
+        submesh_kept_tris.append(kept)
+        mat = mat_names[si] if si < len(mat_names) else "?"
+        print(f"  SubMesh[{si}] {mat:20s}: {sm['indexCount']//3} -> {len(kept)} tris (removed {removed})")
 
-    # Find referenced vertices
+    # Drop submeshes that are completely empty
+    surviving = [(si, tris) for si, tris in enumerate(submesh_kept_tris) if len(tris) > 0]
+    print(f"\nTotal: {total_kept + total_removed} -> {total_kept} tris ({total_removed} removed)")
+    print(f"Surviving submeshes: {len(surviving)} / {len(submeshes)}")
+
+    # Find all referenced vertices across surviving submeshes
     used_verts = set()
-    for tri in kept_tris:
-        used_verts.update(tri)
+    for si, tris in surviving:
+        for tri in tris:
+            used_verts.update(tri)
 
-    # Build remapping
+    # Build vertex remapping
     old_to_new = {}
     new_vertices = []
     new_normals = []
@@ -308,24 +371,17 @@ def trim_and_generate(data):
         new_colors.append(colors[old_idx] if colors else [255, 255, 255, 255])
         new_boneweights.append(bone_weights[old_idx])
 
-    # Remap triangle indices
-    new_tris = []
-    for tri in kept_tris:
-        new_tris.append([old_to_new[tri[0]], old_to_new[tri[1]], old_to_new[tri[2]]])
-
     new_vert_count = len(new_vertices)
-    new_tri_count = len(new_tris)
-    tri_index_count = new_tri_count * 3
     bone_count = len(bone_names)
+    sub_count = len(surviving)
 
     print(f"Vertices: {vert_count} -> {new_vert_count}")
-    print(f"Triangles: {len(triangles)} -> {new_tri_count}")
 
     # Pack binary
     parts = []
 
-    # Header: vertCount, triIndexCount, boneCount
-    parts.append(struct.pack('<iii', new_vert_count, tri_index_count, bone_count))
+    # Header: vertCount, boneCount, subMeshCount
+    parts.append(struct.pack('<iii', new_vert_count, bone_count, sub_count))
 
     # Vertices (float32 x3)
     for v in new_vertices:
@@ -348,9 +404,13 @@ def trim_and_generate(data):
         parts.append(struct.pack('<iiii', bw["b0"], bw["b1"], bw["b2"], bw["b3"]))
         parts.append(struct.pack('<ffff', bw["w0"], bw["w1"], bw["w2"], bw["w3"]))
 
-    # Triangle indices (uint16)
-    for tri in new_tris:
-        parts.append(struct.pack('<HHH', tri[0], tri[1], tri[2]))
+    # Per-submesh triangle indices
+    # Also write the original submesh index so C# can map to the right material
+    for si, tris in surviving:
+        idx_count = len(tris) * 3
+        parts.append(struct.pack('<ii', si, idx_count))  # originalSubMeshIndex, triIndexCount
+        for tri in tris:
+            parts.append(struct.pack('<HHH', old_to_new[tri[0]], old_to_new[tri[1]], old_to_new[tri[2]]))
 
     # Bind poses
     parts.append(struct.pack('<i', len(bindposes)))
@@ -367,8 +427,11 @@ def trim_and_generate(data):
 
     print(f"\nWrote {OUTPUT_BIN}")
     print(f"  Raw: {len(raw)} bytes, Compressed: {len(compressed)} bytes")
-    print(f"  {new_vert_count} verts, {new_tri_count} tris, {bone_count} bones")
-    print(f"  Colors: yes ({len(new_colors)} entries)")
+    print(f"  {new_vert_count} verts, {total_kept} tris, {bone_count} bones, {sub_count} submeshes")
+    print(f"  Submesh->material mapping:")
+    for new_si, (orig_si, tris) in enumerate(surviving):
+        mat = mat_names[orig_si] if orig_si < len(mat_names) else "?"
+        print(f"    new[{new_si}] <- orig[{orig_si}] ({mat}): {len(tris)} tris")
 
 
 if __name__ == "__main__":
