@@ -1066,6 +1066,10 @@ internal static class CharredWarriorPatches
         for (int i = 0; i < vertCount; i++)
             normals[i] = new Vector3(ReadFloat(), ReadFloat(), ReadFloat());
 
+        var tangents = new Vector4[vertCount];
+        for (int i = 0; i < vertCount; i++)
+            tangents[i] = new Vector4(ReadFloat(), ReadFloat(), ReadFloat(), ReadFloat());
+
         var uvs = new Vector2[vertCount];
         for (int i = 0; i < vertCount; i++)
             uvs[i] = new Vector2(ReadFloat(), ReadFloat());
@@ -1119,6 +1123,7 @@ internal static class CharredWarriorPatches
         mesh.name = "KnightChest_TorsoOnly";
         mesh.vertices = vertices;
         mesh.normals = normals;
+        mesh.tangents = tangents;
         mesh.uv = uvs;
         mesh.colors32 = colors32;
         mesh.boneWeights = boneWeights;

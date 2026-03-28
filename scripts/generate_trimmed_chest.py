@@ -180,11 +180,14 @@ def extract_knightchest():
         vertices = read_channel_data(data_buf, channels, strides, stream_offsets, vert_count, 0)
         # Channel 1: Normal (3x Float32)
         normals = read_channel_data(data_buf, channels, strides, stream_offsets, vert_count, 1)
-        # Channel 3: Color (4x UInt8 RGBA) — channel 2 is tangent
+        # Channel 2: Tangent (4x Float32 — xyz direction + w handedness)
+        tangents = read_channel_data(data_buf, channels, strides, stream_offsets, vert_count, 2)
+        # Channel 3: Color (4x UInt8 RGBA)
         colors = read_channel_data(data_buf, channels, strides, stream_offsets, vert_count, 3)
         # Channel 4: UV0 (2x Float16)
         uvs = read_channel_data(data_buf, channels, strides, stream_offsets, vert_count, 4)
 
+        print(f"  Tangents: {'yes' if tangents else 'no'} ({len(tangents) if tangents else 0})")
         print(f"  Colors: {'yes' if colors else 'no'} ({len(colors) if colors else 0})")
         if colors:
             print(f"  Sample colors[0]: {colors[0]}")
@@ -254,6 +257,7 @@ def extract_knightchest():
         return {
             "vertices": vertices,
             "normals": normals,
+            "tangents": tangents,
             "uvs": uvs,
             "colors": colors,
             "triangles": triangles,
@@ -289,6 +293,7 @@ def trim_and_generate(data):
     bone_names = data["bone_names"]
     vertices = data["vertices"]
     normals = data["normals"]
+    tangents = data["tangents"]
     uvs = data["uvs"]
     colors = data["colors"]
     bone_weights = data["bone_weights"]
@@ -358,6 +363,7 @@ def trim_and_generate(data):
     old_to_new = {}
     new_vertices = []
     new_normals = []
+    new_tangents = []
     new_uvs = []
     new_colors = []
     new_boneweights = []
@@ -367,6 +373,7 @@ def trim_and_generate(data):
         old_to_new[old_idx] = new_idx
         new_vertices.append(vertices[old_idx])
         new_normals.append(normals[old_idx])
+        new_tangents.append(tangents[old_idx] if tangents else [0, 0, 0, 1])
         new_uvs.append(uvs[old_idx])
         new_colors.append(colors[old_idx] if colors else [255, 255, 255, 255])
         new_boneweights.append(bone_weights[old_idx])
@@ -390,6 +397,10 @@ def trim_and_generate(data):
     # Normals (float32 x3)
     for n in new_normals:
         parts.append(struct.pack('<fff', n[0], n[1], n[2]))
+
+    # Tangents (float32 x4 — xyz direction + w handedness)
+    for t in new_tangents:
+        parts.append(struct.pack('<ffff', t[0], t[1], t[2], t[3]))
 
     # UVs (float32 x2)
     for uv in new_uvs:
