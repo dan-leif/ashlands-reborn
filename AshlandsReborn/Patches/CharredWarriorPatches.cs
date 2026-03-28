@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using HarmonyLib;
@@ -892,24 +891,10 @@ internal static class CharredWarriorPatches
                 bool isChest = (instanceField == FChestItemInstances);
                 bool useTrimmedMesh = isChest && (Plugin.TrimChestArms?.Value ?? true);
 
-                Mesh newMesh;
-                if (useTrimmedMesh)
-                {
-                    // Use pre-built torso-only mesh (arm tris already removed).
-                    // The SouthsilArmor knightchest mesh is isReadable=false, blocking
-                    // all triangle read/write APIs, so we load a fully readable mesh
-                    // built offline from the extracted asset data.
-                    var trimmed = LoadTrimmedChestMesh();
-                    newMesh = trimmed != null
-                        ? UObject.Instantiate(trimmed)
-                        : UObject.Instantiate(smr.sharedMesh); // fallback: untrimmed
-                }
-                else
-                {
-                    var prefabMesh = GetPrefabArmorMesh(armorItemName, smr.name);
-                    var baseMesh = prefabMesh ?? smr.sharedMesh;
-                    newMesh = UObject.Instantiate(baseMesh);
-                }
+                // Always use original prefab mesh (preserves Unity's internal format → correct textures)
+                var prefabMesh = GetPrefabArmorMesh(armorItemName, smr.name);
+                var baseMesh = prefabMesh ?? smr.sharedMesh;
+                Mesh newMesh = UObject.Instantiate(baseMesh);
 
                 var originalBPs = newMesh.bindposes;
                 var newBPs = new Matrix4x4[originalBPs.Length];
@@ -955,18 +940,43 @@ internal static class CharredWarriorPatches
                 newMesh.bindposes = newBPs;
                 smr.sharedMesh = newMesh;
 
-                // Remap materials to match surviving submeshes in trimmed mesh
-                if (useTrimmedMesh && s_trimmedSubMeshOrigIndices != null)
+                // Hide arm submeshes by truncating submesh count. This drops submeshes
+                // 7-9 (arm geometry) by modifying the descriptor table only — no vertex/index
+                // buffer access required, so it should work despite isReadable=false.
+                if (useTrimmedMesh)
                 {
-                    var origMats = smr.sharedMaterials;
-                    var newMats = new Material[s_trimmedSubMeshOrigIndices.Length];
-                    for (int mi = 0; mi < s_trimmedSubMeshOrigIndices.Length; mi++)
+                    int keepCount = s_armSubmeshIndices.Length > 0 ? s_armSubmeshIndices[0] : newMesh.subMeshCount;
+                    Plugin.Log?.LogInfo($"[Ashlands Reborn] Chest mesh '{newMesh.name}': {newMesh.subMeshCount} submeshes, truncating to {keepCount}");
+                    try
                     {
-                        int origIdx = s_trimmedSubMeshOrigIndices[mi];
-                        newMats[mi] = origIdx < origMats.Length ? origMats[origIdx] : origMats[0];
+                        newMesh.subMeshCount = keepCount;
+                        // Also trim the materials array to match
+                        var mats = smr.sharedMaterials;
+                        if (mats.Length > keepCount)
+                        {
+                            var trimmedMats = new Material[keepCount];
+                            Array.Copy(mats, trimmedMats, keepCount);
+                            smr.sharedMaterials = trimmedMats;
+                        }
+                        Plugin.Log?.LogInfo($"[Ashlands Reborn] Truncated chest to {keepCount} submeshes (arm submeshes dropped)");
                     }
-                    smr.sharedMaterials = newMats;
-                    Plugin.Log?.LogInfo($"[Ashlands Reborn] Remapped {newMats.Length} materials for trimmed chest (from {origMats.Length} originals)");
+                    catch (Exception ex)
+                    {
+                        // subMeshCount setter may require isReadable — fall back to invisible material
+                        Plugin.Log?.LogWarning($"[Ashlands Reborn] subMeshCount truncation failed: {ex.Message}. Falling back to invisible material.");
+                        var invisMat = GetInvisibleMaterial(smr);
+                        if (invisMat != null)
+                        {
+                            var mats = smr.sharedMaterials;
+                            foreach (var idx in s_armSubmeshIndices)
+                            {
+                                if (idx < mats.Length)
+                                    mats[idx] = invisMat;
+                            }
+                            smr.sharedMaterials = mats;
+                            Plugin.Log?.LogInfo("[Ashlands Reborn] Applied invisible material to arm submeshes (fallback)");
+                        }
+                    }
                 }
 
                 // --- SHOULDER ROTATION WRAPPERS ---
@@ -1006,137 +1016,69 @@ internal static class CharredWarriorPatches
     }
 
     // =====================================================================
-    // Arm triangle trimming — removes arm/hand geometry from chest armor
+    // Arm submesh hiding — makes arm/hand submeshes invisible on chest armor
     // =====================================================================
 
-    /// Cached torso-only mesh loaded from embedded resource (arm triangles pre-removed).
-    private static Mesh? s_trimmedChestMesh;
-    /// Maps each trimmed submesh index to its original submesh index (for material remapping).
-    private static int[]? s_trimmedSubMeshOrigIndices;
+    // Arm submesh indices for knightchest (SouthsilArmor) — verified via asset bundle inspection.
+    // Submeshes 7,8,9 are 100% arm/hand geometry (skogrunemetal material, bone weights >0.5 arm).
+    private static readonly int[] s_armSubmeshIndices = { 7, 8, 9 };
+    private static Material? s_invisibleMaterial;
 
     /// <summary>
-    /// Loads the pre-trimmed knightchest mesh from an embedded zlib-compressed binary resource.
-    /// The SouthsilArmor mesh is not CPU-readable at runtime (isReadable=false), which blocks
-    /// all triangle read/write APIs. This mesh was built offline from the extracted asset data
-    /// with arm triangles already removed and unreferenced vertices stripped.
+    /// Creates an invisible material by cloning an existing material from the renderer
+    /// (guarantees the shader is loaded) and zeroing out all color/texture properties.
+    /// Falls back to trying several built-in shader names if no source material available.
     /// </summary>
-    private static Mesh? LoadTrimmedChestMesh()
+    private static Material? GetInvisibleMaterial(SkinnedMeshRenderer smr)
     {
-        if (s_trimmedChestMesh != null) return s_trimmedChestMesh;
+        if (s_invisibleMaterial != null) return s_invisibleMaterial;
 
-        var asm = Assembly.GetExecutingAssembly();
-        using var stream = asm.GetManifestResourceStream("AshlandsReborn.knightchest_trimmed.bin");
-        if (stream == null)
+        // Clone an existing material — its shader is guaranteed to be loaded
+        Material? sourceMat = null;
+        var mats = smr.sharedMaterials;
+        if (mats.Length > 0)
+            sourceMat = mats[mats.Length - 1]; // grab last (arm material)
+
+        Material mat;
+        if (sourceMat != null)
         {
-            Plugin.Log?.LogWarning("[Ashlands Reborn] knightchest_trimmed.bin embedded resource not found. Arm trim disabled.");
-            return null;
+            mat = UObject.Instantiate(sourceMat);
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Cloned material '{sourceMat.name}' (shader: {sourceMat.shader.name}) for invisible material");
         }
-
-        byte[] compressed;
-        using (var ms = new MemoryStream())
+        else
         {
-            stream.CopyTo(ms);
-            compressed = ms.ToArray();
-        }
-
-        // Decompress: Python zlib.compress wraps raw deflate with 2-byte header + 4-byte Adler32 footer.
-        byte[] raw;
-        using (var inMs = new MemoryStream(compressed, 2, compressed.Length - 6))
-        using (var deflate = new DeflateStream(inMs, CompressionMode.Decompress))
-        using (var outMs = new MemoryStream())
-        {
-            deflate.CopyTo(outMs);
-            raw = outMs.ToArray();
-        }
-
-        int offset = 0;
-        int ReadInt() { var v = BitConverter.ToInt32(raw, offset); offset += 4; return v; }
-        float ReadFloat() { var v = BitConverter.ToSingle(raw, offset); offset += 4; return v; }
-
-        // v2 header: vertCount, boneCount, subMeshCount
-        int vertCount = ReadInt();
-        int boneCount = ReadInt();
-        int subMeshCount = ReadInt();
-
-        var vertices = new Vector3[vertCount];
-        for (int i = 0; i < vertCount; i++)
-            vertices[i] = new Vector3(ReadFloat(), ReadFloat(), ReadFloat());
-
-        var normals = new Vector3[vertCount];
-        for (int i = 0; i < vertCount; i++)
-            normals[i] = new Vector3(ReadFloat(), ReadFloat(), ReadFloat());
-
-        var tangents = new Vector4[vertCount];
-        for (int i = 0; i < vertCount; i++)
-            tangents[i] = new Vector4(ReadFloat(), ReadFloat(), ReadFloat(), ReadFloat());
-
-        var uvs = new Vector2[vertCount];
-        for (int i = 0; i < vertCount; i++)
-            uvs[i] = new Vector2(ReadFloat(), ReadFloat());
-
-        var colors32 = new Color32[vertCount];
-        for (int i = 0; i < vertCount; i++)
-        {
-            byte r = raw[offset++], g = raw[offset++], b = raw[offset++], a = raw[offset++];
-            colors32[i] = new Color32(r, g, b, a);
-        }
-
-        var boneWeights = new BoneWeight[vertCount];
-        for (int i = 0; i < vertCount; i++)
-        {
-            boneWeights[i] = new BoneWeight
+            // Last resort: try built-in shaders
+            var shader = Shader.Find("Sprites/Default")
+                      ?? Shader.Find("UI/Default")
+                      ?? Shader.Find("Unlit/Color");
+            if (shader == null)
             {
-                boneIndex0 = ReadInt(), boneIndex1 = ReadInt(),
-                boneIndex2 = ReadInt(), boneIndex3 = ReadInt(),
-                weight0 = ReadFloat(), weight1 = ReadFloat(),
-                weight2 = ReadFloat(), weight3 = ReadFloat(),
-            };
+                Plugin.Log?.LogError("[Ashlands Reborn] No shader found for invisible material");
+                return null;
+            }
+            mat = new Material(shader);
         }
 
-        // Per-submesh triangle indices
-        var origSubIndices = new int[subMeshCount];
-        var subTriLists = new int[subMeshCount][];
-        int totalTris = 0;
-        for (int s = 0; s < subMeshCount; s++)
+        mat.name = "AshlandsReborn_Invisible";
+        // Zero out all common color/texture properties to make it invisible
+        mat.color = new Color(0, 0, 0, 0);
+        if (mat.HasProperty("_MainTex"))
         {
-            origSubIndices[s] = ReadInt();  // original submesh index (for material mapping)
-            int idxCount = ReadInt();
-            var tris = new int[idxCount];
-            for (int i = 0; i < idxCount; i++)
-                tris[i] = BitConverter.ToUInt16(raw, offset + i * 2);
-            offset += idxCount * 2;
-            subTriLists[s] = tris;
-            totalTris += idxCount / 3;
+            // 1x1 transparent texture
+            var tex = new Texture2D(1, 1, TextureFormat.ARGB32, false);
+            tex.SetPixel(0, 0, new Color(0, 0, 0, 0));
+            tex.Apply();
+            mat.SetTexture("_MainTex", tex);
         }
+        if (mat.HasProperty("_Color")) mat.SetColor("_Color", new Color(0, 0, 0, 0));
+        if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", Color.black);
+        if (mat.HasProperty("_Cutoff")) mat.SetFloat("_Cutoff", 1f);
+        if (mat.HasProperty("_Mode")) mat.SetFloat("_Mode", 1f); // cutout
+        mat.EnableKeyword("_ALPHATEST_ON");
+        mat.renderQueue = 2450;
 
-        int bpCount = ReadInt();
-        var bindPoses = new Matrix4x4[bpCount];
-        for (int i = 0; i < bpCount; i++)
-        {
-            var m = new Matrix4x4();
-            for (int j = 0; j < 16; j++)
-                m[j] = ReadFloat();
-            bindPoses[i] = m;
-        }
-
-        var mesh = new Mesh();
-        mesh.name = "KnightChest_TorsoOnly";
-        mesh.vertices = vertices;
-        mesh.normals = normals;
-        mesh.tangents = tangents;
-        mesh.uv = uvs;
-        mesh.colors32 = colors32;
-        mesh.boneWeights = boneWeights;
-        mesh.subMeshCount = subMeshCount;
-        for (int s = 0; s < subMeshCount; s++)
-            mesh.SetTriangles(subTriLists[s], s);
-        mesh.bindposes = bindPoses;
-        mesh.RecalculateBounds();
-
-        s_trimmedChestMesh = mesh;
-        s_trimmedSubMeshOrigIndices = origSubIndices;
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] Loaded trimmed chest mesh: {vertCount} verts, {totalTris} tris, {bpCount} bones, {subMeshCount} submeshes");
-        return mesh;
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Created invisible material (shader: {mat.shader.name})");
+        return s_invisibleMaterial = mat;
     }
 
 
