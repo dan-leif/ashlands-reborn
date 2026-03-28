@@ -53,6 +53,9 @@ internal static class CharredWarriorPatches
     private static int  _swapLogCount;
     private static bool _dumpDone;
 
+    // Helmet prefab scale cache — survives marker destruction across toggle cycles
+    private static Vector3 _cachedHelmetPrefabScale;
+
     // Player body mesh cache — populated on first Player Awake, used by body swap layer
     private static Mesh? _cachedPlayerBodyMesh;
     private static Material? _cachedPlayerBodyMaterial;
@@ -1535,17 +1538,23 @@ internal static class CharredWarriorPatches
             var scale = Plugin.CharredWarriorHelmetScale?.Value ?? 1.1f;
             var yOffset = Plugin.CharredWarriorHelmetYOffset?.Value ?? 0.05f;
 
-            var posBefore = helmetGo.transform.position;
+            // Use cached prefab scale (survives marker destruction across toggle cycles).
+            // Capture from the fresh instance BEFORE we modify it.
+            if (_cachedHelmetPrefabScale == Vector3.zero)
+                _cachedHelmetPrefabScale = helmetGo.transform.localScale;
 
-            helmetGo.transform.localScale *= scale;
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Helmet scale: cached={_cachedHelmetPrefabScale}, current={helmetGo.transform.localScale}, configScale={scale}");
 
-            // Apply rotation and offsets adding to current state
-            // Rotate around Y axis — configurable via CharredWarriorHelmetYaw
+            helmetGo.transform.localScale = _cachedHelmetPrefabScale * scale;
+
+            // Set absolute rotation from config (not additive)
             var yaw = Plugin.CharredWarriorHelmetYaw?.Value ?? -90f;
-            helmetGo.transform.localRotation *= Quaternion.Euler(0f, yaw, 0f);
+            helmetGo.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
             
+            // Reset local position, then apply offsets from zero
+            helmetGo.transform.localPosition = Vector3.zero;
+
             // Calculate actual face "forward" in world space now that we've rotated it locally.
-            // vis.transform.forward might be pointing in a default direction during initialization.
             var faceForward = helmetGo.transform.forward;
 
             // Lift in world space
@@ -1596,7 +1605,9 @@ internal static class CharredWarriorPatches
                     CleanupSyncedArmor(vis);
                     if (!string.IsNullOrEmpty(marker.OriginalRightItem))
                         vis.SetRightItem(marker.OriginalRightItem);
-                    
+
+                    // Use Set*Item() so Valheim updates its ZDO hashes (required for
+                    // re-creation on next enable). Force the comparison to differ first.
                     if (marker.HelmetSwapped)
                     {
                         FHelmetItem?.SetValue(vis, "_revert");
@@ -1621,9 +1632,15 @@ internal static class CharredWarriorPatches
                         vis.SetShoulderItem(marker.OriginalShoulderItem, 0);
                     }
 
+                    // Safety net: destroy any leftover instances Valheim may have missed
+                    DestroyAndClearField(vis, FHelmetItemInstance);
+                    DestroyListInstances(vis, FChestItemInstances);
+                    DestroyListInstances(vis, FLegItemInstances);
+                    DestroyListInstances(vis, FShoulderItemInstances);
+
                     HideBodyVisuals(vis, false);
                 }
-                
+
                 UObject.Destroy(marker);
             }
         }
@@ -1633,6 +1650,29 @@ internal static class CharredWarriorPatches
         }
 
         Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred revert: {markers.Length} instance(s)");
+    }
+
+    /// <summary>Destroy a single GameObject field (e.g. m_helmetItemInstance) and null it.</summary>
+    private static void DestroyAndClearField(VisEquipment vis, FieldInfo? field)
+    {
+        if (field == null) return;
+        var go = field.GetValue(vis) as GameObject;
+        if (go != null) UObject.Destroy(go);
+        field.SetValue(vis, null);
+    }
+
+    /// <summary>Destroy all GameObjects in a List field (e.g. m_chestItemInstances) and clear it.</summary>
+    private static void DestroyListInstances(VisEquipment vis, FieldInfo? field)
+    {
+        if (field == null) return;
+        var list = field.GetValue(vis) as System.Collections.IList;
+        if (list == null) return;
+        foreach (var item in list)
+        {
+            var go = item as GameObject;
+            if (go != null) UObject.Destroy(go);
+        }
+        list.Clear();
     }
 
     // -------------------------------------------------------------------------
@@ -2489,7 +2529,7 @@ internal static class CharredWarriorPatches
                     triggerHelmet = FHelmetItem?.GetValue(vis) as string ?? "";
                 if (string.IsNullOrEmpty(triggerHelmet)) triggerHelmet = "_none";
 
-                if (marker != null) { marker.OriginalHelmetItem = ""; marker.HelmetSwapped = false; }
+                if (marker != null) { marker.OriginalHelmetItem = ""; marker.HelmetSwapped = false; marker.HelmetScaled = false; marker.LastScaledHelmetInstance = null; marker.HelmetRescueCount = 0; }
                 FHelmetItem?.SetValue(vis, "");
                 vis.SetHelmetItem(triggerHelmet);
             }
