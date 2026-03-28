@@ -82,16 +82,22 @@ The final design combines two layers to work around the ~177° arm bone orientat
 
 1. **Body swap layer** (`EnableBodySwap = true`, default): The player body mesh (cached from the local Player's `VisEquipment.m_bodyModel` on first Awake) is placed on the Charred skeleton with the player's original bind poses intact. Because both skeletons share Mixamo bone names, GPU skinning deforms it via Charred bones, giving volumetric deforming arms. Color/emission/scale/offset are configurable.
 
-2. **Approach A armor on top** (unchanged): SouthsilArmor pieces attached via Blender-retargeted bind poses. Torso/legs/helm/cape look great. Arm geometry from the chest armor is trimmed via `TrimChestArms = true` (default), leaving only the torso plate — the body swap arms show through instead.
+2. **Approach A armor on top** (unchanged): SouthsilArmor pieces attached via Blender-retargeted bind poses. Torso/legs/helm/cape look great. Arm geometry from the chest armor is hidden via `TrimChestArms = true` (default) by truncating `subMeshCount` from 10 to 7 on the cloned mesh (submeshes 7-9 are 100% arm/hand geometry). This modifies only the submesh descriptor table, not vertex/index buffers, bypassing the `isReadable=false` constraint. The body swap arms show through instead. Correct textures are preserved because the original Unity mesh is used (`UObject.Instantiate` of prefab mesh) rather than a rebuilt binary.
 
 **SouthsilArmor mesh `isReadable=false` constraint**: All SouthsilArmor meshes have `isReadable=false` baked into the asset bundle. This blocks `SetTriangles`, `GetTriangles`, `GetVertices`, and all other mesh data APIs at runtime — even on `UObject.Instantiate()` clones. There is no public Unity API to flip this flag at runtime, and we cannot change import settings on a third-party mod's pre-built bundles. `Mesh.AcquireReadOnlyMeshData()` (Unity 2020.1+) can bypass `isReadable` for reading, but writing requires building a new mesh from scratch.
 
 **Key config toggles:**
 - `EnableBodySwap` (bool, default true) — adds the player body mesh layer
-- `TrimChestArms` (bool, default true) — removes arm/hand triangles from chest armor
+- `TrimChestArms` (bool, default true) — hides arm submeshes (7-9) via subMeshCount truncation
 - `ShowVanillaChest / ShowVanillaShoulders` (bool, default false) — overlay vanilla pieces for comparison
 - `BodySwapColorR/G/B`, `BodySwapEmissionR/G/B` — material color/emission of the body layer
 - `BodySwapScale`, `BodySwapYOffset` — size and vertical position of the body layer
+
+**MasterSwitch toggle revert/refresh cycle:**
+
+`RevertAllCharredWarriors()` (OFF) must call Valheim's `Set*Item()` methods (not just set fields via reflection) so that Valheim updates its internal ZDO hashes. Without this, `RefreshCharredWarriors()` (ON) fails because Valheim sees the ZDO hash already matches the target item and skips instance creation. After the `Set*Item()` calls, leftover instances are explicitly destroyed as a safety net via `DestroyAndClearField`/`DestroyListInstances`.
+
+**Helmet scale/rotation must be absolute, not additive:** `ScaleHelmetAfterAttach` sets `localScale`, `localRotation`, and `localPosition` to absolute values (not `*=` or `+=`). The prefab's original scale is cached in a static `_cachedHelmetPrefabScale` field (not on the marker, which is destroyed during revert). Config scale is applied as `_cachedHelmetPrefabScale * configScale`.
 
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 
