@@ -337,6 +337,7 @@ Only apply bind pose changes that have been verified to match between simulator 
 
 ## Future Improvements
 
+- ✅ Chest scale: `CharredWarriorChestScale` config now works — applies `userScale` to Blender-retargeted bind poses without double-applying `autoCorrection`. Allows chest piece to be scaled independently to sit over the body swap layer.
 - Arm scale adjustment: Consider applying targeted scale corrections to arm/hand bones to reduce "skinny" appearance while preserving position/orientation
 - Arm twist mitigation: Explore per-bone rotation blending to reduce twisted appearance in fingers/wrists
 - Validation: Full in-game animation testing across all combat moves
