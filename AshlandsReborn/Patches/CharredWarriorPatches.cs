@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using HarmonyLib;
@@ -887,14 +888,31 @@ internal static class CharredWarriorPatches
                     }
                 }
 
-                // --- Clone mesh from prefab (prevents stacking) and compute bind poses ---
-                var prefabMesh = GetPrefabArmorMesh(armorItemName, smr.name);
-                var baseMesh = prefabMesh ?? smr.sharedMesh;
-                var newMesh = UObject.Instantiate(baseMesh);
+                // --- Clone mesh and compute bind poses ---
+                bool isChest = (instanceField == FChestItemInstances);
+                bool useTrimmedMesh = isChest && (Plugin.TrimChestArms?.Value ?? true);
+
+                Mesh newMesh;
+                if (useTrimmedMesh)
+                {
+                    // Use pre-built torso-only mesh (arm tris already removed).
+                    // The SouthsilArmor knightchest mesh is isReadable=false, blocking
+                    // all triangle read/write APIs, so we load a fully readable mesh
+                    // built offline from the extracted asset data.
+                    var trimmed = LoadTrimmedChestMesh();
+                    newMesh = trimmed != null
+                        ? UObject.Instantiate(trimmed)
+                        : UObject.Instantiate(smr.sharedMesh); // fallback: untrimmed
+                }
+                else
+                {
+                    var prefabMesh = GetPrefabArmorMesh(armorItemName, smr.name);
+                    var baseMesh = prefabMesh ?? smr.sharedMesh;
+                    newMesh = UObject.Instantiate(baseMesh);
+                }
+
                 var originalBPs = newMesh.bindposes;
                 var newBPs = new Matrix4x4[originalBPs.Length];
-
-                bool isChest = (instanceField == FChestItemInstances);
 
                 if (isChest)
                 {
@@ -935,11 +953,6 @@ internal static class CharredWarriorPatches
                 }
 
                 newMesh.bindposes = newBPs;
-
-                // Trim arm geometry from chest armor (leaves torso-only plate)
-                if (isChest && (Plugin.TrimChestArms?.Value ?? true))
-                    TrimArmTriangles(newMesh, prefabBoneNames);
-
                 smr.sharedMesh = newMesh;
 
                 // --- SHOULDER ROTATION WRAPPERS ---
@@ -982,77 +995,107 @@ internal static class CharredWarriorPatches
     // Arm triangle trimming — removes arm/hand geometry from chest armor
     // =====================================================================
 
-    private static readonly HashSet<string> ArmBoneNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "LeftShoulder",  "LeftArm",  "LeftForeArm",  "LeftHand",
-        "RightShoulder", "RightArm", "RightForeArm", "RightHand",
-        // Finger bones — Left
-        "LeftHandThumb1",  "LeftHandThumb2",  "LeftHandThumb3",
-        "LeftHandIndex1",  "LeftHandIndex2",  "LeftHandIndex3",
-        "LeftHandMiddle1", "LeftHandMiddle2", "LeftHandMiddle3",
-        "LeftHandRing1",   "LeftHandRing2",   "LeftHandRing3",
-        "LeftHandPinky1",  "LeftHandPinky2",  "LeftHandPinky3",
-        // Finger bones — Right
-        "RightHandThumb1",  "RightHandThumb2",  "RightHandThumb3",
-        "RightHandIndex1",  "RightHandIndex2",  "RightHandIndex3",
-        "RightHandMiddle1", "RightHandMiddle2", "RightHandMiddle3",
-        "RightHandRing1",   "RightHandRing2",   "RightHandRing3",
-        "RightHandPinky1",  "RightHandPinky2",  "RightHandPinky3",
-    };
+    /// Cached torso-only mesh loaded from embedded resource (arm triangles pre-removed).
+    private static Mesh? s_trimmedChestMesh;
 
     /// <summary>
-    /// Removes triangles from <paramref name="mesh"/> where all 3 vertices have
-    /// more than half their skinning weight on arm/hand bones.
-    /// Operates on all submeshes independently so submesh count is preserved.
+    /// Loads the pre-trimmed knightchest mesh from an embedded zlib-compressed binary resource.
+    /// The SouthsilArmor mesh is not CPU-readable at runtime (isReadable=false), which blocks
+    /// all triangle read/write APIs. This mesh was built offline from the extracted asset data
+    /// with arm triangles already removed and unreferenced vertices stripped.
     /// </summary>
-    private static void TrimArmTriangles(Mesh mesh, string[] boneNames)
+    private static Mesh? LoadTrimmedChestMesh()
     {
-        // Build set of bone indices that are arm bones
-        var armIndices = new HashSet<int>();
-        for (int i = 0; i < boneNames.Length; i++)
-        {
-            if (ArmBoneNames.Contains(boneNames[i]))
-                armIndices.Add(i);
-        }
-        if (armIndices.Count == 0) return;
+        if (s_trimmedChestMesh != null) return s_trimmedChestMesh;
 
-        // Per-vertex: sum of weights on arm bone indices
-        var boneWeights = mesh.boneWeights;
-        int vertCount = boneWeights.Length;
-        var armWeightFrac = new float[vertCount];
-        for (int v = 0; v < vertCount; v++)
+        var asm = Assembly.GetExecutingAssembly();
+        using var stream = asm.GetManifestResourceStream("AshlandsReborn.knightchest_trimmed.bin");
+        if (stream == null)
         {
-            var bw = boneWeights[v];
-            float armW = 0f;
-            if (armIndices.Contains(bw.boneIndex0)) armW += bw.weight0;
-            if (armIndices.Contains(bw.boneIndex1)) armW += bw.weight1;
-            if (armIndices.Contains(bw.boneIndex2)) armW += bw.weight2;
-            if (armIndices.Contains(bw.boneIndex3)) armW += bw.weight3;
-            armWeightFrac[v] = armW;
+            Plugin.Log?.LogWarning("[Ashlands Reborn] knightchest_trimmed.bin embedded resource not found. Arm trim disabled.");
+            return null;
         }
 
-        // For each submesh, rebuild triangle list excluding arm-dominated triangles
-        int totalRemoved = 0;
-        for (int sub = 0; sub < mesh.subMeshCount; sub++)
+        byte[] compressed;
+        using (var ms = new MemoryStream())
         {
-            var tris = mesh.GetTriangles(sub);
-            var kept = new System.Collections.Generic.List<int>(tris.Length);
-            for (int t = 0; t < tris.Length; t += 3)
+            stream.CopyTo(ms);
+            compressed = ms.ToArray();
+        }
+
+        // Decompress: Python zlib.compress wraps raw deflate with 2-byte header + 4-byte Adler32 footer.
+        byte[] raw;
+        using (var inMs = new MemoryStream(compressed, 2, compressed.Length - 6))
+        using (var deflate = new DeflateStream(inMs, CompressionMode.Decompress))
+        using (var outMs = new MemoryStream())
+        {
+            deflate.CopyTo(outMs);
+            raw = outMs.ToArray();
+        }
+
+        int offset = 0;
+        int ReadInt() { var v = BitConverter.ToInt32(raw, offset); offset += 4; return v; }
+        float ReadFloat() { var v = BitConverter.ToSingle(raw, offset); offset += 4; return v; }
+
+        int vertCount = ReadInt();
+        int triIndexCount = ReadInt();
+        int boneCount = ReadInt();
+
+        var vertices = new Vector3[vertCount];
+        for (int i = 0; i < vertCount; i++)
+            vertices[i] = new Vector3(ReadFloat(), ReadFloat(), ReadFloat());
+
+        var normals = new Vector3[vertCount];
+        for (int i = 0; i < vertCount; i++)
+            normals[i] = new Vector3(ReadFloat(), ReadFloat(), ReadFloat());
+
+        var uvs = new Vector2[vertCount];
+        for (int i = 0; i < vertCount; i++)
+            uvs[i] = new Vector2(ReadFloat(), ReadFloat());
+
+        var boneWeights = new BoneWeight[vertCount];
+        for (int i = 0; i < vertCount; i++)
+        {
+            boneWeights[i] = new BoneWeight
             {
-                int i0 = tris[t], i1 = tris[t + 1], i2 = tris[t + 2];
-                if (armWeightFrac[i0] > 0.5f && armWeightFrac[i1] > 0.5f && armWeightFrac[i2] > 0.5f)
-                {
-                    totalRemoved++;
-                    continue;
-                }
-                kept.Add(i0); kept.Add(i1); kept.Add(i2);
-            }
-            mesh.SetTriangles(kept, sub);
+                boneIndex0 = ReadInt(), boneIndex1 = ReadInt(),
+                boneIndex2 = ReadInt(), boneIndex3 = ReadInt(),
+                weight0 = ReadFloat(), weight1 = ReadFloat(),
+                weight2 = ReadFloat(), weight3 = ReadFloat(),
+            };
         }
 
-        if (totalRemoved > 0)
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] TrimArmTriangles: removed {totalRemoved} arm triangles from chest armor");
+        var triangles = new int[triIndexCount];
+        for (int i = 0; i < triIndexCount; i++)
+            triangles[i] = BitConverter.ToUInt16(raw, offset + i * 2);
+        offset += triIndexCount * 2;
+
+        int bpCount = ReadInt();
+        var bindPoses = new Matrix4x4[bpCount];
+        for (int i = 0; i < bpCount; i++)
+        {
+            var m = new Matrix4x4();
+            for (int j = 0; j < 16; j++)
+                m[j] = ReadFloat();
+            bindPoses[i] = m;
+        }
+
+        var mesh = new Mesh();
+        mesh.name = "KnightChest_TorsoOnly";
+        mesh.vertices = vertices;
+        mesh.normals = normals;
+        mesh.uv = uvs;
+        mesh.boneWeights = boneWeights;
+        mesh.triangles = triangles;
+        mesh.bindposes = bindPoses;
+        mesh.RecalculateBounds();
+
+        s_trimmedChestMesh = mesh;
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Loaded trimmed chest mesh: {vertCount} verts, {triIndexCount / 3} tris, {bpCount} bones");
+        return mesh;
     }
+
+
 
     // =====================================================================
     // Hybrid body swap layer — player mesh underneath Approach A armor
