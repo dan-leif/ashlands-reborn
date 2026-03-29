@@ -72,6 +72,11 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> ShowVanillaShoulders { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaBracers { get; private set; } = null!;
 
+    // --- Dev Automation ---
+    public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
+    public static ConfigEntry<string> DevAutoLoadCharacter { get; private set; } = null!;
+    public static ConfigEntry<string> DevAutoLoadWorld { get; private set; } = null!;
+
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
 
@@ -418,6 +423,24 @@ public class Plugin : BaseUnityPlugin
             false,
             "Also show the vanilla utility/bracer piece alongside the custom one (for comparison).");
 
+        DevAutoLoad = Config.Bind(
+            "Dev Automation",
+            "DevAutoLoad",
+            false,
+            "Automatically navigate menus and load into a world on game start. Set character/world names below.");
+
+        DevAutoLoadCharacter = Config.Bind(
+            "Dev Automation",
+            "DevAutoLoadCharacter",
+            "Dove",
+            "Character name to auto-select when DevAutoLoad is true.");
+
+        DevAutoLoadWorld = Config.Bind(
+            "Dev Automation",
+            "DevAutoLoadWorld",
+            "Reborn",
+            "World name to auto-select when DevAutoLoad is true.");
+
         // Migrate renamed/moved config keys
         try
         {
@@ -654,6 +677,8 @@ public class Plugin : BaseUnityPlugin
 
     private void Update()
     {
+        Patches.DevAutoLoadPatches.Tick();
+
         var inWorld = Player.m_localPlayer != null;
         if (inWorld)
         {
