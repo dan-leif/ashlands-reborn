@@ -16,7 +16,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **First-run note for new user accounts**: If SouthsilArmor items are missing in-game and the log shows a `NullReferenceException` in `Localization.SetLanguageFromLocale`, the account has no saved language preference. Fix: launch Valheim via Steam (no mods), go to Options → Language, set English, and exit. Then launch via r2modman normally.
 
-## Build
+## Build & Launch
+
+### One-command dev cycle
+
+```powershell
+.\dev.ps1
+```
+
+`dev.ps1` (repo root) does everything in one step:
+1. Runs `dotnet build` — compiles and deploys `AshlandsReborn.dll` to the r2modman profile
+2. Copies Doorstop files (`winhttp.dll`, `doorstop_config.ini`) from the profile to the game directory
+3. Creates a directory junction `<game dir>/BepInEx/` → profile's `BepInEx/` (backed up to `BepInEx_vanilla/` on first run)
+4. Launches `valheim.exe -console`
+
+With `DevAutoLoad = true` in the config (section "Dev Automation"), the game also auto-navigates menus and loads directly into the configured character/world.
+
+**Why the junction is needed:** BepInEx resolves plugin and config paths relative to the exe directory, not the working directory. Without the junction, BepInEx loads from the game's own `BepInEx/` folder (which has no plugins). The junction makes BepInEx see the profile's plugins transparently.
+
+### Manual build only
 
 ```bash
 cd AshlandsReborn
@@ -36,8 +54,6 @@ Override the profile path at build time:
 dotnet build -p:ProfilePluginsPath="C:\path\to\profile\BepInEx\plugins"
 ```
 
-The game's own `BepInEx\plugins\` folder is intentionally left untouched so vanilla Valheim can run without mods.
-
 If game references are missing, run `CopyRefs.ps1` from the repo root to populate `AshlandsReborn/Lib/` with the required DLLs from your Valheim install.
 
 There are no automated tests — verify changes by running the game.
@@ -56,6 +72,9 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `ClutterSystemPatches.cs` | `ClutterSystem.Awake` | Minor grass clutter patch |
 | `ValkyriePatches.cs` | Creature spawn | Swaps Fallen Valkyrie prefab with Valkyrie mesh/animations |
 | `CharredWarriorPatches.cs` | Creature spawn | Equips armor/sword on Charred Melee; computes bind-pose transforms for skeletal rigging |
+| `DevAutoLoadPatches.cs` | None (no Harmony patches) | State machine called from `Plugin.Update()` that auto-navigates FejdStartup menus on startup |
+
+**Note on `DevAutoLoadPatches.cs`:** This file has no `[HarmonyPatch]` attributes. Harmony-patching `FejdStartup.Start()` (a coroutine) and `FejdStartup.Update()` (not defined as an override) fails silently. Instead it exposes a `Tick()` method called from `Plugin.Update()` each frame, checking `FejdStartup.instance` directly.
 
 ### Config → feature guard pattern
 
@@ -108,6 +127,14 @@ The final design combines two layers to work around the ~177° arm bone orientat
 | `TreeRefreshKey` | F8 | Respawn tree replacements |
 | `CharredWarriorRefreshKey` | F10 | Dump chest matrices + re-apply Charred Warrior armor |
 | `DataDumpKey` | F11 | Dump player body mesh + charred sinew positioning data |
+
+### Dev Automation config (section "Dev Automation")
+
+| Config key | Default | Effect |
+|---|---|---|
+| `DevAutoLoad` | false | Auto-navigate menus and load into world on startup |
+| `DevAutoLoadCharacter` | "Dove" | Character name to select |
+| `DevAutoLoadWorld` | "Reborn" | World name to select |
 
 ## Asset Extraction Scripts
 
