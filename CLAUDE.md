@@ -116,13 +116,15 @@ The final design combines two layers to work around the ~177° arm bone orientat
 
 `RevertAllCharredWarriors()` (OFF) must call Valheim's `Set*Item()` methods (not just set fields via reflection) so that Valheim updates its internal ZDO hashes. Without this, `RefreshCharredWarriors()` (ON) fails because Valheim sees the ZDO hash already matches the target item and skips instance creation. After the `Set*Item()` calls, leftover instances are explicitly destroyed as a safety net via `DestroyAndClearField`/`DestroyListInstances`.
 
+**`m_current*ItemHash` must also be reset to 0 after revert and before refresh:** `DestroyAndClearField`/`DestroyListInstances` destroy visual GameObjects but do NOT reset `VisEquipment`'s internal `m_currentHelmetItemHash`, `m_currentChestItemHash`, `m_currentLegItemHash`, `m_currentShoulderItemHash` fields. `Set*Equipped(hash)` returns false immediately when its slot's hash matches — so if the hash was never cleared, the destroyed instances are never recreated. Fix: after destroying instances in `RevertAllCharredWarriors()` and before calling `Set*Item()` in `RefreshCharredWarriors()`, set all four fields to `0` via reflection (`FCurrentHelmetItemHash?.SetValue(vis, 0)` etc.). These fields are declared as `private static readonly FieldInfo?` alongside the other VisEquipment field accessors.
+
 **Helmet scale/rotation must be absolute, not additive:** `ScaleHelmetAfterAttach` sets `localScale`, `localRotation`, and `localPosition` to absolute values (not `*=` or `+=`). The prefab's original scale is cached in a static `_cachedHelmetPrefabScale` field (not on the marker, which is destroyed during revert). Config scale is applied as `_cachedHelmetPrefabScale * configScale`.
 
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 
 | Config key | Default hotkey | Effect |
 |---|---|---|
-| `MasterSwitch` | F6 | Toggle all features |
+| `MasterSwitch` | Backspace | Toggle all features |
 | `TerrainRefreshKey` | F7 | Force terrain vertex color rewrite |
 | `TreeRefreshKey` | F8 | Respawn tree replacements |
 | `CharredWarriorRefreshKey` | F10 | Dump chest matrices + re-apply Charred Warrior armor |

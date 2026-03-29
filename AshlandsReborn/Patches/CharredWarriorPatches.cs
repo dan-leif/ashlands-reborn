@@ -49,6 +49,18 @@ internal static class CharredWarriorPatches
     private static readonly FieldInfo? FShoulderItemInstances =
         typeof(VisEquipment).GetField("m_shoulderItemInstances", BindingFlags.Instance | BindingFlags.NonPublic);
 
+    // Internal hash fields that gate instance creation in UpdateEquipmentVisuals.
+    // Set*Equipped(hash) returns false (no-op) when m_current*ItemHash == hash.
+    // We must reset these to force Valheim to recreate instances after revert/refresh.
+    private static readonly FieldInfo? FCurrentHelmetItemHash =
+        typeof(VisEquipment).GetField("m_currentHelmetItemHash", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FCurrentChestItemHash =
+        typeof(VisEquipment).GetField("m_currentChestItemHash", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FCurrentLegItemHash =
+        typeof(VisEquipment).GetField("m_currentLegItemHash", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FCurrentShoulderItemHash =
+        typeof(VisEquipment).GetField("m_currentShoulderItemHash", BindingFlags.Instance | BindingFlags.NonPublic);
+
     private static bool _suppressSwordSwap;
     private static int  _swapLogCount;
     private static bool _dumpDone;
@@ -1638,6 +1650,13 @@ internal static class CharredWarriorPatches
                     DestroyListInstances(vis, FLegItemInstances);
                     DestroyListInstances(vis, FShoulderItemInstances);
 
+                    // Reset internal hash trackers so Set*Equipped() sees a mismatch
+                    // and recreates instances on next UpdateEquipmentVisuals() cycle.
+                    FCurrentHelmetItemHash?.SetValue(vis, 0);
+                    FCurrentChestItemHash?.SetValue(vis, 0);
+                    FCurrentLegItemHash?.SetValue(vis, 0);
+                    FCurrentShoulderItemHash?.SetValue(vis, 0);
+
                     HideBodyVisuals(vis, false);
                 }
 
@@ -2503,6 +2522,13 @@ internal static class CharredWarriorPatches
 
             var marker = humanoid.GetComponent<AshlandsRebornCharredSwapped>();
             if (marker != null) CleanupSyncedArmor(vis);
+
+            // Reset internal hash trackers so Set*Equipped() sees a mismatch
+            // and recreates instances when UpdateEquipmentVisuals() runs.
+            FCurrentHelmetItemHash?.SetValue(vis, 0);
+            FCurrentChestItemHash?.SetValue(vis, 0);
+            FCurrentLegItemHash?.SetValue(vis, 0);
+            FCurrentShoulderItemHash?.SetValue(vis, 0);
 
             // --- Sword refresh ---
             marker = humanoid.GetComponent<AshlandsRebornCharredSwapped>();
