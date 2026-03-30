@@ -68,5 +68,5 @@ cmd /c mklink /J $gameBepInEx $profileBepInEx
 Write-Host "Linked BepInEx -> profile" -ForegroundColor Cyan
 
 # --- Launch ---
-Write-Host "Launching Valheim with profile: $profilePath" -ForegroundColor Cyan
-Start-Process -FilePath "$gamePath\valheim.exe" -WorkingDirectory $profilePath -ArgumentList "-console"
+Write-Host "Launching Valheim via Steam URI..." -ForegroundColor Cyan
+Start-Process "steam://rungameid/892970"
