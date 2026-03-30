@@ -28,9 +28,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. Runs `dotnet build` — compiles and deploys `AshlandsReborn.dll` to the r2modman profile
 2. Copies Doorstop files (`winhttp.dll`, `doorstop_config.ini`) from the profile to the game directory
 3. Creates a directory junction `<game dir>/BepInEx/` → profile's `BepInEx/` (backed up to `BepInEx_vanilla/` on first run)
-4. Launches `valheim.exe -console`
+4. Launches Valheim via `steam://rungameid/892970` — **must go through Steam** so Steamworks initializes correctly. Launching `valheim.exe` directly causes a Steamworks init failure and FejdStartup never loads.
 
 With `DevAutoLoad = true` in the config (section "Dev Automation"), the game also auto-navigates menus and loads directly into the configured character/world.
+
+**Must run with `-ExecutionPolicy Bypass`** — the script is blocked by default PowerShell execution policy:
+```powershell
+powershell -ExecutionPolicy Bypass -File dev.ps1
+```
+
+### Autonomous dev cycle (Claude-driven)
+
+Claude can build, launch, and evaluate results without user intervention:
+
+1. **Build + launch**: `powershell -ExecutionPolicy Bypass -File dev.ps1`
+2. **Poll for world load**: Watch `%APPDATA%\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\LogOutput.log` for `"starting game"` — appears within ~10s of game start when DevAutoLoad is enabled
+3. **Wait ~15s** for the world to fully render after "starting game" appears
+4. **Take screenshot**: Focus the Valheim window and use Alt+PrintScreen → save clipboard to PNG:
+   ```powershell
+   Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+   $proc = Get-Process valheim
+   [Win32]::SetForegroundWindow($proc.MainWindowHandle)
+   Start-Sleep 2
+   [System.Windows.Forms.SendKeys]::SendWait('%{PRTSC}')
+   Start-Sleep 1
+   [System.Windows.Forms.Clipboard]::GetImage().Save('path\shot.png', [System.Drawing.Imaging.ImageFormat]::Png)
+   ```
+5. **Read log** for `[Ashlands Reborn]` lines confirming patches applied
+6. **Read screenshot** with the Read tool to visually evaluate results
+
+**Key paths:**
+- BepInEx log: `C:\Users\Dev\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\LogOutput.log`
+- Valheim screenshots: `C:\Users\Dev\AppData\LocalLow\IronGate\Valheim\screenshots\`
+- Config: `C:\Users\Dev\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\config\com.ashlandsreborn.weather.cfg`
 
 **Why the junction is needed:** BepInEx resolves plugin and config paths relative to the exe directory, not the working directory. Without the junction, BepInEx loads from the game's own `BepInEx/` folder (which has no plugins). The junction makes BepInEx see the profile's plugins transparently.
 
