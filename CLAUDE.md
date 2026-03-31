@@ -39,23 +39,83 @@ powershell -ExecutionPolicy Bypass -File dev.ps1
 
 ### Autonomous dev cycle (Claude-driven)
 
-Claude can build, launch, and evaluate results without user intervention:
+Claude can build, launch, evaluate results, and report back without user intervention. Full procedure:
 
-1. **Build + launch**: `powershell -ExecutionPolicy Bypass -File dev.ps1`
-2. **Poll for world load**: Watch `%APPDATA%\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\LogOutput.log` for `"starting game"` — appears within ~10s of game start when DevAutoLoad is enabled
-3. **Wait ~15s** for the world to fully render after "starting game" appears
-4. **Take screenshot**: Focus the Valheim window and use Alt+PrintScreen → save clipboard to PNG:
-   ```powershell
-   Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-   $proc = Get-Process valheim
-   [Win32]::SetForegroundWindow($proc.MainWindowHandle)
-   Start-Sleep 2
-   [System.Windows.Forms.SendKeys]::SendWait('%{PRTSC}')
-   Start-Sleep 1
-   [System.Windows.Forms.Clipboard]::GetImage().Save('path\shot.png', [System.Drawing.Imaging.ImageFormat]::Png)
-   ```
-5. **Read log** for `[Ashlands Reborn]` lines confirming patches applied
-6. **Read screenshot** with the Read tool to visually evaluate results
+**Step 1 — Kill any running instance**
+```powershell
+Stop-Process -Name valheim -Force -ErrorAction SilentlyContinue
+```
+Wait ~3 seconds before relaunching.
+
+**Step 2 — Build + launch**
+```powershell
+powershell -ExecutionPolicy Bypass -File dev.ps1
+```
+
+**Step 3 — Poll for world load**
+Watch the BepInEx log for `"starting game"` — appears within ~20s of game start when DevAutoLoad is enabled. Poll every 2s, timeout after 3 minutes.
+```bash
+LOG="C:/Users/Dev/AppData/Roaming/r2modmanPlus-local/Valheim/profiles/Ashlands Reborn/BepInEx/LogOutput.log"
+for i in $(seq 1 90); do
+  grep -q "starting game" "$LOG" && echo "FOUND" && break
+  sleep 2
+done
+```
+
+**Step 4 — Wait 15s for world render**
+After "starting game" appears, sleep 15 seconds for terrain, trees, and creatures to fully load.
+
+**Step 5 — Take screenshot**
+Focus the Valheim window, send Alt+PrintScreen, save clipboard to PNG. Use `SW_RESTORE` (9) before `SetForegroundWindow` so the window is not minimized:
+```powershell
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+Add-Type @'
+using System; using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+}
+'@
+$proc = Get-Process valheim
+[Win32]::ShowWindow($proc.MainWindowHandle, 9)   # SW_RESTORE
+Start-Sleep -Milliseconds 500
+[Win32]::SetForegroundWindow($proc.MainWindowHandle)
+Start-Sleep -Seconds 2
+[System.Windows.Forms.SendKeys]::SendWait('%{PRTSC}')
+Start-Sleep -Seconds 1
+[System.Windows.Forms.Clipboard]::GetImage().Save('C:\Users\Dev\AppData\LocalLow\IronGate\Valheim\screenshots\claude_shot.png', [System.Drawing.Imaging.ImageFormat]::Png)
+```
+
+**Step 6 — Analyze the screenshot**
+Read the PNG with the Read tool and visually inspect it. A **good screenshot** shows:
+- Game world in the background (terrain, trees, sky, creatures)
+- Player character visible or at least the world loaded around them
+- No loading screens, main menus, or black frames
+
+A **bad screenshot** may show:
+- Camera pointing straight up at the sky (spawn animation still in progress — wait longer)
+- Black screen (window not focused or still loading)
+- Main menu / character select screen (DevAutoLoad didn't fire — check log for errors)
+- Partial UI only (window minimized when captured)
+
+**If the screenshot is bad**: diagnose from the log, adjust wait time or retry. Common fixes:
+- Camera pointing up → add 10–15s more wait and retake
+- Black screen → verify Valheim window is foregrounded (`SetForegroundWindow` returned `True`), retry
+- Still on menu → check log for DevAutoLoad errors; the character/world name may not match
+
+Retry the screenshot (Steps 5–6) without relaunching the game until you get a good one.
+
+**Step 7 — Read the log**
+```bash
+tail -60 "$LOG" | grep -E "(Ashlands Reborn|Warning|Error)"
+```
+Check for `[Ashlands Reborn]` lines confirming each patch applied (terrain, weather, trees, BodySwap, armor bind-pose, helmet).
+
+**Step 8 — Kill the game and report**
+```powershell
+Stop-Process -Name valheim -Force -ErrorAction SilentlyContinue
+```
+Report log findings to the user, then **post the screenshot last** so it remains visible at the bottom of the chat.
 
 **Key paths:**
 - BepInEx log: `C:\Users\Dev\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\LogOutput.log`
