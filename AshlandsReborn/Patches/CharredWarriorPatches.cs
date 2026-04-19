@@ -64,6 +64,7 @@ internal static class CharredWarriorPatches
     private static bool _suppressSwordSwap;
     private static int  _swapLogCount;
     private static bool _dumpDone;
+    private static bool _breastplateDumpDone;
 
     // Helmet prefab scale cache — survives marker destruction across toggle cycles
     private static Vector3 _cachedHelmetPrefabScale;
@@ -272,6 +273,10 @@ internal static class CharredWarriorPatches
         if (Plugin.EnableBodySwap?.Value != true)
             HideBodyVisuals(__instance, true);
         __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances, target, Plugin.CharredWarriorChestScale?.Value ?? 1f));
+
+        // Overlay the vanilla Charred_Breastplate (chest + pauldrons + bracers)
+        if (Plugin.ShowVanillaBracers?.Value == true && !marker.BreastplateOverlayApplied)
+            __instance.StartCoroutine(ApplyCharredBreastplateOverlay(__instance));
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetLegItem))]
@@ -1179,6 +1184,143 @@ internal static class CharredWarriorPatches
     }
 
     /// <summary>
+    /// Bone names that should be hidden (scaled to zero) on the breastplate overlay,
+    /// leaving only the bracer geometry visible. These are torso, shoulder, leg, and
+    /// head bones — everything except forearm/hand/attach bones.
+    /// </summary>
+    private static readonly HashSet<string> _breastplateHideBones = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Root", "Hips", "Spine", "Spine1", "Spine2",
+        "Neck", "Head", "Jaw",
+        "LeftShoulder", "LeftArm", "RightShoulder", "RightArm",
+        "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase",
+        "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase"
+    };
+
+    /// <summary>
+    /// Overlays the vanilla Charred_Breastplate bracers only on a Charred_Melee.
+    /// The breastplate prefab uses the Charred skeleton natively, so no
+    /// bind-pose retargeting is needed — just clone the SMRs, map bones, and parent them.
+    /// </summary>
+    private static System.Collections.IEnumerator ApplyCharredBreastplateOverlay(VisEquipment vis)
+    {
+        // Wait for the chest swap to settle
+        for (int i = 0; i < 5; i++) yield return null;
+
+        if (vis == null || !ShouldSwap()) yield break;
+
+        var marker = vis.GetComponent<AshlandsRebornCharredSwapped>();
+        if (marker == null || marker.BreastplateOverlayApplied) yield break;
+
+        var prefab = ObjectDB.instance?.GetItemPrefab("Charred_Breastplate");
+        if (prefab == null)
+        {
+            Plugin.Log?.LogWarning("[Ashlands Reborn] Charred_Breastplate prefab not found in ObjectDB — overlay skipped.");
+            yield break;
+        }
+
+        var bodySMR = vis.m_bodyModel;
+        if (bodySMR == null) yield break;
+        var bodyRoot = bodySMR.rootBone ?? bodySMR.transform;
+
+        // Build bone map from the Charred's hierarchy
+        var charBoneMap = BuildCharredBoneMap(vis);
+
+        // One-time prefab structure dump
+        if (!_breastplateDumpDone)
+        {
+            _breastplateDumpDone = true;
+            var sb = new StringBuilder();
+            sb.AppendLine("=== CHARRED_BREASTPLATE PREFAB DUMP ===");
+            for (int ci2 = 0; ci2 < prefab.transform.childCount; ci2++)
+            {
+                var ch = prefab.transform.GetChild(ci2);
+                sb.AppendLine($"  Child [{ci2}]: '{ch.name}'");
+                foreach (var r in ch.GetComponentsInChildren<Renderer>(true))
+                {
+                    sb.AppendLine($"    Renderer: '{r.name}' type={r.GetType().Name}");
+                    foreach (var mat in r.sharedMaterials)
+                        sb.AppendLine($"      Material: '{mat?.name ?? "null"}'");
+                    if (r is SkinnedMeshRenderer s)
+                    {
+                        sb.AppendLine($"      Mesh: '{s.sharedMesh?.name ?? "null"}' verts={s.sharedMesh?.vertexCount ?? 0} subMeshes={s.sharedMesh?.subMeshCount ?? 0} isReadable={s.sharedMesh?.isReadable}");
+                        for (int bi = 0; bi < s.bones.Length; bi++)
+                            sb.AppendLine($"      Bone[{bi}]: '{s.bones[bi]?.name ?? "NULL"}'");
+                    }
+                }
+                // Also dump any non-renderer children
+                for (int gi = 0; gi < ch.childCount; gi++)
+                {
+                    var grandchild = ch.GetChild(gi);
+                    sb.AppendLine($"    GrandChild [{gi}]: '{grandchild.name}'");
+                }
+            }
+            sb.AppendLine("=== END CHARRED_BREASTPLATE DUMP ===");
+            Plugin.Log?.LogInfo(sb.ToString());
+        }
+
+        // Find attach_skin children on the prefab
+        for (int ci = 0; ci < prefab.transform.childCount; ci++)
+        {
+            var child = prefab.transform.GetChild(ci);
+            if (!child.gameObject.name.StartsWith("attach_skin", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var prefabSMR in child.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                // Clone the mesh
+                var clonedMesh = UObject.Instantiate(prefabSMR.sharedMesh);
+                clonedMesh.name = $"BreastplateOverlay_{prefabSMR.name}";
+
+                // Map prefab bones to the live Charred skeleton, using zero-scale
+                // wrapper bones for non-bracer parts (torso, shoulders, legs, head).
+                // This collapses those vertices to a point, effectively hiding them,
+                // while forearm/hand bones render the bracers normally.
+                var prefabBones = prefabSMR.bones;
+                var newBones = new Transform[prefabBones.Length];
+                for (int b = 0; b < prefabBones.Length; b++)
+                {
+                    var boneName = prefabBones[b] != null ? prefabBones[b].name : "";
+                    Transform realBone = charBoneMap.TryGetValue(boneName, out var t) ? t : bodyRoot;
+
+                    if (_breastplateHideBones.Contains(boneName))
+                    {
+                        // Insert a zero-scale wrapper so vertices weighted to
+                        // this bone collapse to a point and become invisible
+                        var wrapper = new GameObject($"BPHide_{boneName}");
+                        wrapper.transform.SetParent(realBone, false);
+                        wrapper.transform.localScale = Vector3.zero;
+                        marker.SyncedObjects.Add(wrapper);
+                        newBones[b] = wrapper.transform;
+                    }
+                    else
+                    {
+                        newBones[b] = realBone;
+                    }
+                }
+
+                // Create the overlay GO
+                var go = new GameObject($"BreastplateOverlay_Bracers");
+                go.transform.SetParent(vis.transform, false);
+                go.transform.localPosition = Vector3.zero;
+                go.transform.localRotation = Quaternion.identity;
+                go.transform.localScale = Vector3.one;
+
+                var smr = go.AddComponent<SkinnedMeshRenderer>();
+                smr.sharedMesh = clonedMesh;
+                smr.bones = newBones;
+                smr.rootBone = bodyRoot;
+                smr.sharedMaterials = prefabSMR.sharedMaterials;
+
+                marker.SyncedObjects.Add(go);
+            }
+        }
+
+        marker.BreastplateOverlayApplied = true;
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred_Breastplate overlay applied to {vis.gameObject.name}");
+    }
+
+    /// <summary>
     /// Phase 5: Dumps raw Unity runtime matrices for the chest SMR.
     /// Writes JSON to BepInEx/plugins/chest_runtime_matrices.json.
     /// Triggered by F9 press (with 2-frame delay for animation update).
@@ -1473,6 +1615,7 @@ internal static class CharredWarriorPatches
         marker.SyncedObjects.Clear();
         marker.RemappedInstances.Clear();
         marker.BodySwapApplied = false;
+        marker.BreastplateOverlayApplied = false;
     }
 
     private static void HideBodyVisuals(VisEquipment vis, bool hide)
@@ -2886,6 +3029,7 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public bool LegsSwapped;
     public bool ShoulderSwapped;
     public bool BodySwapApplied;
+    public bool BreastplateOverlayApplied;
     public List<int> RemappedInstances = new();
     public List<GameObject> SyncedObjects = new();
 
