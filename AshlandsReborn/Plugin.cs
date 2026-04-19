@@ -99,7 +99,7 @@ public class Plugin : BaseUnityPlugin
         MasterSwitchKey = Config.Bind(
             "General",
             "MasterSwitchKey",
-            KeyCode.F6,
+            KeyCode.Backslash,
             "Hotkey to toggle MasterSwitch and immediately revert or apply all visual changes."
         );
 
@@ -129,7 +129,7 @@ public class Plugin : BaseUnityPlugin
         LavaGrassThreshold = Config.Bind(
             "Terrain",
             "LavaGrassThreshold",
-            0.15f,
+            0.11f,
             "Points with vegetation mask above this are excluded from grass placement (no grass on lava edges). Lower = wider exclusion zone. Default 0.15."
         );
 
@@ -179,7 +179,7 @@ public class Plugin : BaseUnityPlugin
         AshlandsTreeDensity = Config.Bind(
             "Trees",
             "AshlandsTreeDensity",
-            20,
+            50,
             "Percent of scorched trees to transform into living Oak/Beech. 0 = no trees visible. 100 = normal Ashlands count."
         );
 
@@ -215,13 +215,13 @@ public class Plugin : BaseUnityPlugin
         EnableCharredWarriorSwap = Config.Bind(
             "Creatures",
             "EnableCharredWarriorSwap",
-            false,
+            true,
             "Master toggle for all Charred_Melee visual changes (sword and armor). No behavior change.");
 
         CharredWarriorHelmetName = Config.Bind(
             "Creatures",
             "CharredWarriorHelmetName",
-            "HelmetDrake",
+            "knighthelm",
             new ConfigDescription(
                 "The helmet to swap onto Charred Warriors. HelmetDrake is vanilla, knighthelm requires SouthsilArmor mod.",
                 new AcceptableValueList<string>("HelmetDrake", "knighthelm")));
@@ -241,7 +241,7 @@ public class Plugin : BaseUnityPlugin
         CharredWarriorShoulderName = Config.Bind(
             "Creatures",
             "CharredWarriorShoulderName",
-            "ss_storrcape",
+            "",
             "The cape/shoulder to swap onto Charred Warriors. Requires SouthsilArmor mod for 'ss_storrcape'. Leave empty to disable.");
 
         CharredWarriorKromScale = Config.Bind(
@@ -255,7 +255,7 @@ public class Plugin : BaseUnityPlugin
         CharredWarriorChestScale = Config.Bind(
             "Creatures",
             "CharredWarriorChestScale",
-            1.0f,
+            1.3f,
             new ConfigDescription(
                 "Scale factor for chest armor on Charred Warriors. 1.0 = player size. Adjusts bind poses so the skinned mesh renders larger/smaller relative to the skeleton.",
                 new AcceptableValueRange<float>(0.5f, 2f)));
@@ -420,7 +420,7 @@ public class Plugin : BaseUnityPlugin
         ShowVanillaBracers = Config.Bind(
             "Creatures",
             "ShowVanillaBracers",
-            false,
+            true,
             "Also show the vanilla utility/bracer piece alongside the custom one (for comparison).");
 
         DevAutoLoad = Config.Bind(
