@@ -277,6 +277,9 @@ internal static class CharredWarriorPatches
         // Overlay the vanilla Charred_Breastplate (chest + pauldrons + bracers)
         if (Plugin.ShowVanillaBracers?.Value == true && !marker.BreastplateOverlayApplied)
             __instance.StartCoroutine(ApplyCharredBreastplateOverlay(__instance));
+
+        // Apply eye glow color + chest glow toggle to particle FX
+        ApplyCharredGlowFX(__instance.transform);
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetLegItem))]
@@ -1189,12 +1192,20 @@ internal static class CharredWarriorPatches
             1f);
         if (mat.HasProperty("_EmissionColor"))
         {
-            mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", new Color(
-                Plugin.BodySwapEmissionR?.Value ?? 0.8f,
-                Plugin.BodySwapEmissionG?.Value ?? 0.2f,
-                Plugin.BodySwapEmissionB?.Value ?? 0f,
-                1f));
+            if (Plugin.ShowBodySwapChestGlow?.Value == true)
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", new Color(
+                    Plugin.BodySwapEmissionR?.Value ?? 0.8f,
+                    Plugin.BodySwapEmissionG?.Value ?? 0.2f,
+                    Plugin.BodySwapEmissionB?.Value ?? 0f,
+                    1f));
+            }
+            else
+            {
+                mat.DisableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", Color.black);
+            }
         }
         smr.material = mat;
 
@@ -1637,6 +1648,82 @@ internal static class CharredWarriorPatches
         marker.RemappedInstances.Clear();
         marker.BodySwapApplied = false;
         marker.BreastplateOverlayApplied = false;
+    }
+
+    private static Color EyeGlowPresetColor()
+    {
+        return (Plugin.EyeGlowColor?.Value ?? "White") switch
+        {
+            "Blue"   => new Color(0.2f, 0.4f, 1f),
+            "Cyan"   => new Color(0f,   1f,   1f),
+            "Green"  => new Color(0f,   1f,   0.2f),
+            "Red"    => new Color(1f,   0.1f, 0f),
+            "Orange" => new Color(1f,   0.4f, 0f),
+            _        => new Color(1f,   1f,   1f),  // White
+        };
+    }
+
+    private static void ApplyEyeGlowMaterial(Renderer r)
+    {
+        // Kept for the SkinnedMeshRenderer "Eyes" fallback — particle path is handled separately
+        var baseColor = EyeGlowPresetColor();
+        float intensity = Plugin.EyeGlowIntensity?.Value ?? 2.0f;
+
+        var mat = UObject.Instantiate(r.material);
+        mat.color = baseColor;
+        if (mat.HasProperty("_EmissionColor"))
+        {
+            if (intensity > 0f)
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", baseColor * intensity);
+            }
+            else
+            {
+                mat.DisableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", Color.black);
+            }
+        }
+        r.material = mat;
+    }
+
+    private static void ApplyCharredGlowFX(Transform root)
+    {
+        // Chest glow particle system
+        var chestFX = FindInChildren(root, "fx_charred_chestglow");
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] GlowFX: chestFX={chestFX?.name ?? "NULL"}  showGlow={Plugin.ShowBodySwapChestGlow?.Value}");
+        if (chestFX != null)
+            chestFX.gameObject.SetActive(Plugin.ShowBodySwapChestGlow?.Value == true);
+
+        // Eye glow particle systems — color + intensity via startColor and material _TintColor
+        var baseColor = EyeGlowPresetColor();
+        float intensity = Plugin.EyeGlowIntensity?.Value ?? 2.0f;
+        var tintColor = new Color(baseColor.r, baseColor.g, baseColor.b, intensity / 5f);
+
+        foreach (var psName in new[] { "EyeGlow", "EyeGlow (1)" })
+        {
+            var eyeFX = FindInChildren(root, psName);
+            if (eyeFX == null) continue;
+
+            var ps = eyeFX.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                var main = ps.main;
+                main.startColor = new ParticleSystem.MinMaxGradient(
+                    new Color(baseColor.r, baseColor.g, baseColor.b, 1f));
+            }
+
+            var psr = eyeFX.GetComponent<ParticleSystemRenderer>();
+            if (psr != null)
+            {
+                var mat = UObject.Instantiate(psr.material);
+                if (mat.HasProperty("_TintColor"))
+                    mat.SetColor("_TintColor", tintColor);
+                else if (mat.HasProperty("_Color"))
+                    mat.SetColor("_Color", tintColor);
+                psr.material = mat;
+            }
+        }
     }
 
     private static void HideBodyVisuals(VisEquipment vis, bool hide)
@@ -3012,6 +3099,23 @@ internal static class CharredWarriorPatches
             sb.AppendLine($"  {r.GetType().Name}: '{r.name}'");
             foreach (var mat in r.sharedMaterials)
                 sb.AppendLine($"    Material: '{mat?.name ?? "null"}'  Shader: '{mat?.shader?.name ?? "null"}'");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("--- Lights ---");
+        foreach (var l in humanoid.GetComponentsInChildren<Light>(true))
+            sb.AppendLine($"  Light: '{l.name}'  type={l.type}  color={l.color}  intensity={l.intensity}  enabled={l.enabled}  goActive={l.gameObject.activeSelf}");
+
+        sb.AppendLine();
+        sb.AppendLine("--- ParticleSystems ---");
+        foreach (var ps in humanoid.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            var r = ps.GetComponent<ParticleSystemRenderer>();
+            var main = ps.main;
+            sb.AppendLine($"  PS: '{ps.name}'  goActive={ps.gameObject.activeSelf}  startColor={main.startColor.color}");
+            if (r != null)
+                foreach (var mat in r.sharedMaterials)
+                    sb.AppendLine($"    Material: '{mat?.name ?? "null"}'  Shader: '{mat?.shader?.name ?? "null"}'");
         }
 
         sb.AppendLine();

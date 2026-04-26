@@ -73,6 +73,9 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> ShowVanillaChest { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaShoulders { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaBracers { get; private set; } = null!;
+    public static ConfigEntry<bool> ShowBodySwapChestGlow { get; private set; } = null!;
+    public static ConfigEntry<string> EyeGlowColor { get; private set; } = null!;
+    public static ConfigEntry<float> EyeGlowIntensity { get; private set; } = null!;
 
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
@@ -384,6 +387,29 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Body swap eye/glow emission — Blue channel (0–1).",
                 new AcceptableValueRange<float>(0f, 1f)));
+
+        ShowBodySwapChestGlow = Config.Bind(
+            "Creatures",
+            "ShowBodySwapChestGlow",
+            false,
+            "Show the glowing emission on the body swap (flesh) layer. " +
+            "Off by default; use BodySwapEmissionR/G/B to control the color when enabled.");
+
+        EyeGlowColor = Config.Bind(
+            "Creatures",
+            "EyeGlowColor",
+            "White",
+            new ConfigDescription(
+                "Emission color preset for the Charred Melee eye glow.",
+                new AcceptableValueList<string>("Blue", "Cyan", "Green", "Red", "White", "Orange")));
+
+        EyeGlowIntensity = Config.Bind(
+            "Creatures",
+            "EyeGlowIntensity",
+            2.0f,
+            new ConfigDescription(
+                "Brightness multiplier for the eye glow emission (0 = off, 5 = very bright).",
+                new AcceptableValueRange<float>(0f, 5f)));
 
         BodySwapYOffset = Config.Bind(
             "Creatures",
