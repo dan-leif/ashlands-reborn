@@ -1105,6 +1105,67 @@ internal static class CharredWarriorPatches
         return s_invisibleMaterial = mat;
     }
 
+    private static int _lastChestSubmeshDebugIndex = -2; // sentinel: never applied
+
+    internal static void UpdateChestSubmeshDebug()
+    {
+        int debugIdx = Plugin.ChestSubmeshDebug?.Value ?? -1;
+        if (debugIdx == _lastChestSubmeshDebugIndex) return;
+        _lastChestSubmeshDebugIndex = debugIdx;
+
+        var markers = UObject.FindObjectsByType<AshlandsRebornCharredSwapped>(FindObjectsSortMode.None);
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshDebug: index={debugIdx}, markers={markers.Length}");
+
+        foreach (var marker in markers)
+        {
+            var vis = marker.GetComponent<VisEquipment>();
+            if (vis == null) continue;
+
+            // Collect all SMRs from the chest item instances
+            var chestObjs = FChestItemInstances?.GetValue(vis) as List<GameObject>;
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshDebug: chestObjs={chestObjs?.Count ?? -1}");
+
+            if (chestObjs == null || chestObjs.Count == 0) continue;
+
+            foreach (var go in chestObjs)
+            {
+                if (go == null) continue;
+                foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshDebug: SMR '{smr.name}' mesh='{smr.sharedMesh?.name}' subMeshCount={smr.sharedMesh?.subMeshCount} mats={smr.sharedMaterials.Length}");
+
+                    // Cache originals once per SMR (keyed by marker — use first SMR found)
+                    if (marker.ChestOriginalMaterials == null)
+                        marker.ChestOriginalMaterials = (Material[])smr.sharedMaterials.Clone();
+
+                    // Hide submesh by zeroing its SubMeshDescriptor indexCount.
+                    // Same descriptor-table-only mechanism as subMeshCount truncation, so it
+                    // works despite isReadable=false. debugIdx = which submesh index to hide.
+                    var mesh = smr.sharedMesh;
+                    if (mesh == null) continue;
+
+                    if (debugIdx >= 0 && debugIdx < mesh.subMeshCount)
+                    {
+                        try
+                        {
+                            var desc = mesh.GetSubMesh(debugIdx);
+                            desc.indexCount = 0;
+                            mesh.SetSubMesh(debugIdx, desc, UnityEngine.Rendering.MeshUpdateFlags.DontRecalculateBounds | UnityEngine.Rendering.MeshUpdateFlags.DontValidateIndices | UnityEngine.Rendering.MeshUpdateFlags.DontResetBoneBounds | UnityEngine.Rendering.MeshUpdateFlags.DontNotifyMeshUsers);
+                            Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshDebug: zeroed indexCount on submesh {debugIdx} of '{smr.name}'");
+                        }
+                        catch (Exception ex)
+                        {
+                            Plugin.Log?.LogWarning($"[Ashlands Reborn] ChestSubmeshDebug failed: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshDebug: idx {debugIdx} out of range (mesh has {mesh.subMeshCount} submeshes) — no-op");
+                    }
+                }
+            }
+        }
+    }
 
 
     // =====================================================================
@@ -3189,6 +3250,9 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public List<GameObject> SyncedObjects = new();
     public List<GameObject> BracerOverlayObjects = new();
     public List<Transform> BracerScaleBones = new();
+
+    /// <summary>Original chest SMR materials, cached before debug hiding so they can be restored.</summary>
+    public Material[]? ChestOriginalMaterials;
 
     /// <summary>True when we've scaled the Krom weapon (avoids re-scaling every frame).</summary>
     public bool KromScaled;

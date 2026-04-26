@@ -70,6 +70,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> BodySwapHideHead { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapHeadCutoffY { get; private set; } = null!;
     public static ConfigEntry<bool> TrimChestArms { get; private set; } = null!;
+    public static ConfigEntry<int> ChestSubmeshDebug { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaChest { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaShoulders { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaBracers { get; private set; } = null!;
@@ -449,6 +450,14 @@ public class Plugin : BaseUnityPlugin
             true,
             "Remove arm/hand triangles from the chest armor mesh, leaving only the torso plate.");
 
+        ChestSubmeshDebug = Config.Bind(
+            "Creatures",
+            "ChestSubmeshDebug",
+            -1,
+            new ConfigDescription(
+                "DEBUG: hide a single chest submesh by index (0-9) to identify which contains shoulder geometry. -1 = disabled.",
+                new AcceptableValueRange<int>(-1, 9)));
+
         ShowVanillaChest = Config.Bind(
             "Creatures",
             "ShowVanillaChest",
@@ -793,6 +802,7 @@ public class Plugin : BaseUnityPlugin
             {
                 _lastBracerScaleUpdateTime = Time.time;
                 Patches.CharredWarriorPatches.UpdateBracerScales();
+                Patches.CharredWarriorPatches.UpdateChestSubmeshDebug();
             }
         }
 
