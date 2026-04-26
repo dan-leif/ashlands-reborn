@@ -67,6 +67,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> BodySwapEmissionB { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapYOffset { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapScale { get; private set; } = null!;
+    public static ConfigEntry<bool> BodySwapHideHead { get; private set; } = null!;
+    public static ConfigEntry<float> BodySwapHeadCutoffY { get; private set; } = null!;
     public static ConfigEntry<bool> TrimChestArms { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaChest { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaShoulders { get; private set; } = null!;
@@ -398,6 +400,21 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Uniform scale multiplier for the body swap mesh.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        BodySwapHideHead = Config.Bind(
+            "Creatures",
+            "BodySwapHideHead",
+            true,
+            "Hide the player head in the body swap layer (head shows through the helmet visor otherwise).");
+
+        BodySwapHeadCutoffY = Config.Bind(
+            "Creatures",
+            "BodySwapHeadCutoffY",
+            0.0f,
+            new ConfigDescription(
+                "Vertical Y offset of the head-hide bone wrapper in the body swap layer. " +
+                "Increase to hide more (push cutoff down into neck); decrease to expose more neck.",
+                new AcceptableValueRange<float>(-0.2f, 0.2f)));
 
         TrimChestArms = Config.Bind(
             "Creatures",

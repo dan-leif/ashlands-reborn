@@ -1144,6 +1144,27 @@ internal static class CharredWarriorPatches
             bones[i] = t;
         }
 
+        // Hide the head by inserting a zero-scale wrapper on the Head bone,
+        // collapsing all head-weighted vertices to a point (invisible).
+        // The neck uses Neck/Spine2 bones and stays visible.
+        if (Plugin.BodySwapHideHead?.Value ?? true)
+        {
+            for (int i = 0; i < boneCount; i++)
+            {
+                if (string.Equals(_cachedPlayerBoneNames![i], "Head", StringComparison.OrdinalIgnoreCase))
+                {
+                    var realHeadBone = bones[i];
+                    var wrapper = new GameObject("BodySwap_HeadHide");
+                    wrapper.transform.SetParent(realHeadBone, false);
+                    wrapper.transform.localPosition = new Vector3(0f, Plugin.BodySwapHeadCutoffY?.Value ?? 0f, 0f);
+                    wrapper.transform.localScale = Vector3.zero;
+                    marker.SyncedObjects.Add(wrapper);
+                    bones[i] = wrapper.transform;
+                    break;
+                }
+            }
+        }
+
         // Create GO parented to vis.transform (same level as armor GOs)
         var go = new GameObject("BodySwapLayer");
         go.transform.SetParent(vis.transform, false);
