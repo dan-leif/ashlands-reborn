@@ -1208,6 +1208,26 @@ internal static class CharredWarriorPatches
             bones[i] = t;
         }
 
+        // Thicken the body radially via per-bone XZ scale wrappers (Y=1 preserves bone length).
+        float thickness = Plugin.BodySwapThickness?.Value ?? 1f;
+        var thickenWrappers = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < boneCount; i++)
+        {
+            var bn = _cachedPlayerBoneNames![i];
+            if (!_bodySwapThickenBones.Contains(bn)) continue;
+            if (!thickenWrappers.TryGetValue(bn, out var wrap))
+            {
+                var wrapGO = new GameObject($"BodySwapThicken_{bn}");
+                wrapGO.transform.SetParent(bones[i], false);
+                wrapGO.transform.localScale = new Vector3(thickness, 1f, thickness);
+                marker.SyncedObjects.Add(wrapGO);
+                marker.BodySwapThickenBones.Add(wrapGO.transform);
+                wrap = wrapGO.transform;
+                thickenWrappers[bn] = wrap;
+            }
+            bones[i] = wrap;
+        }
+
         // Hide the head by inserting a zero-scale wrapper on the Head bone,
         // collapsing all head-weighted vertices to a point (invisible).
         // The neck uses Neck/Spine2 bones and stays visible.
@@ -1281,6 +1301,20 @@ internal static class CharredWarriorPatches
     /// leaving only the bracer geometry visible. These are torso, shoulder, leg, and
     /// head bones — everything except forearm/hand/attach bones.
     /// </summary>
+    /// <summary>
+    /// Bones to thicken radially on the body swap layer to give the Charred Warrior
+    /// a more muscular silhouette. XZ scale only — Y left at 1.0 so bone length
+    /// (and therefore overall height/joint positions) is preserved.
+    /// </summary>
+    private static readonly HashSet<string> _bodySwapThickenBones = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Spine", "Spine1", "Spine2",
+        "LeftArm", "LeftForeArm",
+        "RightArm", "RightForeArm",
+        "LeftUpLeg", "LeftLeg",
+        "RightUpLeg", "RightLeg"
+    };
+
     private static readonly HashSet<string> _breastplateHideBones = new(StringComparer.OrdinalIgnoreCase)
     {
         "Root", "Hips", "Spine", "Spine1", "Spine2",
@@ -2848,6 +2882,21 @@ internal static class CharredWarriorPatches
         }
     }
 
+    internal static void UpdateBodySwapThickness()
+    {
+        float t = Plugin.BodySwapThickness?.Value ?? 1f;
+        var s = new Vector3(t, 1f, t);
+        var markers = UObject.FindObjectsByType<AshlandsRebornCharredSwapped>(FindObjectsSortMode.None);
+        foreach (var marker in markers)
+        {
+            foreach (var bone in marker.BodySwapThickenBones)
+            {
+                if (bone != null)
+                    bone.localScale = s;
+            }
+        }
+    }
+
     internal static void RefreshCharredWarriors()
     {
         if (!ShouldSwap()) return;
@@ -3250,6 +3299,7 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public List<GameObject> SyncedObjects = new();
     public List<GameObject> BracerOverlayObjects = new();
     public List<Transform> BracerScaleBones = new();
+    public List<Transform> BodySwapThickenBones = new();
 
     /// <summary>Original chest SMR materials, cached before debug hiding so they can be restored.</summary>
     public Material[]? ChestOriginalMaterials;
