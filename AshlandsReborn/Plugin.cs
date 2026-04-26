@@ -67,6 +67,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> BodySwapEmissionB { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapYOffset { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapScale { get; private set; } = null!;
+    public static ConfigEntry<float> BodySwapThickness { get; private set; } = null!;
     public static ConfigEntry<bool> BodySwapHideHead { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapHeadCutoffY { get; private set; } = null!;
     public static ConfigEntry<bool> TrimChestArms { get; private set; } = null!;
@@ -428,6 +429,15 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Uniform scale multiplier for the body swap mesh.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        BodySwapThickness = Config.Bind(
+            "Creatures",
+            "BodySwapThickness",
+            1.25f,
+            new ConfigDescription(
+                "Radial thickness of the body swap layer (XZ scale on torso/arms/legs). "
+                + "1.0 = original player proportions; >1 = more muscular. Does not affect height.",
+                new AcceptableValueRange<float>(0.7f, 2.0f)));
 
         BodySwapHideHead = Config.Bind(
             "Creatures",
@@ -803,6 +813,7 @@ public class Plugin : BaseUnityPlugin
                 _lastBracerScaleUpdateTime = Time.time;
                 Patches.CharredWarriorPatches.UpdateBracerScales();
                 Patches.CharredWarriorPatches.UpdateChestSubmeshDebug();
+                Patches.CharredWarriorPatches.UpdateBodySwapThickness();
             }
         }
 
