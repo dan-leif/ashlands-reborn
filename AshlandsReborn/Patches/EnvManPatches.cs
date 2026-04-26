@@ -20,6 +20,54 @@ internal static class EnvManPatches
     private static int _terrainRegenRetryFrames;
     private static float _lastTerrainRegenTime;
 
+    private static readonly FieldInfo? FDebugTimeOfDay = EnvManType?.GetField("m_debugTimeOfDay", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FDebugTime = EnvManType?.GetField("m_debugTime", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FSmoothDayFraction = EnvManType?.GetField("m_smoothDayFraction", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FSkipTime = EnvManType?.GetField("m_skipTime", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    private static readonly FieldInfo? FSkipToTime = EnvManType?.GetField("m_skipToTime", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    private static bool _forceNoonApplied;
+    private static bool _forceNoonLogged;
+
+    private static void ApplyForceNoon()
+    {
+        try
+        {
+            var envMan = EnvMan.instance;
+            if (envMan == null) return;
+            FDebugTimeOfDay?.SetValue(envMan, true);
+            FDebugTime?.SetValue(envMan, 0.5f); // 0 = midnight, 0.5 = noon
+            FSmoothDayFraction?.SetValue(envMan, 0.5f);
+            if (!_forceNoonLogged)
+            {
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] ForceNoon: ON (FDebugTimeOfDay={FDebugTimeOfDay != null}, FDebugTime={FDebugTime != null}, FSmoothDayFraction={FSmoothDayFraction != null})");
+                _forceNoonLogged = true;
+            }
+            _forceNoonApplied = true;
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log?.LogWarning("ApplyForceNoon error: " + ex.Message);
+        }
+    }
+
+    private static void ClearForceNoon()
+    {
+        if (!_forceNoonApplied) return;
+        try
+        {
+            var envMan = EnvMan.instance;
+            if (envMan == null) return;
+            FDebugTimeOfDay?.SetValue(envMan, false);
+            Plugin.Log?.LogInfo("[Ashlands Reborn] ForceNoon: OFF");
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log?.LogDebug("ClearForceNoon error: " + ex.Message);
+        }
+        _forceNoonApplied = false;
+        _forceNoonLogged = false;
+    }
+
     static MethodBase? TargetMethod()
     {
         if (EnvManType == null) return null;
@@ -232,5 +280,10 @@ internal static class EnvManPatches
         }
 
         _wasInAshlands = inAshlands;
+
+        if (Plugin.IsForceNoonActive)
+            ApplyForceNoon();
+        else
+            ClearForceNoon();
     }
 }
