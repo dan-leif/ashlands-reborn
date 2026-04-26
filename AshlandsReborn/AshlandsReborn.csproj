@@ -34,6 +34,7 @@
     <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.InputLegacyModule.dll" Private="False" Condition="Exists('$(GamePath)\valheim_Data\Managed\UnityEngine.InputLegacyModule.dll')" />
     <Reference Include="UnityEngine.PhysicsModule" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.PhysicsModule.dll" Private="False" Condition="Exists('$(GamePath)\valheim_Data\Managed\UnityEngine.PhysicsModule.dll')" />
     <Reference Include="UnityEngine.AnimationModule" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.AnimationModule.dll" Private="False" Condition="Exists('$(GamePath)\valheim_Data\Managed\UnityEngine.AnimationModule.dll')" />
+    <Reference Include="UnityEngine.ParticleSystemModule" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.ParticleSystemModule.dll" Private="False" Condition="Exists('$(GamePath)\valheim_Data\Managed\UnityEngine.ParticleSystemModule.dll')" />
   </ItemGroup>
   <!-- Fallback: Lib when Assembly-CSharp present (run CopyRefs.ps1) -->
   <ItemGroup Condition="!Exists('$(GamePath)\BepInEx\core\BepInEx.dll') and Exists('$(LibDir)\Assembly-CSharp.dll')">
