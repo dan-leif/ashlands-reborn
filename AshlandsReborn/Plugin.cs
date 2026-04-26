@@ -21,6 +21,7 @@ public class Plugin : BaseUnityPlugin
 
     // --- Weather ---
     public static ConfigEntry<bool> EnableWeatherOverride { get; private set; } = null!;
+    public static ConfigEntry<bool> ForceNoon { get; private set; } = null!;
 
     // --- Terrain ---
     public static ConfigEntry<bool> EnableTerrainOverride { get; private set; } = null!;
@@ -86,6 +87,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> DevAutoLoadWorld { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
+    public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
 
     private static readonly Harmony Harmony = new(PluginInfo.PLUGIN_GUID);
@@ -124,6 +126,13 @@ public class Plugin : BaseUnityPlugin
             "EnableWeatherOverride",
             true,
             "When in Ashlands, override the environment to Meadows-like (clear sky, no cinder rain, no lava fog)."
+        );
+
+        ForceNoon = Config.Bind(
+            "Weather",
+            "ForceNoon",
+            false,
+            "Force the time of day to always be noon. Best lighting for development."
         );
 
         // --- Terrain ---
