@@ -60,6 +60,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<KeyCode> CharredWarriorRefreshKey { get; private set; } = null!;
     public static ConfigEntry<KeyCode> DataDumpKey { get; private set; } = null!;
     public static ConfigEntry<bool> EnableBodySwap { get; private set; } = null!;
+    public static ConfigEntry<string> BodySwapColorPreset { get; private set; } = null!;
+    public static ConfigEntry<bool> BodySwapUseChestTexture { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapColorR { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapColorG { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapColorB { get; private set; } = null!;
@@ -351,6 +353,22 @@ public class Plugin : BaseUnityPlugin
             "EnableBodySwap",
             true,
             "Adds a player body mesh underneath the Charred Warrior armor to provide volumetric deforming limbs.");
+
+        BodySwapColorPreset = Config.Bind(
+            "Creatures",
+            "BodySwapColorPreset",
+            "Black",
+            new ConfigDescription(
+                "Body swap color preset. Set to 'Custom' to use BodySwapColorR/G/B sliders. " +
+                "Other presets override the sliders to give padding-like colors under the armor.",
+                new AcceptableValueList<string>("Custom", "Black", "DarkGray", "Charcoal", "DarkBrown", "Leather", "Peach")));
+
+        BodySwapUseChestTexture = Config.Bind(
+            "Creatures",
+            "BodySwapUseChestTexture",
+            false,
+            "Apply the chest armor's submesh-5 main texture to the body swap layer (overrides color preset). " +
+            "Useful for matching the body to the armor material.");
 
         BodySwapColorR = Config.Bind(
             "Creatures",

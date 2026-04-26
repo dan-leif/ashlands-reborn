@@ -1190,6 +1190,45 @@ internal static class CharredWarriorPatches
     // Hybrid body swap layer — player mesh underneath Approach A armor
     // =====================================================================
 
+    /// <summary>
+    /// Resolves the body swap base color from the preset dropdown. "Custom" uses
+    /// the BodySwapColorR/G/B sliders; other presets are fixed colors meant to
+    /// look like padding/leather under the armor.
+    /// </summary>
+    private static Color ResolveBodySwapPresetColor()
+    {
+        var preset = Plugin.BodySwapColorPreset?.Value ?? "Black";
+        switch (preset)
+        {
+            case "Black":     return new Color(0.02f, 0.02f, 0.02f, 1f);
+            case "DarkGray":  return new Color(0.12f, 0.12f, 0.12f, 1f);
+            case "Charcoal":  return new Color(0.06f, 0.06f, 0.07f, 1f);
+            case "DarkBrown": return new Color(0.08f, 0.05f, 0.03f, 1f);
+            case "Leather":   return new Color(0.18f, 0.10f, 0.05f, 1f);
+            case "Peach":     return new Color(0.95f, 0.75f, 0.60f, 1f);
+            case "Custom":
+            default:
+                return new Color(
+                    Plugin.BodySwapColorR?.Value ?? 0.15f,
+                    Plugin.BodySwapColorG?.Value ?? 0.10f,
+                    Plugin.BodySwapColorB?.Value ?? 0.05f,
+                    1f);
+        }
+    }
+
+    /// <summary>
+    /// Returns the chest armor's submesh-5 material from the most-recently-attached chest SMR.
+    /// Returns null if no chest SMR has been cached yet or it lacks a material at that slot.
+    /// </summary>
+    private static Material? TryGetChestSubmesh5Material()
+    {
+        var smr = _lastChestSMR;
+        if (smr == null) return null;
+        var mats = smr.sharedMaterials;
+        if (mats == null || mats.Length <= 5) return null;
+        return mats[5];
+    }
+
     private static System.Collections.IEnumerator ApplyBodySwapLayer(VisEquipment vis)
     {
         // 5-frame settle (much shorter than armor — body just needs skeleton to be live)
@@ -1280,15 +1319,40 @@ internal static class CharredWarriorPatches
         smr.bones = bones;
         smr.rootBone = bodyRoot;
 
-        // Material: clone player material and tint it
-        var mat = _cachedPlayerBodyMaterial != null
-            ? UObject.Instantiate(_cachedPlayerBodyMaterial)
-            : new Material(Shader.Find("Standard"));
-        mat.color = new Color(
-            Plugin.BodySwapColorR?.Value ?? 0.15f,
-            Plugin.BodySwapColorG?.Value ?? 0.1f,
-            Plugin.BodySwapColorB?.Value ?? 0.05f,
-            1f);
+        // Material: either clone the chest submesh-5 material wholesale (preserves shader,
+        // keywords, all texture slots) or clone the player body material and tint it.
+        Material mat;
+        bool usedChestMat = false;
+        if (Plugin.BodySwapUseChestTexture?.Value == true)
+        {
+            var chestMat = TryGetChestSubmesh5Material();
+            if (chestMat != null)
+            {
+                mat = UObject.Instantiate(chestMat);
+                usedChestMat = true;
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] BodySwap: cloned chest submesh-5 material '{chestMat.name}' (shader='{chestMat.shader?.name}')");
+            }
+            else
+            {
+                mat = _cachedPlayerBodyMaterial != null
+                    ? UObject.Instantiate(_cachedPlayerBodyMaterial)
+                    : new Material(Shader.Find("Standard"));
+                Plugin.Log?.LogWarning("[Ashlands Reborn] BodySwap: chest material requested but not available yet — falling back to color preset");
+            }
+        }
+        else
+        {
+            mat = _cachedPlayerBodyMaterial != null
+                ? UObject.Instantiate(_cachedPlayerBodyMaterial)
+                : new Material(Shader.Find("Standard"));
+        }
+
+        // Apply the color preset only when we did NOT swap to the chest material —
+        // tinting the chest material would overwrite its natural color.
+        if (!usedChestMat)
+        {
+            mat.color = ResolveBodySwapPresetColor();
+        }
         if (mat.HasProperty("_EmissionColor"))
         {
             if (Plugin.ShowBodySwapChestGlow?.Value == true)
