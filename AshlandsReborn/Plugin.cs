@@ -73,6 +73,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> ShowVanillaChest { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaShoulders { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaBracers { get; private set; } = null!;
+    public static ConfigEntry<float> BracerScale { get; private set; } = null!;
     public static ConfigEntry<bool> ShowBodySwapChestGlow { get; private set; } = null!;
     public static ConfigEntry<string> EyeGlowColor { get; private set; } = null!;
     public static ConfigEntry<float> EyeGlowIntensity { get; private set; } = null!;
@@ -466,6 +467,14 @@ public class Plugin : BaseUnityPlugin
             true,
             "Also show the vanilla utility/bracer piece alongside the custom one (for comparison).");
 
+        BracerScale = Config.Bind(
+            "Creatures",
+            "BracerScale",
+            1.0f,
+            new ConfigDescription(
+                "Uniform scale of the vanilla bracer overlay. 1.0 = default size.",
+                new AcceptableValueRange<float>(0.1f, 3.0f)));
+
         DevAutoLoad = Config.Bind(
             "Dev Automation",
             "DevAutoLoad",
@@ -717,6 +726,7 @@ public class Plugin : BaseUnityPlugin
     private static float _lastValkyrieRefreshTime;
     private static float _lastCharredRefreshTime;
     private static float _lastDataDumpTime;
+    private static float _lastBracerScaleUpdateTime;
 
     private void Update()
     {
@@ -777,6 +787,12 @@ public class Plugin : BaseUnityPlugin
                 _lastDataDumpTime = Time.time;
                 Patches.CharredWarriorPatches.DumpPlayerAndSinewData();
                 Log.LogInfo("[Ashlands Reborn] Player body + sinew data dump triggered");
+            }
+
+            if (Time.time - _lastBracerScaleUpdateTime >= 0.2f)
+            {
+                _lastBracerScaleUpdateTime = Time.time;
+                Patches.CharredWarriorPatches.UpdateBracerScales();
             }
         }
 
