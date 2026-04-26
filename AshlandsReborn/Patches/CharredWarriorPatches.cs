@@ -1291,6 +1291,11 @@ internal static class CharredWarriorPatches
             Plugin.Log?.LogInfo(sb.ToString());
         }
 
+        // Scale wrappers for bracer bones — shared across all SMRs so each bone
+        // gets exactly one wrapper, keyed by bone name.
+        float bracerScale = Plugin.BracerScale?.Value ?? 1f;
+        var bracerScaleWrappers = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
+
         // Find attach_skin children on the prefab
         for (int ci = 0; ci < prefab.transform.childCount; ci++)
         {
@@ -1304,10 +1309,9 @@ internal static class CharredWarriorPatches
                 var clonedMesh = UObject.Instantiate(prefabSMR.sharedMesh);
                 clonedMesh.name = $"BreastplateOverlay_{prefabSMR.name}";
 
-                // Map prefab bones to the live Charred skeleton, using zero-scale
-                // wrapper bones for non-bracer parts (torso, shoulders, legs, head).
-                // This collapses those vertices to a point, effectively hiding them,
-                // while forearm/hand bones render the bracers normally.
+                // Map prefab bones to the live Charred skeleton.
+                // Hidden bones get a zero-scale wrapper (collapses vertices to a point).
+                // Active (bracer) bones get a scale wrapper so BracerScale applies live.
                 var prefabBones = prefabSMR.bones;
                 var newBones = new Transform[prefabBones.Length];
                 for (int b = 0; b < prefabBones.Length; b++)
@@ -1317,8 +1321,6 @@ internal static class CharredWarriorPatches
 
                     if (_breastplateHideBones.Contains(boneName))
                     {
-                        // Insert a zero-scale wrapper so vertices weighted to
-                        // this bone collapse to a point and become invisible
                         var wrapper = new GameObject($"BPHide_{boneName}");
                         wrapper.transform.SetParent(realBone, false);
                         wrapper.transform.localScale = Vector3.zero;
@@ -1327,7 +1329,18 @@ internal static class CharredWarriorPatches
                     }
                     else
                     {
-                        newBones[b] = realBone;
+                        // Reuse existing scale wrapper for this bone name if already created
+                        if (!bracerScaleWrappers.TryGetValue(boneName, out var scaleWrapper))
+                        {
+                            var wrapperGO = new GameObject($"BPScale_{boneName}");
+                            wrapperGO.transform.SetParent(realBone, false);
+                            wrapperGO.transform.localScale = Vector3.one * bracerScale;
+                            marker.SyncedObjects.Add(wrapperGO);
+                            marker.BracerScaleBones.Add(wrapperGO.transform);
+                            scaleWrapper = wrapperGO.transform;
+                            bracerScaleWrappers[boneName] = scaleWrapper;
+                        }
+                        newBones[b] = scaleWrapper;
                     }
                 }
 
@@ -1345,6 +1358,7 @@ internal static class CharredWarriorPatches
                 smr.sharedMaterials = prefabSMR.sharedMaterials;
 
                 marker.SyncedObjects.Add(go);
+                marker.BracerOverlayObjects.Add(go);
             }
         }
 
@@ -1645,6 +1659,8 @@ internal static class CharredWarriorPatches
             if (obj != null) UObject.Destroy(obj);
         }
         marker.SyncedObjects.Clear();
+        marker.BracerOverlayObjects.Clear();
+        marker.BracerScaleBones.Clear();
         marker.RemappedInstances.Clear();
         marker.BodySwapApplied = false;
         marker.BreastplateOverlayApplied = false;
@@ -2757,6 +2773,20 @@ internal static class CharredWarriorPatches
         Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred sinew data written to: {outPath}");
     }
 
+    internal static void UpdateBracerScales()
+    {
+        float scale = Plugin.BracerScale?.Value ?? 1f;
+        var markers = UObject.FindObjectsByType<AshlandsRebornCharredSwapped>(FindObjectsSortMode.None);
+        foreach (var marker in markers)
+        {
+            foreach (var bone in marker.BracerScaleBones)
+            {
+                if (bone != null)
+                    bone.localScale = Vector3.one * scale;
+            }
+        }
+    }
+
     internal static void RefreshCharredWarriors()
     {
         if (!ShouldSwap()) return;
@@ -3157,6 +3187,8 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public bool BreastplateOverlayApplied;
     public List<int> RemappedInstances = new();
     public List<GameObject> SyncedObjects = new();
+    public List<GameObject> BracerOverlayObjects = new();
+    public List<Transform> BracerScaleBones = new();
 
     /// <summary>True when we've scaled the Krom weapon (avoids re-scaling every frame).</summary>
     public bool KromScaled;
