@@ -983,6 +983,22 @@ internal static class CharredWarriorPatches
                             smr.sharedMaterials = trimmedMats;
                         }
                         Plugin.Log?.LogInfo($"[Ashlands Reborn] Truncated chest to {keepCount} submeshes (arm submeshes dropped)");
+
+                        // Submesh 5 is also part of the arm/hand region and must be hidden
+                        // alongside the truncated 7-9 group. Truncation can't skip a middle
+                        // submesh, so swap it to an invisible material instead.
+                        const int extraHideIdx = 5;
+                        if (extraHideIdx < smr.sharedMaterials.Length)
+                        {
+                            var invisMat = GetInvisibleMaterial(smr);
+                            if (invisMat != null)
+                            {
+                                var hideMats = smr.sharedMaterials;
+                                hideMats[extraHideIdx] = invisMat;
+                                smr.sharedMaterials = hideMats;
+                                Plugin.Log?.LogInfo($"[Ashlands Reborn] Hid submesh {extraHideIdx} via invisible material");
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -997,6 +1013,8 @@ internal static class CharredWarriorPatches
                                 if (idx < mats.Length)
                                     mats[idx] = invisMat;
                             }
+                            if (5 < mats.Length)
+                                mats[5] = invisMat;
                             smr.sharedMaterials = mats;
                             Plugin.Log?.LogInfo("[Ashlands Reborn] Applied invisible material to arm submeshes (fallback)");
                         }
