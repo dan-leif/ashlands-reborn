@@ -407,6 +407,7 @@ internal static class CharredWarriorPatches
     private static bool _armorBoneDumpDone;
     private static bool _bindPoseDiagDone;
     private static SkinnedMeshRenderer? _lastChestSMR;
+    private static Material? _cachedChestSubmesh5Material;
 
     private static Dictionary<string, Transform> BuildCharredBoneMap(VisEquipment vis)
     {
@@ -990,13 +991,16 @@ internal static class CharredWarriorPatches
                         const int extraHideIdx = 5;
                         if (extraHideIdx < smr.sharedMaterials.Length)
                         {
+                            // Cache the original submesh-5 material before overwriting it,
+                            // so BodySwap can still source the correct chest texture from it.
+                            _cachedChestSubmesh5Material = smr.sharedMaterials[extraHideIdx];
                             var invisMat = GetInvisibleMaterial(smr);
                             if (invisMat != null)
                             {
                                 var hideMats = smr.sharedMaterials;
                                 hideMats[extraHideIdx] = invisMat;
                                 smr.sharedMaterials = hideMats;
-                                Plugin.Log?.LogInfo($"[Ashlands Reborn] Hid submesh {extraHideIdx} via invisible material");
+                                Plugin.Log?.LogInfo($"[Ashlands Reborn] Hid submesh {extraHideIdx} via invisible material (cached original '{_cachedChestSubmesh5Material?.name}')");
                             }
                         }
                     }
@@ -1036,6 +1040,31 @@ internal static class CharredWarriorPatches
                             newBones[i] = wrapper.transform;
                             marker.SyncedObjects.Add(wrapper);
                         }
+                    }
+                }
+
+                // --- Chest-only: collapse arm bones to hide upper-arm portion of submesh 0 ---
+                // Submesh 0 contains torso + upper-arm geometry mixed together. Submesh-level
+                // tricks (truncation, invisible material, indexCount=0) can't subdivide it.
+                // Setting localScale=0 on a wrapper parented to LeftArm/RightArm collapses
+                // arm-weighted vertices to the bone pivot via GPU skinning while torso vertices
+                // (weighted to Spine bones) stay put. Same wrapper pattern as ShoulderRot above.
+                if (isChest && (Plugin.ChestCollapseArmBones?.Value ?? true))
+                {
+                    var collapseSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "LeftArm", "RightArm" };
+                    if (Plugin.ChestCollapseForeArmBones?.Value ?? false)
+                    {
+                        collapseSet.Add("LeftForeArm");
+                        collapseSet.Add("RightForeArm");
+                    }
+                    for (int i = 0; i < prefabBoneNames.Length; i++)
+                    {
+                        if (!collapseSet.Contains(prefabBoneNames[i])) continue;
+                        var wrapper = new GameObject($"ArmCollapse_{prefabBoneNames[i]}");
+                        wrapper.transform.SetParent(newBones[i], false);
+                        wrapper.transform.localScale = Vector3.zero;
+                        newBones[i] = wrapper.transform;
+                        marker.SyncedObjects.Add(wrapper);
                     }
                 }
 
@@ -1222,6 +1251,9 @@ internal static class CharredWarriorPatches
     /// </summary>
     private static Material? TryGetChestSubmesh5Material()
     {
+        // Prefer the original submesh-5 material captured before TrimChestArms swapped
+        // it for the invisible material; otherwise read live from the SMR.
+        if (_cachedChestSubmesh5Material != null) return _cachedChestSubmesh5Material;
         var smr = _lastChestSMR;
         if (smr == null) return null;
         var mats = smr.sharedMaterials;
