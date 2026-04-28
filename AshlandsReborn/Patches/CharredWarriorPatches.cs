@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using HarmonyLib;
@@ -1524,6 +1525,16 @@ internal static class CharredWarriorPatches
         float bracerScale = Plugin.BracerScale?.Value ?? 1f;
         var bracerScaleWrappers = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
 
+        // Right side of the breastplate mesh is asymmetrically rigged: 101 verts dominantly
+        // weighted to RightArm (should be RightForeArm) and 119 verts to RightHandThumb1
+        // (should be RightHand). Remap those slots to the correct live bones AND patch the
+        // mesh bindposes so the deformation lines up.
+        var rightArmRebind = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "RightArm", "RightForeArm" },
+            { "RightHandThumb1", "RightHand" },
+        };
+
         // Find attach_skin children on the prefab
         for (int ci = 0; ci < prefab.transform.childCount; ci++)
         {
@@ -1537,14 +1548,47 @@ internal static class CharredWarriorPatches
                 var clonedMesh = UObject.Instantiate(prefabSMR.sharedMesh);
                 clonedMesh.name = $"BreastplateOverlay_{prefabSMR.name}";
 
+                // Build name->bindpose-index lookup so we can copy bindposes between slots.
+                var prefabBones = prefabSMR.bones;
+                var prefabBoneIndexByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                for (int bi = 0; bi < prefabBones.Length; bi++)
+                {
+                    var n = prefabBones[bi]?.name ?? "";
+                    if (!string.IsNullOrEmpty(n) && !prefabBoneIndexByName.ContainsKey(n))
+                        prefabBoneIndexByName[n] = bi;
+                }
+                var bindposes = clonedMesh.bindposes;
+
                 // Map prefab bones to the live Charred skeleton.
                 // Hidden bones get a zero-scale wrapper (collapses vertices to a point).
                 // Active (bracer) bones get a scale wrapper so BracerScale applies live.
-                var prefabBones = prefabSMR.bones;
                 var newBones = new Transform[prefabBones.Length];
                 for (int b = 0; b < prefabBones.Length; b++)
                 {
                     var boneName = prefabBones[b] != null ? prefabBones[b].name : "";
+
+                    // If this slot is in the right-arm rebind map, redirect to the target live bone
+                    // and patch the bindpose so deformation matches the target bone's rest pose.
+                    if (rightArmRebind.TryGetValue(boneName, out var targetName)
+                        && prefabBoneIndexByName.TryGetValue(targetName, out var targetIdx)
+                        && targetIdx < bindposes.Length)
+                    {
+                        bindposes[b] = bindposes[targetIdx];
+                        Transform targetLive = charBoneMap.TryGetValue(targetName, out var tt) ? tt : bodyRoot;
+                        if (!bracerScaleWrappers.TryGetValue(targetName, out var sw))
+                        {
+                            var wgo = new GameObject($"BPScale_{targetName}");
+                            wgo.transform.SetParent(targetLive, false);
+                            wgo.transform.localScale = Vector3.one * bracerScale;
+                            marker.SyncedObjects.Add(wgo);
+                            marker.BracerScaleBones.Add(wgo.transform);
+                            sw = wgo.transform;
+                            bracerScaleWrappers[targetName] = sw;
+                        }
+                        newBones[b] = sw;
+                        continue;
+                    }
+
                     Transform realBone = charBoneMap.TryGetValue(boneName, out var t) ? t : bodyRoot;
 
                     if (_breastplateHideBones.Contains(boneName))
@@ -1571,6 +1615,7 @@ internal static class CharredWarriorPatches
                         newBones[b] = scaleWrapper;
                     }
                 }
+                clonedMesh.bindposes = bindposes;
 
                 // Create the overlay GO
                 var go = new GameObject($"BreastplateOverlay_Bracers");
