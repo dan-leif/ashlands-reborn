@@ -74,6 +74,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> BodySwapHideHead { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapHeadCutoffY { get; private set; } = null!;
     public static ConfigEntry<bool> TrimChestArms { get; private set; } = null!;
+    public static ConfigEntry<bool> ChestCollapseArmBones { get; private set; } = null!;
+    public static ConfigEntry<bool> ChestCollapseForeArmBones { get; private set; } = null!;
     public static ConfigEntry<int> ChestSubmeshDebug { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaChest { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaShoulders { get; private set; } = null!;
@@ -486,6 +488,18 @@ public class Plugin : BaseUnityPlugin
             "TrimChestArms",
             true,
             "Remove arm/hand triangles from the chest armor mesh, leaving only the torso plate.");
+
+        ChestCollapseArmBones = Config.Bind(
+            "Creatures",
+            "ChestCollapseArmBones",
+            true,
+            "Collapse the LeftArm/RightArm bones to zero scale on the chest SMR only. Hides the upper-arm portion of submesh 0 (which can't be hidden via submesh tricks because torso and arm geometry share the submesh) while keeping torso vertices anchored to spine bones intact.");
+
+        ChestCollapseForeArmBones = Config.Bind(
+            "Creatures",
+            "ChestCollapseForeArmBones",
+            false,
+            "Also collapse LeftForeArm/RightForeArm on the chest SMR. Enable if any submesh-0 geometry runs past the elbow.");
 
         ChestSubmeshDebug = Config.Bind(
             "Creatures",
