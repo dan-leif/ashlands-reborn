@@ -62,6 +62,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> EnableBodySwap { get; private set; } = null!;
     public static ConfigEntry<string> BodySwapColorPreset { get; private set; } = null!;
     public static ConfigEntry<bool> BodySwapUseChestTexture { get; private set; } = null!;
+    public static ConfigEntry<string> BodySwapChestTextureSubmesh { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapColorR { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapColorG { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapColorB { get; private set; } = null!;
@@ -370,7 +371,18 @@ public class Plugin : BaseUnityPlugin
             "BodySwapUseChestTexture",
             false,
             "Apply the chest armor's submesh-5 main texture to the body swap layer (overrides color preset). " +
-            "Useful for matching the body to the armor material.");
+            "Useful for matching the body to the armor material. " +
+            "Superseded by BodySwapChestTextureSubmesh when that is set to anything other than 'Off'.");
+
+        BodySwapChestTextureSubmesh = Config.Bind(
+            "Creatures",
+            "BodySwapChestTextureSubmesh",
+            "3",
+            new ConfigDescription(
+                "Pick a chest armor submesh (0–9) whose material is cloned onto the body swap layer. " +
+                "'Off' falls back to BodySwapUseChestTexture / color preset behavior. " +
+                "Overrides the color preset when active.",
+                new AcceptableValueList<string>("Off", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9")));
 
         BodySwapColorR = Config.Bind(
             "Creatures",

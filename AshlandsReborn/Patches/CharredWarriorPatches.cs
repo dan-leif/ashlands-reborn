@@ -1246,19 +1246,37 @@ internal static class CharredWarriorPatches
     }
 
     /// <summary>
-    /// Returns the chest armor's submesh-5 material from the most-recently-attached chest SMR.
-    /// Returns null if no chest SMR has been cached yet or it lacks a material at that slot.
+    /// Returns the chest armor material at the given submesh index from the most-recently-attached
+    /// chest SMR. Submesh 5 has special handling: when TrimChestArms swapped it for the invisible
+    /// material, we serve the cached original instead. Returns null if unavailable.
     /// </summary>
-    private static Material? TryGetChestSubmesh5Material()
+    private static Material? TryGetChestSubmeshMaterial(int submeshIndex)
     {
-        // Prefer the original submesh-5 material captured before TrimChestArms swapped
-        // it for the invisible material; otherwise read live from the SMR.
-        if (_cachedChestSubmesh5Material != null) return _cachedChestSubmesh5Material;
+        if (submeshIndex == 5 && _cachedChestSubmesh5Material != null)
+            return _cachedChestSubmesh5Material;
         var smr = _lastChestSMR;
         if (smr == null) return null;
         var mats = smr.sharedMaterials;
-        if (mats == null || mats.Length <= 5) return null;
-        return mats[5];
+        if (mats == null || submeshIndex < 0 || submeshIndex >= mats.Length) return null;
+        return mats[submeshIndex];
+    }
+
+    /// <summary>
+    /// Resolves which chest submesh material (if any) to apply to the body swap layer.
+    /// The BodySwapChestTextureSubmesh dropdown takes priority; 'Off' falls back to the legacy
+    /// BodySwapUseChestTexture boolean which targets submesh 5. Returns -1 when no chest material
+    /// should be applied.
+    /// </summary>
+    private static int ResolveBodySwapChestSubmeshIndex()
+    {
+        var pick = Plugin.BodySwapChestTextureSubmesh?.Value ?? "Off";
+        if (!string.Equals(pick, "Off", StringComparison.OrdinalIgnoreCase) &&
+            int.TryParse(pick, out var idx))
+        {
+            return idx;
+        }
+        if (Plugin.BodySwapUseChestTexture?.Value == true) return 5;
+        return -1;
     }
 
     private static System.Collections.IEnumerator ApplyBodySwapLayer(VisEquipment vis)
@@ -1355,21 +1373,22 @@ internal static class CharredWarriorPatches
         // keywords, all texture slots) or clone the player body material and tint it.
         Material mat;
         bool usedChestMat = false;
-        if (Plugin.BodySwapUseChestTexture?.Value == true)
+        int chestSubmeshIdx = ResolveBodySwapChestSubmeshIndex();
+        if (chestSubmeshIdx >= 0)
         {
-            var chestMat = TryGetChestSubmesh5Material();
+            var chestMat = TryGetChestSubmeshMaterial(chestSubmeshIdx);
             if (chestMat != null)
             {
                 mat = UObject.Instantiate(chestMat);
                 usedChestMat = true;
-                Plugin.Log?.LogInfo($"[Ashlands Reborn] BodySwap: cloned chest submesh-5 material '{chestMat.name}' (shader='{chestMat.shader?.name}')");
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] BodySwap: cloned chest submesh-{chestSubmeshIdx} material '{chestMat.name}' (shader='{chestMat.shader?.name}')");
             }
             else
             {
                 mat = _cachedPlayerBodyMaterial != null
                     ? UObject.Instantiate(_cachedPlayerBodyMaterial)
                     : new Material(Shader.Find("Standard"));
-                Plugin.Log?.LogWarning("[Ashlands Reborn] BodySwap: chest material requested but not available yet — falling back to color preset");
+                Plugin.Log?.LogWarning($"[Ashlands Reborn] BodySwap: chest submesh-{chestSubmeshIdx} material requested but not available yet — falling back to color preset");
             }
         }
         else
