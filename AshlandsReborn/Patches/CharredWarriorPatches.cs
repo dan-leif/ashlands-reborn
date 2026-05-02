@@ -63,6 +63,7 @@ internal static class CharredWarriorPatches
         typeof(VisEquipment).GetField("m_currentShoulderItemHash", BindingFlags.Instance | BindingFlags.NonPublic);
 
     private static bool _suppressSwordSwap;
+    private static bool _forceSwapEmpty;  // bypass empty-name guard inside ForceEquipAfterSpawn
     private static int  _swapLogCount;
     private static bool _dumpDone;
     private static bool _breastplateDumpDone;
@@ -204,6 +205,13 @@ internal static class CharredWarriorPatches
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
                      ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+
+        // Vanilla calls SetHelmetItem("") to clear before equipping the rolled item.
+        // Skip that pre-clear so the next call can capture the real rolled name. ForceEquipAfterSpawn
+        // sets _forceSwapEmpty when the warrior rolled no helmet, to bypass this guard.
+        if (string.IsNullOrEmpty(name) && !_forceSwapEmpty)
+            return;
+
         if (!marker.HelmetSwapped)
             marker.OriginalHelmetItem = name;
 
@@ -251,6 +259,11 @@ internal static class CharredWarriorPatches
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
                      ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+
+        // Skip vanilla's pre-equip clear call so the next call captures the rolled item name.
+        if (string.IsNullOrEmpty(name) && !_forceSwapEmpty)
+            return;
+
         if (!marker.ChestSwapped)
             marker.OriginalChestItem = name;
 
@@ -294,6 +307,10 @@ internal static class CharredWarriorPatches
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
                      ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+
+        if (string.IsNullOrEmpty(name) && !_forceSwapEmpty)
+            return;
+
         if (!marker.LegsSwapped)
             marker.OriginalLegItem = name;
 
@@ -313,6 +330,10 @@ internal static class CharredWarriorPatches
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
                      ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+
+        if (string.IsNullOrEmpty(name) && !_forceSwapEmpty)
+            return;
+
         if (!marker.ShoulderSwapped)
             marker.OriginalShoulderItem = name;
 
@@ -1978,23 +1999,50 @@ internal static class CharredWarriorPatches
 
     private static void ApplyCharredGlowFX(Transform root)
     {
+        var marker = root.GetComponent<AshlandsRebornCharredSwapped>();
+
         // Chest glow particle system
         var chestFX = FindInChildren(root, "fx_charred_chestglow");
         Plugin.Log?.LogInfo($"[Ashlands Reborn] GlowFX: chestFX={chestFX?.name ?? "NULL"}  showGlow={Plugin.ShowBodySwapChestGlow?.Value}");
         if (chestFX != null)
+        {
+            if (marker != null && !marker.GlowFXCaptured)
+                marker.OriginalChestGlowActive = chestFX.gameObject.activeSelf;
             chestFX.gameObject.SetActive(Plugin.ShowBodySwapChestGlow?.Value == true);
+        }
 
         // Eye glow particle systems — color + intensity via startColor and material _TintColor
         var baseColor = EyeGlowPresetColor();
         float intensity = Plugin.EyeGlowIntensity?.Value ?? 2.0f;
         var tintColor = new Color(baseColor.r, baseColor.g, baseColor.b, intensity / 5f);
 
-        foreach (var psName in new[] { "EyeGlow", "EyeGlow (1)" })
+        var eyeNames = new[] { "EyeGlow", "EyeGlow (1)" };
+        for (int idx = 0; idx < eyeNames.Length; idx++)
         {
-            var eyeFX = FindInChildren(root, psName);
+            var eyeFX = FindInChildren(root, eyeNames[idx]);
             if (eyeFX == null) continue;
 
             var ps = eyeFX.GetComponent<ParticleSystem>();
+            var psr = eyeFX.GetComponent<ParticleSystemRenderer>();
+
+            // Capture originals once per creature, BEFORE we mutate anything.
+            if (marker != null && !marker.GlowFXCaptured)
+            {
+                if (ps != null)
+                {
+                    var origMain = ps.main;
+                    var c = origMain.startColor.color;
+                    if (idx == 0) marker.OriginalEyeStartColor0 = c;
+                    else          marker.OriginalEyeStartColor1 = c;
+                }
+                if (psr != null && psr.sharedMaterial != null)
+                {
+                    var origMat = psr.sharedMaterial;
+                    if (idx == 0) marker.OriginalEyeMaterial0 = origMat;
+                    else          marker.OriginalEyeMaterial1 = origMat;
+                }
+            }
+
             if (ps != null)
             {
                 var main = ps.main;
@@ -2002,7 +2050,6 @@ internal static class CharredWarriorPatches
                     new Color(baseColor.r, baseColor.g, baseColor.b, 1f));
             }
 
-            var psr = eyeFX.GetComponent<ParticleSystemRenderer>();
             if (psr != null)
             {
                 var mat = UObject.Instantiate(psr.material);
@@ -2012,6 +2059,38 @@ internal static class CharredWarriorPatches
                     mat.SetColor("_Color", tintColor);
                 psr.material = mat;
             }
+        }
+
+        if (marker != null) marker.GlowFXCaptured = true;
+    }
+
+    private static void RevertCharredGlowFX(Transform root)
+    {
+        var marker = root.GetComponent<AshlandsRebornCharredSwapped>();
+        if (marker == null || !marker.GlowFXCaptured) return;
+
+        var chestFX = FindInChildren(root, "fx_charred_chestglow");
+        if (chestFX != null)
+            chestFX.gameObject.SetActive(marker.OriginalChestGlowActive);
+
+        var eyeNames = new[] { "EyeGlow", "EyeGlow (1)" };
+        for (int idx = 0; idx < eyeNames.Length; idx++)
+        {
+            var eyeFX = FindInChildren(root, eyeNames[idx]);
+            if (eyeFX == null) continue;
+
+            var ps = eyeFX.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                var main = ps.main;
+                var origColor = idx == 0 ? marker.OriginalEyeStartColor0 : marker.OriginalEyeStartColor1;
+                main.startColor = new ParticleSystem.MinMaxGradient(origColor);
+            }
+
+            var psr = eyeFX.GetComponent<ParticleSystemRenderer>();
+            var origMat = idx == 0 ? marker.OriginalEyeMaterial0 : marker.OriginalEyeMaterial1;
+            if (psr != null && origMat != null)
+                psr.sharedMaterial = origMat;
         }
     }
 
@@ -2198,6 +2277,7 @@ internal static class CharredWarriorPatches
                     FCurrentShoulderItemHash?.SetValue(vis, 0);
 
                     HideBodyVisuals(vis, false);
+                    RevertCharredGlowFX(vis.transform);
                 }
 
                 UObject.Destroy(marker);
@@ -3253,7 +3333,9 @@ internal static class CharredWarriorPatches
             if (!string.Equals(curHelmet, helmetTarget, StringComparison.OrdinalIgnoreCase))
             {
                 FHelmetItem?.SetValue(vis, "");
-                vis.SetHelmetItem(curHelmet);
+                _forceSwapEmpty = string.IsNullOrEmpty(curHelmet);
+                try { vis.SetHelmetItem(curHelmet); }
+                finally { _forceSwapEmpty = false; }
             }
         }
 
@@ -3265,7 +3347,9 @@ internal static class CharredWarriorPatches
             if (!string.Equals(curChest, chestTarget, StringComparison.OrdinalIgnoreCase))
             {
                 FChestItem?.SetValue(vis, "");
-                vis.SetChestItem(curChest);
+                _forceSwapEmpty = string.IsNullOrEmpty(curChest);
+                try { vis.SetChestItem(curChest); }
+                finally { _forceSwapEmpty = false; }
             }
         }
 
@@ -3277,7 +3361,9 @@ internal static class CharredWarriorPatches
             if (!string.Equals(curLegs, legsTarget, StringComparison.OrdinalIgnoreCase))
             {
                 FLegItem?.SetValue(vis, "");
-                vis.SetLegItem(curLegs);
+                _forceSwapEmpty = string.IsNullOrEmpty(curLegs);
+                try { vis.SetLegItem(curLegs); }
+                finally { _forceSwapEmpty = false; }
             }
         }
 
@@ -3289,7 +3375,9 @@ internal static class CharredWarriorPatches
             if (!string.Equals(curShoulder, shoulderTarget, StringComparison.OrdinalIgnoreCase))
             {
                 FShoulderItem?.SetValue(vis, "");
-                vis.SetShoulderItem(curShoulder, 0);
+                _forceSwapEmpty = string.IsNullOrEmpty(curShoulder);
+                try { vis.SetShoulderItem(curShoulder, 0); }
+                finally { _forceSwapEmpty = false; }
             }
         }
     }
@@ -3500,4 +3588,15 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     /// re-applying scale/rotation when SetHelmetItem is called repeatedly (e.g. during combat).
     /// </summary>
     public GameObject? LastScaledHelmetInstance;
+
+    /// <summary>
+    /// Original glow FX state captured before our color/intensity overrides were applied.
+    /// Restored on revert so vanilla red eyes return when MasterSwitch is toggled off.
+    /// </summary>
+    public bool GlowFXCaptured;
+    public Color OriginalEyeStartColor0;
+    public Color OriginalEyeStartColor1;
+    public Material? OriginalEyeMaterial0;
+    public Material? OriginalEyeMaterial1;
+    public bool OriginalChestGlowActive;
 }
