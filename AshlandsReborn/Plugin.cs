@@ -77,7 +77,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> TrimChestArms { get; private set; } = null!;
     public static ConfigEntry<bool> ChestCollapseArmBones { get; private set; } = null!;
     public static ConfigEntry<bool> ChestCollapseForeArmBones { get; private set; } = null!;
-    public static ConfigEntry<int> ChestSubmeshDebug { get; private set; } = null!;
+    public static ConfigEntry<string> ChestSubmeshesHidden { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaChest { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaShoulders { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaBracers { get; private set; } = null!;
@@ -513,13 +513,11 @@ public class Plugin : BaseUnityPlugin
             false,
             "Also collapse LeftForeArm/RightForeArm on the chest SMR. Enable if any submesh-0 geometry runs past the elbow.");
 
-        ChestSubmeshDebug = Config.Bind(
+        ChestSubmeshesHidden = Config.Bind(
             "Creatures",
-            "ChestSubmeshDebug",
-            -1,
-            new ConfigDescription(
-                "DEBUG: hide a single chest submesh by index (0-9) to identify which contains shoulder geometry. -1 = disabled.",
-                new AcceptableValueRange<int>(-1, 9)));
+            "ChestSubmeshesHidden",
+            "5",
+            "Comma-separated list of chest submesh indices to hide via invisible material (e.g. \"5\" or \"5,6\"). Empty string disables all extra hiding.");
 
         ShowVanillaChest = Config.Bind(
             "Creatures",
@@ -865,7 +863,7 @@ public class Plugin : BaseUnityPlugin
             {
                 _lastBracerScaleUpdateTime = Time.time;
                 Patches.CharredWarriorPatches.UpdateBracerScales();
-                Patches.CharredWarriorPatches.UpdateChestSubmeshDebug();
+                Patches.CharredWarriorPatches.UpdateChestSubmeshesHidden();
                 Patches.CharredWarriorPatches.UpdateBodySwapThickness();
             }
         }

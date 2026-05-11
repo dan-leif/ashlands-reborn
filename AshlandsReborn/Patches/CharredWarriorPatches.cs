@@ -1006,25 +1006,6 @@ internal static class CharredWarriorPatches
                             smr.sharedMaterials = trimmedMats;
                         }
                         Plugin.Log?.LogInfo($"[Ashlands Reborn] Truncated chest to {keepCount} submeshes (arm submeshes dropped)");
-
-                        // Submesh 5 is also part of the arm/hand region and must be hidden
-                        // alongside the truncated 7-9 group. Truncation can't skip a middle
-                        // submesh, so swap it to an invisible material instead.
-                        const int extraHideIdx = 5;
-                        if (extraHideIdx < smr.sharedMaterials.Length)
-                        {
-                            // Cache the original submesh-5 material before overwriting it,
-                            // so BodySwap can still source the correct chest texture from it.
-                            _cachedChestSubmesh5Material = smr.sharedMaterials[extraHideIdx];
-                            var invisMat = GetInvisibleMaterial(smr);
-                            if (invisMat != null)
-                            {
-                                var hideMats = smr.sharedMaterials;
-                                hideMats[extraHideIdx] = invisMat;
-                                smr.sharedMaterials = hideMats;
-                                Plugin.Log?.LogInfo($"[Ashlands Reborn] Hid submesh {extraHideIdx} via invisible material (cached original '{_cachedChestSubmesh5Material?.name}')");
-                            }
-                        }
                     }
                     catch (Exception ex)
                     {
@@ -1039,8 +1020,6 @@ internal static class CharredWarriorPatches
                                 if (idx < mats.Length)
                                     mats[idx] = invisMat;
                             }
-                            if (5 < mats.Length)
-                                mats[5] = invisMat;
                             smr.sharedMaterials = mats;
                             Plugin.Log?.LogInfo("[Ashlands Reborn] Applied invisible material to arm submeshes (fallback)");
                         }
@@ -1174,26 +1153,30 @@ internal static class CharredWarriorPatches
         return s_invisibleMaterial = mat;
     }
 
-    private static int _lastChestSubmeshDebugIndex = -2; // sentinel: never applied
+    private static string _lastChestSubmeshesHidden = "\0"; // sentinel: never applied
 
-    internal static void UpdateChestSubmeshDebug()
+    internal static void UpdateChestSubmeshesHidden()
     {
-        int debugIdx = Plugin.ChestSubmeshDebug?.Value ?? -1;
-        if (debugIdx == _lastChestSubmeshDebugIndex) return;
-        _lastChestSubmeshDebugIndex = debugIdx;
+        string raw = Plugin.ChestSubmeshesHidden?.Value ?? "";
+        if (raw == _lastChestSubmeshesHidden) return;
+        _lastChestSubmeshesHidden = raw;
+
+        var indices = new List<int>();
+        foreach (var part in raw.Split(','))
+        {
+            if (int.TryParse(part.Trim(), out var idx))
+                indices.Add(idx);
+        }
 
         var markers = UObject.FindObjectsByType<AshlandsRebornCharredSwapped>(FindObjectsSortMode.None);
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshDebug: index={debugIdx}, markers={markers.Length}");
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshesHidden: indices=[{string.Join(",", indices)}], markers={markers.Length}");
 
         foreach (var marker in markers)
         {
             var vis = marker.GetComponent<VisEquipment>();
             if (vis == null) continue;
 
-            // Collect all SMRs from the chest item instances
             var chestObjs = FChestItemInstances?.GetValue(vis) as List<GameObject>;
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshDebug: chestObjs={chestObjs?.Count ?? -1}");
-
             if (chestObjs == null || chestObjs.Count == 0) continue;
 
             foreach (var go in chestObjs)
@@ -1201,36 +1184,34 @@ internal static class CharredWarriorPatches
                 if (go == null) continue;
                 foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>(true))
                 {
-                    Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshDebug: SMR '{smr.name}' mesh='{smr.sharedMesh?.name}' subMeshCount={smr.sharedMesh?.subMeshCount} mats={smr.sharedMaterials.Length}");
-
-                    // Cache originals once per SMR (keyed by marker — use first SMR found)
                     if (marker.ChestOriginalMaterials == null)
                         marker.ChestOriginalMaterials = (Material[])smr.sharedMaterials.Clone();
 
-                    // Hide submesh by zeroing its SubMeshDescriptor indexCount.
-                    // Same descriptor-table-only mechanism as subMeshCount truncation, so it
-                    // works despite isReadable=false. debugIdx = which submesh index to hide.
                     var mesh = smr.sharedMesh;
                     if (mesh == null) continue;
 
-                    if (debugIdx >= 0 && debugIdx < mesh.subMeshCount)
+                    // Restore all materials to originals first, then apply the current hide list
+                    if (marker.ChestOriginalMaterials != null)
                     {
-                        try
+                        var restored = (Material[])marker.ChestOriginalMaterials.Clone();
+                        smr.sharedMaterials = restored;
+                    }
+
+                    var invisMat = GetInvisibleMaterial(smr);
+                    if (invisMat == null) continue;
+
+                    var mats = smr.sharedMaterials;
+                    foreach (var hideIdx in indices)
+                    {
+                        if (hideIdx >= 0 && hideIdx < mats.Length)
                         {
-                            var desc = mesh.GetSubMesh(debugIdx);
-                            desc.indexCount = 0;
-                            mesh.SetSubMesh(debugIdx, desc, UnityEngine.Rendering.MeshUpdateFlags.DontRecalculateBounds | UnityEngine.Rendering.MeshUpdateFlags.DontValidateIndices | UnityEngine.Rendering.MeshUpdateFlags.DontResetBoneBounds | UnityEngine.Rendering.MeshUpdateFlags.DontNotifyMeshUsers);
-                            Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshDebug: zeroed indexCount on submesh {debugIdx} of '{smr.name}'");
-                        }
-                        catch (Exception ex)
-                        {
-                            Plugin.Log?.LogWarning($"[Ashlands Reborn] ChestSubmeshDebug failed: {ex.Message}");
+                            if (hideIdx == 5 && _cachedChestSubmesh5Material == null)
+                                _cachedChestSubmesh5Material = mats[hideIdx];
+                            mats[hideIdx] = invisMat;
+                            Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshesHidden: hid submesh {hideIdx} on '{smr.name}'");
                         }
                     }
-                    else
-                    {
-                        Plugin.Log?.LogInfo($"[Ashlands Reborn] ChestSubmeshDebug: idx {debugIdx} out of range (mesh has {mesh.subMeshCount} submeshes) — no-op");
-                    }
+                    smr.sharedMaterials = mats;
                 }
             }
         }
