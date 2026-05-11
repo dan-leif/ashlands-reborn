@@ -85,6 +85,9 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> ShowBodySwapChestGlow { get; private set; } = null!;
     public static ConfigEntry<string> EyeGlowColor { get; private set; } = null!;
     public static ConfigEntry<float> EyeGlowIntensity { get; private set; } = null!;
+    public static ConfigEntry<float> EyeGlowOffsetX { get; private set; } = null!;
+    public static ConfigEntry<float> EyeGlowOffsetY { get; private set; } = null!;
+    public static ConfigEntry<float> EyeGlowOffsetZ { get; private set; } = null!;
 
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
@@ -454,6 +457,30 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Brightness multiplier for the eye glow emission (0 = off, 5 = very bright).",
                 new AcceptableValueRange<float>(0f, 5f)));
+
+        EyeGlowOffsetX = Config.Bind(
+            "Creatures",
+            "EyeGlowOffsetX",
+            0.0f,
+            new ConfigDescription(
+                "Horizontal offset for the eye glow particles. Positive pushes eyes apart, negative pushes them together.",
+                new AcceptableValueRange<float>(-2f, 2f)));
+
+        EyeGlowOffsetY = Config.Bind(
+            "Creatures",
+            "EyeGlowOffsetY",
+            0.0f,
+            new ConfigDescription(
+                "Vertical offset for the eye glow particles. Positive moves eyes up, negative moves them down.",
+                new AcceptableValueRange<float>(-2f, 2f)));
+
+        EyeGlowOffsetZ = Config.Bind(
+            "Creatures",
+            "EyeGlowOffsetZ",
+            0.04f,
+            new ConfigDescription(
+                "Forward/back offset for the eye glow particles. Positive moves eyes forward, negative moves them back.",
+                new AcceptableValueRange<float>(-2f, 2f)));
 
         BodySwapYOffset = Config.Bind(
             "Creatures",

@@ -2022,6 +2022,8 @@ internal static class CharredWarriorPatches
                     if (idx == 0) marker.OriginalEyeMaterial0 = origMat;
                     else          marker.OriginalEyeMaterial1 = origMat;
                 }
+                if (idx == 0) marker.OriginalEyeLocalPos0 = eyeFX.localPosition;
+                else          marker.OriginalEyeLocalPos1 = eyeFX.localPosition;
             }
 
             if (ps != null)
@@ -2043,6 +2045,24 @@ internal static class CharredWarriorPatches
         }
 
         if (marker != null) marker.GlowFXCaptured = true;
+
+        // Apply position offsets every call (config can change at runtime).
+        // Eye node local axes: X = forward/back (Z config), Y = up/down, Z = apart/together (X config).
+        float ox = Plugin.EyeGlowOffsetX?.Value ?? 0f;
+        float oy = Plugin.EyeGlowOffsetY?.Value ?? 0f;
+        float oz = Plugin.EyeGlowOffsetZ?.Value ?? 0f;
+        for (int idx = 0; idx < eyeNames.Length; idx++)
+        {
+            var eyeFX = FindInChildren(root, eyeNames[idx]);
+            if (eyeFX == null) continue;
+            var orig = marker != null
+                ? (idx == 0 ? marker.OriginalEyeLocalPos0 : marker.OriginalEyeLocalPos1)
+                : eyeFX.localPosition;
+            // Apart/together (X config) maps to local Z; mirrored per eye.
+            // Forward/back (Z config) maps to local X.
+            float sideSign = idx == 0 ? 1f : -1f;
+            eyeFX.localPosition = orig + new Vector3(-oz * 0.01f, oy * 0.01f, ox * sideSign * 0.01f);
+        }
     }
 
     private static void RevertCharredGlowFX(Transform root)
@@ -2072,6 +2092,8 @@ internal static class CharredWarriorPatches
             var origMat = idx == 0 ? marker.OriginalEyeMaterial0 : marker.OriginalEyeMaterial1;
             if (psr != null && origMat != null)
                 psr.sharedMaterial = origMat;
+
+            eyeFX.localPosition = idx == 0 ? marker.OriginalEyeLocalPos0 : marker.OriginalEyeLocalPos1;
         }
     }
 
@@ -3580,4 +3602,6 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public Material? OriginalEyeMaterial0;
     public Material? OriginalEyeMaterial1;
     public bool OriginalChestGlowActive;
+    public Vector3 OriginalEyeLocalPos0;
+    public Vector3 OriginalEyeLocalPos1;
 }
