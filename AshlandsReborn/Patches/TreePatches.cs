@@ -163,7 +163,7 @@ internal static class TreePatches
 
     private static string PickReplacementType()
     {
-        var ratio = Mathf.Clamp(Plugin.BeechOakRatio?.Value ?? 100, 0, 100);
+        var ratio = 100;
         if (Random.value * 100f < ratio)
             return MeadowsPrefabs.ContainsKey("Oak1") ? "Oak1" : "Beech1";
         return MeadowsPrefabs.ContainsKey("Beech1") ? "Beech1" : "Oak1";

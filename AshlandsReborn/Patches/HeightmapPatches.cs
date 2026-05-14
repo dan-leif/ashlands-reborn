@@ -73,8 +73,8 @@ internal static class HeightmapPatches
         mf.mesh.GetVertices(vertices);
         if (colors.Count == 0 || colors.Count != vertices.Count) return;
 
-        var lavaThreshold = Mathf.Max(0.001f, Plugin.LavaTerrainThreshold?.Value ?? 0.1f);
-        var sampleStride = Mathf.Clamp(Plugin.TerrainSampleStride?.Value ?? 2, 1, 8);
+        var lavaThreshold = 0.1f;
+        var sampleStride = 2;
         var w = (int)Mathf.Sqrt(vertices.Count) - 1;
         if (w < 1) w = 64;
         var side = w + 1;

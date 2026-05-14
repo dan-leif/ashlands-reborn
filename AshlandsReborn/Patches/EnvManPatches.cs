@@ -18,7 +18,7 @@ internal static class EnvManPatches
     private static bool _wasInAshlands;
     private static bool _wasTerrainOverrideEnabled;
     private static int _terrainRegenRetryFrames;
-    private static float _lastTerrainRegenTime;
+
 
     private static readonly FieldInfo? FDebugTimeOfDay = EnvManType?.GetField("m_debugTimeOfDay", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
     private static readonly FieldInfo? FDebugTime = EnvManType?.GetField("m_debugTime", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -150,7 +150,7 @@ internal static class EnvManPatches
         if (!force && !Plugin.IsTerrainOverrideActive) return;
 
         var list = new List<Heightmap>();
-        var radius = Mathf.Max(32f, Plugin.TerrainRegenRadius?.Value ?? 128f);
+        var radius = 128f;
         Heightmap.FindHeightmap(pos, radius, list);
         if (list.Count == 0) return;
 
@@ -217,11 +217,7 @@ internal static class EnvManPatches
         var terrainOverrideOn = Plugin.IsTerrainOverrideActive;
         var overrideJustTurnedOn = terrainOverrideOn && !_wasTerrainOverrideEnabled;
         var justEnteredAshlands = inAshlands && !_wasInAshlands;
-        var time = Time.time;
-        var timeSinceLastRegen = time - _lastTerrainRegenTime;
-        var interval = Plugin.TerrainRefreshInterval?.Value ?? 0f;
-        var periodicRefresh = interval > 0 && terrainOverrideOn && inAshlands && timeSinceLastRegen >= interval;
-        var shouldRegenTerrain = terrainOverrideOn && inAshlands && (justEnteredAshlands || overrideJustTurnedOn || periodicRefresh);
+        var shouldRegenTerrain = terrainOverrideOn && inAshlands && (justEnteredAshlands || overrideJustTurnedOn);
         _wasTerrainOverrideEnabled = terrainOverrideOn;
 
         if (shouldRegenTerrain || (terrainOverrideOn && inAshlands && _terrainRegenRetryFrames > 0))
@@ -229,7 +225,7 @@ internal static class EnvManPatches
             try
             {
                 var list = new List<Heightmap>();
-                var radius = Mathf.Max(32f, Plugin.TerrainRegenRadius?.Value ?? 128f);
+                var radius = 128f;
                 Heightmap.FindHeightmap(pos, radius, list);
                 if (shouldRegenTerrain && list.Count == 0)
                 {
@@ -247,7 +243,6 @@ internal static class EnvManPatches
                     }
                     if (ClutterSystem.instance != null)
                         ClutterSystem.instance.ResetGrass(pos, radius);
-                    _lastTerrainRegenTime = time;
                     Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override applied: regenerating {list.Count} heightmaps, resetting grass");
                 }
             }

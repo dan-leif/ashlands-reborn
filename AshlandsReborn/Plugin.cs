@@ -25,20 +25,13 @@ public class Plugin : BaseUnityPlugin
 
     // --- Terrain ---
     public static ConfigEntry<bool> EnableTerrainOverride { get; private set; } = null!;
-    public static ConfigEntry<float> LavaGrassThreshold { get; private set; } = null!;
-    public static ConfigEntry<float> LavaTerrainThreshold { get; private set; } = null!;
-    public static ConfigEntry<float> TerrainRefreshInterval { get; private set; } = null!;
-    public static ConfigEntry<KeyCode> TerrainRefreshKey { get; private set; } = null!;
-    public static ConfigEntry<float> TerrainRegenRadius { get; private set; } = null!;
-    public static ConfigEntry<int> TerrainSampleStride { get; private set; } = null!;
 
     // --- Trees ---
     public static ConfigEntry<bool> EnableTreeReplacement { get; private set; } = null!;
     public static ConfigEntry<int> AshlandsTreeDensity { get; private set; } = null!;
-    public static ConfigEntry<int> BeechOakRatio { get; private set; } = null!;
     public static ConfigEntry<KeyCode> TreeRefreshKey { get; private set; } = null!;
 
-    // --- Creatures ---
+    // --- Valkyrie ---
     public static ConfigEntry<string> EnableValkyrieSwap { get; private set; } = null!;
     public static ConfigEntry<KeyCode> ValkyrieRefreshKey { get; private set; } = null!;
 
@@ -47,12 +40,9 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> CharredWarriorHelmetName { get; private set; } = null!;
     public static ConfigEntry<string> CharredWarriorChestName { get; private set; } = null!;
     public static ConfigEntry<string> CharredWarriorLegsName { get; private set; } = null!;
-    public static ConfigEntry<string> CharredWarriorShoulderName { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorKromScale { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorChestScale { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorLegsScale { get; private set; } = null!;
-    public static ConfigEntry<float> CharredWarriorCapeScale { get; private set; } = null!;
-    public static ConfigEntry<float> CharredWarriorShoulderRotation { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetScale { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetYOffset { get; private set; } = null!;
     public static ConfigEntry<float> CharredWarriorHelmetYaw { get; private set; } = null!;
@@ -60,16 +50,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<KeyCode> CharredWarriorRefreshKey { get; private set; } = null!;
     public static ConfigEntry<KeyCode> DataDumpKey { get; private set; } = null!;
     public static ConfigEntry<bool> EnableBodySwap { get; private set; } = null!;
-    public static ConfigEntry<string> BodySwapColorPreset { get; private set; } = null!;
-    public static ConfigEntry<bool> BodySwapUseChestTexture { get; private set; } = null!;
     public static ConfigEntry<string> BodySwapChestTextureSubmesh { get; private set; } = null!;
-    public static ConfigEntry<float> BodySwapColorR { get; private set; } = null!;
-    public static ConfigEntry<float> BodySwapColorG { get; private set; } = null!;
-    public static ConfigEntry<float> BodySwapColorB { get; private set; } = null!;
-    public static ConfigEntry<float> BodySwapEmissionR { get; private set; } = null!;
-    public static ConfigEntry<float> BodySwapEmissionG { get; private set; } = null!;
-    public static ConfigEntry<float> BodySwapEmissionB { get; private set; } = null!;
-    public static ConfigEntry<float> BodySwapYOffset { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapScale { get; private set; } = null!;
     public static ConfigEntry<float> BodySwapThickness { get; private set; } = null!;
     public static ConfigEntry<bool> BodySwapHideHead { get; private set; } = null!;
@@ -82,7 +63,6 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> ShowVanillaShoulders { get; private set; } = null!;
     public static ConfigEntry<bool> ShowVanillaBracers { get; private set; } = null!;
     public static ConfigEntry<float> BracerScale { get; private set; } = null!;
-    public static ConfigEntry<bool> ShowBodySwapChestGlow { get; private set; } = null!;
     public static ConfigEntry<string> EyeGlowColor { get; private set; } = null!;
     public static ConfigEntry<float> EyeGlowIntensity { get; private set; } = null!;
     public static ConfigEntry<float> EyeGlowOffsetX { get; private set; } = null!;
@@ -151,48 +131,6 @@ public class Plugin : BaseUnityPlugin
             "When in Ashlands, override terrain and grass to Meadows-like (green ground, green grass)."
         );
 
-        LavaGrassThreshold = Config.Bind(
-            "Terrain",
-            "LavaGrassThreshold",
-            0.11f,
-            "Points with vegetation mask above this are excluded from grass placement (no grass on lava edges). Lower = wider exclusion zone. Default 0.15."
-        );
-
-        LavaTerrainThreshold = Config.Bind(
-            "Terrain",
-            "LavaTerrainThreshold",
-            0.1f,
-            "Points with vegetation mask above this are treated as lava for terrain vertex color (shows lava texture). Lower = wider lava area. Default 0.1."
-        );
-
-        TerrainRefreshInterval = Config.Bind(
-            "Terrain",
-            "TerrainRefreshInterval",
-            0f,
-            "Seconds between terrain refreshes while in Ashlands. 0 = disable (no periodic refresh, less stutter). 60 = refresh every minute."
-        );
-
-        TerrainRefreshKey = Config.Bind(
-            "Terrain",
-            "TerrainRefreshKey",
-            KeyCode.F7,
-            "Key to re-apply terrain with current TerrainSampleStride and TerrainRegenRadius."
-        );
-
-        TerrainRegenRadius = Config.Bind(
-            "Terrain",
-            "TerrainRegenRadius",
-            128f,
-            "Radius in meters to regenerate when entering Ashlands. Lower = less stutter on enter."
-        );
-
-        TerrainSampleStride = Config.Bind(
-            "Terrain",
-            "TerrainSampleStride",
-            2,
-            "Sample every Nth vertex for lava detection. 1 = all (quality, slow). 2 = half (default). 4 = quarter (fast)."
-        );
-
         // --- Trees ---
         EnableTreeReplacement = Config.Bind(
             "Trees",
@@ -208,13 +146,6 @@ public class Plugin : BaseUnityPlugin
             "Percent of scorched trees to transform into living Oak/Beech. 0 = no trees visible. 100 = normal Ashlands count."
         );
 
-        BeechOakRatio = Config.Bind(
-            "Trees",
-            "BeechOakRatio",
-            100,
-            "Oak vs Beech mix. 0 = all Beech. 100 = all Oak. In-between = mixed."
-        );
-
         TreeRefreshKey = Config.Bind(
             "Trees",
             "TreeRefreshKey",
@@ -222,9 +153,9 @@ public class Plugin : BaseUnityPlugin
             "Key to re-apply tree config to currently loaded trees without teleporting."
         );
 
-        // --- Creatures ---
+        // --- Valkyrie ---
         EnableValkyrieSwap = Config.Bind(
-            "Creatures",
+            "Valkyrie",
             "EnableValkyrieSwap",
             "Enabled",
             new ConfigDescription(
@@ -232,19 +163,20 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueList<string>("Enabled", "UseIntroVisualsAndAnimations", "Disabled")));
 
         ValkyrieRefreshKey = Config.Bind(
-            "Creatures",
+            "Valkyrie",
             "ValkyrieRefreshKey",
             KeyCode.F9,
             "Re-apply Valkyrie swap to nearby Fallen Valkyries without teleporting.");
 
+        // --- Charred Warrior ---
         EnableCharredWarriorSwap = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "EnableCharredWarriorSwap",
             true,
             "Master toggle for all Charred_Melee visual changes (sword and armor). No behavior change.");
 
         CharredWarriorHelmetName = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorHelmetName",
             "knighthelm",
             new ConfigDescription(
@@ -252,25 +184,19 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueList<string>("HelmetDrake", "knighthelm")));
 
         CharredWarriorChestName = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorChestName",
             "knightchest",
             "The chest armor to swap onto Charred Warriors. Requires SouthsilArmor mod for 'knightchest'. Try 'ArmorIronChest' to test with vanilla armor. Leave empty to disable.");
 
         CharredWarriorLegsName = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorLegsName",
             "knightlegs",
             "The legs armor to swap onto Charred Warriors. Requires SouthsilArmor mod for 'knightlegs'. Leave empty to disable.");
 
-        CharredWarriorShoulderName = Config.Bind(
-            "Creatures",
-            "CharredWarriorShoulderName",
-            "",
-            "The cape/shoulder to swap onto Charred Warriors. Requires SouthsilArmor mod for 'ss_storrcape'. Leave empty to disable.");
-
         CharredWarriorKromScale = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorKromScale",
             1.16f,
             new ConfigDescription(
@@ -278,7 +204,7 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(0.5f, 2f)));
 
         CharredWarriorChestScale = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorChestScale",
             1.3f,
             new ConfigDescription(
@@ -286,31 +212,15 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(0.5f, 2f)));
 
         CharredWarriorLegsScale = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorLegsScale",
             1.0f,
             new ConfigDescription(
                 "Scale factor for leg armor on Charred Warriors. 1.0 = player size.",
                 new AcceptableValueRange<float>(0.5f, 2f)));
 
-        CharredWarriorCapeScale = Config.Bind(
-            "Creatures",
-            "CharredWarriorCapeScale",
-            1.0f,
-            new ConfigDescription(
-                "Scale factor for cape/shoulder on Charred Warriors. 1.0 = player size.",
-                new AcceptableValueRange<float>(0.5f, 2f)));
-
-        CharredWarriorShoulderRotation = Config.Bind(
-            "Creatures",
-            "CharredWarriorShoulderRotation",
-            0f,
-            new ConfigDescription(
-                "Z-axis rotation in degrees for shoulder bone adjustment. 0 = no adjustment (bind-pose replacement handles orientation). Try 180 to flip if pauldrons appear upside-down.",
-                new AcceptableValueRange<float>(-360f, 360f)));
-
         CharredWarriorHelmetScale = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorHelmetScale",
             1.1f,
             new ConfigDescription(
@@ -318,7 +228,7 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(0.5f, 2f)));
 
         CharredWarriorHelmetYOffset = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorHelmetYOffset",
             0.05f,
             new ConfigDescription(
@@ -326,7 +236,7 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(-0.5f, 0.5f)));
 
         CharredWarriorHelmetYaw = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorHelmetYaw",
             270f,
             new ConfigDescription(
@@ -334,7 +244,7 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(-360f, 360f)));
 
         CharredWarriorHelmetZOffset = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorHelmetZOffset",
             0.05f,
             new ConfigDescription(
@@ -343,107 +253,33 @@ public class Plugin : BaseUnityPlugin
 
 
         CharredWarriorRefreshKey = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "CharredWarriorRefreshKey",
             KeyCode.F10,
             "Re-apply Charred Warrior sword and armor swap to nearby instances without teleporting.");
 
         DataDumpKey = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "DataDumpKey",
             KeyCode.F11,
             "Dump player body mesh + charred sinew positioning data to BepInEx/plugins/.");
 
         EnableBodySwap = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "EnableBodySwap",
             true,
             "Adds a player body mesh underneath the Charred Warrior armor to provide volumetric deforming limbs.");
 
-        BodySwapColorPreset = Config.Bind(
-            "Creatures",
-            "BodySwapColorPreset",
-            "Black",
-            new ConfigDescription(
-                "Body swap color preset. Set to 'Custom' to use BodySwapColorR/G/B sliders. " +
-                "Other presets override the sliders to give padding-like colors under the armor.",
-                new AcceptableValueList<string>("Custom", "Black", "DarkGray", "Charcoal", "DarkBrown", "Leather", "Peach")));
-
-        BodySwapUseChestTexture = Config.Bind(
-            "Creatures",
-            "BodySwapUseChestTexture",
-            false,
-            "Apply the chest armor's submesh-5 main texture to the body swap layer (overrides color preset). " +
-            "Useful for matching the body to the armor material. " +
-            "Superseded by BodySwapChestTextureSubmesh when that is set to anything other than 'Off'.");
-
         BodySwapChestTextureSubmesh = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "BodySwapChestTextureSubmesh",
             "3",
             new ConfigDescription(
-                "Pick a chest armor submesh (0–9) whose material is cloned onto the body swap layer. " +
-                "'Off' falls back to BodySwapUseChestTexture / color preset behavior. " +
-                "Overrides the color preset when active.",
+                "Pick a chest armor submesh (0–9) whose material is cloned onto the body swap layer. 'Off' uses a plain dark color.",
                 new AcceptableValueList<string>("Off", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9")));
 
-        BodySwapColorR = Config.Bind(
-            "Creatures",
-            "BodySwapColorR",
-            0.15f,
-            new ConfigDescription(
-                "Body swap material color — Red channel (0–1).",
-                new AcceptableValueRange<float>(0f, 1f)));
-
-        BodySwapColorG = Config.Bind(
-            "Creatures",
-            "BodySwapColorG",
-            0.1f,
-            new ConfigDescription(
-                "Body swap material color — Green channel (0–1).",
-                new AcceptableValueRange<float>(0f, 1f)));
-
-        BodySwapColorB = Config.Bind(
-            "Creatures",
-            "BodySwapColorB",
-            0.05f,
-            new ConfigDescription(
-                "Body swap material color — Blue channel (0–1).",
-                new AcceptableValueRange<float>(0f, 1f)));
-
-        BodySwapEmissionR = Config.Bind(
-            "Creatures",
-            "BodySwapEmissionR",
-            0.8f,
-            new ConfigDescription(
-                "Body swap eye/glow emission — Red channel (0–1).",
-                new AcceptableValueRange<float>(0f, 1f)));
-
-        BodySwapEmissionG = Config.Bind(
-            "Creatures",
-            "BodySwapEmissionG",
-            0.2f,
-            new ConfigDescription(
-                "Body swap eye/glow emission — Green channel (0–1).",
-                new AcceptableValueRange<float>(0f, 1f)));
-
-        BodySwapEmissionB = Config.Bind(
-            "Creatures",
-            "BodySwapEmissionB",
-            0.0f,
-            new ConfigDescription(
-                "Body swap eye/glow emission — Blue channel (0–1).",
-                new AcceptableValueRange<float>(0f, 1f)));
-
-        ShowBodySwapChestGlow = Config.Bind(
-            "Creatures",
-            "ShowBodySwapChestGlow",
-            false,
-            "Show the glowing emission on the body swap (flesh) layer. " +
-            "Off by default; use BodySwapEmissionR/G/B to control the color when enabled.");
-
         EyeGlowColor = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "EyeGlowColor",
             "White",
             new ConfigDescription(
@@ -451,7 +287,7 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueList<string>("Blue", "Cyan", "Green", "Red", "White", "Orange")));
 
         EyeGlowIntensity = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "EyeGlowIntensity",
             2.0f,
             new ConfigDescription(
@@ -459,7 +295,7 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(0f, 5f)));
 
         EyeGlowOffsetX = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "EyeGlowOffsetX",
             0.0f,
             new ConfigDescription(
@@ -467,7 +303,7 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(-2f, 2f)));
 
         EyeGlowOffsetY = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "EyeGlowOffsetY",
             0.0f,
             new ConfigDescription(
@@ -475,23 +311,15 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(-2f, 2f)));
 
         EyeGlowOffsetZ = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "EyeGlowOffsetZ",
             0.04f,
             new ConfigDescription(
                 "Forward/back offset for the eye glow particles. Positive moves eyes forward, negative moves them back.",
                 new AcceptableValueRange<float>(-2f, 2f)));
 
-        BodySwapYOffset = Config.Bind(
-            "Creatures",
-            "BodySwapYOffset",
-            0.0f,
-            new ConfigDescription(
-                "Vertical offset for the body swap mesh.",
-                new AcceptableValueRange<float>(-0.5f, 0.5f)));
-
         BodySwapScale = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "BodySwapScale",
             1.0f,
             new ConfigDescription(
@@ -499,7 +327,7 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
 
         BodySwapThickness = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "BodySwapThickness",
             1.25f,
             new ConfigDescription(
@@ -508,13 +336,13 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(0.7f, 2.0f)));
 
         BodySwapHideHead = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "BodySwapHideHead",
             true,
             "Hide the player head in the body swap layer (head shows through the helmet visor otherwise).");
 
         BodySwapHeadCutoffY = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "BodySwapHeadCutoffY",
             0.0f,
             new ConfigDescription(
@@ -523,49 +351,49 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(-0.2f, 0.2f)));
 
         TrimChestArms = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "TrimChestArms",
             true,
             "Remove arm/hand triangles from the chest armor mesh, leaving only the torso plate.");
 
         ChestCollapseArmBones = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "ChestCollapseArmBones",
             true,
             "Collapse the LeftArm/RightArm bones to zero scale on the chest SMR only. Hides the upper-arm portion of submesh 0 (which can't be hidden via submesh tricks because torso and arm geometry share the submesh) while keeping torso vertices anchored to spine bones intact.");
 
         ChestCollapseForeArmBones = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "ChestCollapseForeArmBones",
             false,
             "Also collapse LeftForeArm/RightForeArm on the chest SMR. Enable if any submesh-0 geometry runs past the elbow.");
 
         ChestSubmeshesHidden = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "ChestSubmeshesHidden",
             "5",
             "Comma-separated list of chest submesh indices to hide via invisible material (e.g. \"5\" or \"5,6\"). Empty string disables all extra hiding.");
 
         ShowVanillaChest = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "ShowVanillaChest",
             false,
             "Also show the vanilla chest piece alongside the custom one (for comparison).");
 
         ShowVanillaShoulders = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "ShowVanillaShoulders",
             false,
             "Also show the vanilla shoulder piece alongside the custom one (for comparison).");
 
         ShowVanillaBracers = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "ShowVanillaBracers",
             true,
             "Also show the vanilla utility/bracer piece alongside the custom one (for comparison).");
 
         BracerScale = Config.Bind(
-            "Creatures",
+            "Charred Warrior",
             "BracerScale",
             1.0f,
             new ConfigDescription(
@@ -635,20 +463,20 @@ public class Plugin : BaseUnityPlugin
             // Non-fatal
         }
 
-        // Migrate LavaEdgeThreshold to LavaTerrainThreshold and LavaGrassThreshold
+        // Migrate EnableValkyrieSwap / ValkyrieRefreshKey from old "Creatures" section to "Valkyrie"
         try
         {
-            var defOld = new ConfigDefinition("Terrain", "LavaEdgeThreshold");
-            if (Config.ContainsKey(defOld))
+            var defValkOld = new ConfigDefinition("Creatures", "EnableValkyrieSwap");
+            if (Config.ContainsKey(defValkOld))
             {
-                var val = Config[defOld].BoxedValue;
-                if (val is float f)
-                {
-                    LavaTerrainThreshold.Value = f;
-                    LavaGrassThreshold.Value = f;
-                }
-                Config.Remove(defOld);
+                var raw = Config[defValkOld].BoxedValue?.ToString()?.Trim();
+                if (!string.IsNullOrEmpty(raw))
+                    EnableValkyrieSwap.Value = raw;
+                Config.Remove(defValkOld);
             }
+            var defValkKeyOld = new ConfigDefinition("Creatures", "ValkyrieRefreshKey");
+            if (Config.ContainsKey(defValkKeyOld))
+                Config.Remove(defValkKeyOld);
         }
         catch
         {
@@ -668,9 +496,29 @@ public class Plugin : BaseUnityPlugin
             }
 
             foreach (var name in new[] { "AshlandsTextureSlices", "SliceProbeIndex", "LavaTransitionRange",
-                "LavaAlphaOffset", "MeadowsBaseRed", "MeadowsBaseAlpha", "EnableBoundaryOverlay", "OverlayWidth" })
+                "LavaAlphaOffset", "MeadowsBaseRed", "MeadowsBaseAlpha", "EnableBoundaryOverlay", "OverlayWidth",
+                "LavaEdgeThreshold", "LavaGrassThreshold", "LavaTerrainThreshold", "TerrainRefreshInterval",
+                "TerrainRefreshKey", "TerrainRegenRadius", "TerrainSampleStride" })
             {
                 var def = new ConfigDefinition("Terrain", name);
+                if (Config.ContainsKey(def))
+                    Config.Remove(def);
+            }
+
+            foreach (var name in new[] { "BeechOakRatio" })
+            {
+                var def = new ConfigDefinition("Trees", name);
+                if (Config.ContainsKey(def))
+                    Config.Remove(def);
+            }
+
+            foreach (var name in new[] {
+                "CharredWarriorShoulderName", "CharredWarriorCapeScale", "CharredWarriorShoulderRotation",
+                "BodySwapColorPreset", "BodySwapColorR", "BodySwapColorG", "BodySwapColorB",
+                "BodySwapEmissionR", "BodySwapEmissionG", "BodySwapEmissionB",
+                "BodySwapUseChestTexture", "BodySwapYOffset", "ShowBodySwapChestGlow" })
+            {
+                var def = new ConfigDefinition("Creatures", name);
                 if (Config.ContainsKey(def))
                     Config.Remove(def);
             }
@@ -819,7 +667,6 @@ public class Plugin : BaseUnityPlugin
     private static bool _devCommandsRunThisSession;
     private static float _lastMasterSwitchToggleTime;
     private static float _lastTreeRefreshTime;
-    private static float _lastTerrainRefreshTime;
     private static float _lastValkyrieRefreshTime;
     private static float _lastCharredRefreshTime;
     private static float _lastDataDumpTime;
@@ -853,11 +700,6 @@ public class Plugin : BaseUnityPlugin
                     Patches.CharredWarriorPatches.RevertAllCharredWarriors();
                     Log.LogInfo("[Ashlands Reborn] Master switch OFF - all overrides reverted");
                 }
-            }
-            if (Input.GetKeyDown(TerrainRefreshKey?.Value ?? KeyCode.F7) && Time.time - _lastTerrainRefreshTime >= 1f)
-            {
-                _lastTerrainRefreshTime = Time.time;
-                Patches.EnvManPatches.ForceTerrainRefresh();
             }
             if ((Plugin.EnableTreeReplacement?.Value ?? false) && Input.GetKeyDown(TreeRefreshKey?.Value ?? KeyCode.F8) && Time.time - _lastTreeRefreshTime >= 1f)
             {

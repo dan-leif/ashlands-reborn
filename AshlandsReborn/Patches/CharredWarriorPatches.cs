@@ -320,29 +320,6 @@ internal static class CharredWarriorPatches
         __instance.StartCoroutine(RemapArmorBones(__instance, FLegItemInstances, target, Plugin.CharredWarriorLegsScale?.Value ?? 1f));
     }
 
-    [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetShoulderItem))]
-    [HarmonyPrefix]
-    private static void SetShoulderItem_Prefix(VisEquipment __instance, ref string name)
-    {
-        if (!ShouldSwap() || !IsCharredMelee(__instance.gameObject)) return;
-        var target = Plugin.CharredWarriorShoulderName?.Value ?? "";
-        if (string.IsNullOrEmpty(target)) return;
-
-        var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
-                     ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
-
-        if (string.IsNullOrEmpty(name) && !_forceSwapEmpty)
-            return;
-
-        if (!marker.ShoulderSwapped)
-            marker.OriginalShoulderItem = name;
-
-        if (Plugin.ShowVanillaShoulders?.Value != true)
-            name = target;
-        marker.ShoulderSwapped = true;
-        __instance.StartCoroutine(RemapArmorBones(__instance, FShoulderItemInstances, target, Plugin.CharredWarriorCapeScale?.Value ?? 1f));
-    }
-
     /// <summary>
     /// Maps player skeleton bone names to Charred_Melee equivalents where they differ.
     /// Populated from diagnostic bone dumps. Empty entries mean names match directly.
@@ -870,8 +847,6 @@ internal static class CharredWarriorPatches
                 DumpBindPoseDiagnostic(vis, armorItemName, playerBPMapDiag, charredBPMap, charBoneMap, firstSMR);
         }
 
-        var shoulderRot = Plugin.CharredWarriorShoulderRotation?.Value ?? 0f;
-
         foreach (var armorGo in instances)
         {
             if (armorGo == null) continue;
@@ -1022,24 +997,6 @@ internal static class CharredWarriorPatches
                             }
                             smr.sharedMaterials = mats;
                             Plugin.Log?.LogInfo("[Ashlands Reborn] Applied invisible material to arm submeshes (fallback)");
-                        }
-                    }
-                }
-
-                // --- SHOULDER ROTATION WRAPPERS ---
-                if (Math.Abs(shoulderRot) > 0.01f)
-                {
-                    for (int i = 0; i < prefabBoneNames.Length; i++)
-                    {
-                        var bn = prefabBoneNames[i];
-                        if (string.Equals(bn, "LeftShoulder", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(bn, "RightShoulder", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var wrapper = new GameObject($"ShoulderAdjust_{bn}");
-                            wrapper.transform.SetParent(newBones[i], false);
-                            wrapper.transform.localRotation = Quaternion.Euler(0, 0, shoulderRot);
-                            newBones[i] = wrapper.transform;
-                            marker.SyncedObjects.Add(wrapper);
                         }
                     }
                 }
@@ -1223,32 +1180,6 @@ internal static class CharredWarriorPatches
     // =====================================================================
 
     /// <summary>
-    /// Resolves the body swap base color from the preset dropdown. "Custom" uses
-    /// the BodySwapColorR/G/B sliders; other presets are fixed colors meant to
-    /// look like padding/leather under the armor.
-    /// </summary>
-    private static Color ResolveBodySwapPresetColor()
-    {
-        var preset = Plugin.BodySwapColorPreset?.Value ?? "Black";
-        switch (preset)
-        {
-            case "Black":     return new Color(0.02f, 0.02f, 0.02f, 1f);
-            case "DarkGray":  return new Color(0.12f, 0.12f, 0.12f, 1f);
-            case "Charcoal":  return new Color(0.06f, 0.06f, 0.07f, 1f);
-            case "DarkBrown": return new Color(0.08f, 0.05f, 0.03f, 1f);
-            case "Leather":   return new Color(0.18f, 0.10f, 0.05f, 1f);
-            case "Peach":     return new Color(0.95f, 0.75f, 0.60f, 1f);
-            case "Custom":
-            default:
-                return new Color(
-                    Plugin.BodySwapColorR?.Value ?? 0.15f,
-                    Plugin.BodySwapColorG?.Value ?? 0.10f,
-                    Plugin.BodySwapColorB?.Value ?? 0.05f,
-                    1f);
-        }
-    }
-
-    /// <summary>
     /// Returns the chest armor material at the given submesh index from the most-recently-attached
     /// chest SMR. Submesh 5 has special handling: when TrimChestArms swapped it for the invisible
     /// material, we serve the cached original instead. Returns null if unavailable.
@@ -1264,12 +1195,6 @@ internal static class CharredWarriorPatches
         return mats[submeshIndex];
     }
 
-    /// <summary>
-    /// Resolves which chest submesh material (if any) to apply to the body swap layer.
-    /// The BodySwapChestTextureSubmesh dropdown takes priority; 'Off' falls back to the legacy
-    /// BodySwapUseChestTexture boolean which targets submesh 5. Returns -1 when no chest material
-    /// should be applied.
-    /// </summary>
     private static int ResolveBodySwapChestSubmeshIndex()
     {
         var pick = Plugin.BodySwapChestTextureSubmesh?.Value ?? "Off";
@@ -1278,7 +1203,6 @@ internal static class CharredWarriorPatches
         {
             return idx;
         }
-        if (Plugin.BodySwapUseChestTexture?.Value == true) return 5;
         return -1;
     }
 
@@ -1362,7 +1286,7 @@ internal static class CharredWarriorPatches
         // Create GO parented to vis.transform (same level as armor GOs)
         var go = new GameObject("BodySwapLayer");
         go.transform.SetParent(vis.transform, false);
-        go.transform.localPosition = new Vector3(0f, Plugin.BodySwapYOffset?.Value ?? 0f, 0f);
+        go.transform.localPosition = Vector3.zero;
         go.transform.localRotation = Quaternion.identity;
         go.transform.localScale = Vector3.one * (Plugin.BodySwapScale?.Value ?? 1f);
 
@@ -1401,28 +1325,14 @@ internal static class CharredWarriorPatches
                 : new Material(Shader.Find("Standard"));
         }
 
-        // Apply the color preset only when we did NOT swap to the chest material —
-        // tinting the chest material would overwrite its natural color.
         if (!usedChestMat)
         {
-            mat.color = ResolveBodySwapPresetColor();
+            mat.color = new Color(0.02f, 0.02f, 0.02f, 1f);
         }
         if (mat.HasProperty("_EmissionColor"))
         {
-            if (Plugin.ShowBodySwapChestGlow?.Value == true)
-            {
-                mat.EnableKeyword("_EMISSION");
-                mat.SetColor("_EmissionColor", new Color(
-                    Plugin.BodySwapEmissionR?.Value ?? 0.8f,
-                    Plugin.BodySwapEmissionG?.Value ?? 0.2f,
-                    Plugin.BodySwapEmissionB?.Value ?? 0f,
-                    1f));
-            }
-            else
-            {
-                mat.DisableKeyword("_EMISSION");
-                mat.SetColor("_EmissionColor", Color.black);
-            }
+            mat.DisableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", Color.black);
         }
         smr.material = mat;
 
@@ -1982,14 +1892,13 @@ internal static class CharredWarriorPatches
     {
         var marker = root.GetComponent<AshlandsRebornCharredSwapped>();
 
-        // Chest glow particle system
+        // Chest glow particle system — always hidden when body swap is active
         var chestFX = FindInChildren(root, "fx_charred_chestglow");
-        Plugin.Log?.LogInfo($"[Ashlands Reborn] GlowFX: chestFX={chestFX?.name ?? "NULL"}  showGlow={Plugin.ShowBodySwapChestGlow?.Value}");
         if (chestFX != null)
         {
             if (marker != null && !marker.GlowFXCaptured)
                 marker.OriginalChestGlowActive = chestFX.gameObject.activeSelf;
-            chestFX.gameObject.SetActive(Plugin.ShowBodySwapChestGlow?.Value == true);
+            chestFX.gameObject.SetActive(false);
         }
 
         // Eye glow particle systems — color + intensity via startColor and material _TintColor
@@ -2258,12 +2167,6 @@ internal static class CharredWarriorPatches
                     {
                         FLegItem?.SetValue(vis, "_revert");
                         vis.SetLegItem(marker.OriginalLegItem);
-                    }
-
-                    if (marker.ShoulderSwapped)
-                    {
-                        FShoulderItem?.SetValue(vis, "_revert");
-                        vis.SetShoulderItem(marker.OriginalShoulderItem, 0);
                     }
 
                     // Safety net: destroy any leftover instances Valheim may have missed
@@ -3240,20 +3143,6 @@ internal static class CharredWarriorPatches
                 vis.SetLegItem(triggerLegs);
             }
 
-            // --- Shoulder refresh ---
-            var shoulderTarget = Plugin.CharredWarriorShoulderName?.Value ?? "";
-            if (!string.IsNullOrEmpty(shoulderTarget))
-            {
-                var triggerShoulder = marker?.OriginalShoulderItem ?? "";
-                if (string.IsNullOrEmpty(triggerShoulder))
-                    triggerShoulder = FShoulderItem?.GetValue(vis) as string ?? "";
-                if (string.IsNullOrEmpty(triggerShoulder)) triggerShoulder = "_none";
-
-                if (marker != null) { marker.OriginalShoulderItem = ""; marker.ShoulderSwapped = false; }
-                FShoulderItem?.SetValue(vis, "");
-                vis.SetShoulderItem(triggerShoulder, 0);
-            }
-
             count++;
         }
 
@@ -3370,19 +3259,6 @@ internal static class CharredWarriorPatches
             }
         }
 
-        // Shoulder/Cape
-        var shoulderTarget = Plugin.CharredWarriorShoulderName?.Value ?? "";
-        if (!string.IsNullOrEmpty(shoulderTarget) && !marker.ShoulderSwapped)
-        {
-            var curShoulder = FShoulderItem?.GetValue(vis) as string ?? "";
-            if (!string.Equals(curShoulder, shoulderTarget, StringComparison.OrdinalIgnoreCase))
-            {
-                FShoulderItem?.SetValue(vis, "");
-                _forceSwapEmpty = string.IsNullOrEmpty(curShoulder);
-                try { vis.SetShoulderItem(curShoulder, 0); }
-                finally { _forceSwapEmpty = false; }
-            }
-        }
     }
 
     private static void FindGameObjectByPrefabName(Transform root, string prefabName, List<GameObject> results)
@@ -3557,11 +3433,9 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public string OriginalHelmetItem = "";
     public string OriginalChestItem = "";
     public string OriginalLegItem = "";
-    public string OriginalShoulderItem = "";
     public bool HelmetSwapped;
     public bool ChestSwapped;
     public bool LegsSwapped;
-    public bool ShoulderSwapped;
     public bool BodySwapApplied;
     public bool BreastplateOverlayApplied;
     public List<int> RemappedInstances = new();
