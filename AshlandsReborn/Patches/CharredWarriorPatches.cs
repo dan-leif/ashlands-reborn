@@ -76,10 +76,10 @@ internal static class CharredWarriorPatches
     private static Material? _cachedPlayerBodyMaterial;
     private static string[]? _cachedPlayerBoneNames;
 
-    // Swap active when master switch + EnableCharredWarriorSwap are on
+    // Swap active when master switch + EnableWarriorSwap are on
     private static bool ShouldSwap() =>
         (Plugin.MasterSwitch?.Value ?? false) &&
-        (Plugin.EnableCharredWarriorSwap?.Value ?? false);
+        (Plugin.EnableWarriorSwap?.Value ?? false);
 
     private static readonly Dictionary<string, Transform> _boneCache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -161,7 +161,7 @@ internal static class CharredWarriorPatches
         if (weaponGo == null || (marker != null && ReferenceEquals(weaponGo, marker.LastScaledKromInstance)))
             yield break;
 
-        var scale = Plugin.CharredWarriorKromScale?.Value ?? 1.16f;
+        var scale = Plugin.WarriorKromScale?.Value ?? 1.16f;
         weaponGo.transform.localScale *= scale;
         if (marker != null)
         {
@@ -183,7 +183,10 @@ internal static class CharredWarriorPatches
         if (!ShouldSwap()) return;
         if (!IsCharredMelee(__instance.gameObject)) return;
 
-        var targetHelmet = Plugin.CharredWarriorHelmetName?.Value ?? HelmetDrakeName;
+        // ShowWarriorVanillaHelmet bypasses the swap — vanilla helmet attaches unmodified
+        if (Plugin.ShowWarriorVanillaHelmet?.Value == true) return;
+
+        var targetHelmet = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
         if (string.IsNullOrEmpty(targetHelmet)) return;
 
         // Already the target — nothing to do
@@ -230,7 +233,7 @@ internal static class CharredWarriorPatches
         if (!IsCharredMelee(__instance.gameObject)) return;
 
         var curItem = FHelmetItem?.GetValue(__instance) as string ?? "";
-        var targetHelmet = Plugin.CharredWarriorHelmetName?.Value ?? HelmetDrakeName;
+        var targetHelmet = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
         // Check if current matches target (or fallback)
         if (!string.Equals(curItem, targetHelmet, StringComparison.OrdinalIgnoreCase) && 
             !string.Equals(curItem, HelmetDrakeName, StringComparison.OrdinalIgnoreCase)) return;
@@ -268,28 +271,28 @@ internal static class CharredWarriorPatches
             marker.OriginalChestItem = name;
 
         // Body swap layer (volumetric deforming flesh under armor)
-        if (Plugin.EnableBodySwap?.Value == true && !marker.BodySwapApplied)
+        if (Plugin.EnableWarriorBodySwap?.Value == true && !marker.BodySwapApplied)
         {
             HideBodyVisuals(__instance, true);
             __instance.StartCoroutine(ApplyBodySwapLayer(__instance));
         }
 
         // Approach A: bind pose retargeting armor on top
-        var target = Plugin.CharredWarriorChestName?.Value ?? "";
+        var target = Plugin.WarriorChestName?.Value ?? "";
         if (string.IsNullOrEmpty(target)) return;
 
         // When ShowVanillaChest is off (default), replace name with custom piece.
         // When on, vanilla attaches as normal and the coroutine adds custom on top.
-        if (Plugin.ShowVanillaChest?.Value != true)
+        if (Plugin.ShowWarriorVanillaChest?.Value != true)
             name = target;
 
         marker.ChestSwapped = true;
-        if (Plugin.EnableBodySwap?.Value != true)
+        if (Plugin.EnableWarriorBodySwap?.Value != true)
             HideBodyVisuals(__instance, true);
-        __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances, target, Plugin.CharredWarriorChestScale?.Value ?? 1f));
+        __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances, target, Plugin.WarriorChestScale?.Value ?? 1f));
 
         // Overlay the vanilla Charred_Breastplate (chest + pauldrons + bracers)
-        if (Plugin.ShowVanillaBracers?.Value == true && !marker.BreastplateOverlayApplied)
+        if (Plugin.ShowWarriorVanillaBracers?.Value == true && !marker.BreastplateOverlayApplied)
             __instance.StartCoroutine(ApplyCharredBreastplateOverlay(__instance));
 
         // Apply eye glow color + chest glow toggle to particle FX
@@ -302,7 +305,7 @@ internal static class CharredWarriorPatches
     {
         if (!ShouldSwap() || !IsCharredMelee(__instance.gameObject)) return;
 
-        var target = Plugin.CharredWarriorLegsName?.Value ?? "";
+        var target = Plugin.WarriorLegsName?.Value ?? "";
         if (string.IsNullOrEmpty(target)) return;
 
         var marker = __instance.GetComponent<AshlandsRebornCharredSwapped>()
@@ -317,7 +320,7 @@ internal static class CharredWarriorPatches
         name = target;
         marker.LegsSwapped = true;
         HideBodyVisuals(__instance, true);
-        __instance.StartCoroutine(RemapArmorBones(__instance, FLegItemInstances, target, Plugin.CharredWarriorLegsScale?.Value ?? 1f));
+        __instance.StartCoroutine(RemapArmorBones(__instance, FLegItemInstances, target, Plugin.WarriorLegsScale?.Value ?? 1f));
     }
 
     /// <summary>
@@ -910,7 +913,7 @@ internal static class CharredWarriorPatches
 
                 // --- Clone mesh and compute bind poses ---
                 bool isChest = (instanceField == FChestItemInstances);
-                bool useTrimmedMesh = isChest && (Plugin.TrimChestArms?.Value ?? true);
+                bool useTrimmedMesh = isChest && (Plugin.WarriorChestTrimArms?.Value ?? true);
 
                 // Always use original prefab mesh (preserves Unity's internal format → correct textures)
                 var prefabMesh = GetPrefabArmorMesh(armorItemName, smr.name);
@@ -1007,10 +1010,10 @@ internal static class CharredWarriorPatches
                 // Setting localScale=0 on a wrapper parented to LeftArm/RightArm collapses
                 // arm-weighted vertices to the bone pivot via GPU skinning while torso vertices
                 // (weighted to Spine bones) stay put. Same wrapper pattern as ShoulderRot above.
-                if (isChest && (Plugin.ChestCollapseArmBones?.Value ?? true))
+                if (isChest && (Plugin.WarriorChestCollapseArmBones?.Value ?? true))
                 {
                     var collapseSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "LeftArm", "RightArm" };
-                    if (Plugin.ChestCollapseForeArmBones?.Value ?? false)
+                    if (Plugin.WarriorChestCollapseForeArmBones?.Value ?? false)
                     {
                         collapseSet.Add("LeftForeArm");
                         collapseSet.Add("RightForeArm");
@@ -1114,7 +1117,7 @@ internal static class CharredWarriorPatches
 
     internal static void UpdateChestSubmeshesHidden()
     {
-        string raw = Plugin.ChestSubmeshesHidden?.Value ?? "";
+        string raw = Plugin.WarriorChestSubmeshesHidden?.Value ?? "";
         if (raw == _lastChestSubmeshesHidden) return;
         _lastChestSubmeshesHidden = raw;
 
@@ -1197,7 +1200,7 @@ internal static class CharredWarriorPatches
 
     private static int ResolveBodySwapChestSubmeshIndex()
     {
-        var pick = Plugin.BodySwapChestTextureSubmesh?.Value ?? "Off";
+        var pick = Plugin.WarriorBodySwapTextureSubmesh?.Value ?? "Off";
         if (!string.Equals(pick, "Off", StringComparison.OrdinalIgnoreCase) &&
             int.TryParse(pick, out var idx))
         {
@@ -1243,7 +1246,7 @@ internal static class CharredWarriorPatches
         }
 
         // Thicken the body radially via per-bone XZ scale wrappers (Y=1 preserves bone length).
-        float thickness = Plugin.BodySwapThickness?.Value ?? 1f;
+        float thickness = Plugin.WarriorBodySwapThickness?.Value ?? 1f;
         var thickenWrappers = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < boneCount; i++)
         {
@@ -1265,7 +1268,7 @@ internal static class CharredWarriorPatches
         // Hide the head by inserting a zero-scale wrapper on the Head bone,
         // collapsing all head-weighted vertices to a point (invisible).
         // The neck uses Neck/Spine2 bones and stays visible.
-        if (Plugin.BodySwapHideHead?.Value ?? true)
+        if (Plugin.WarriorBodySwapHideHead?.Value ?? true)
         {
             for (int i = 0; i < boneCount; i++)
             {
@@ -1274,7 +1277,7 @@ internal static class CharredWarriorPatches
                     var realHeadBone = bones[i];
                     var wrapper = new GameObject("BodySwap_HeadHide");
                     wrapper.transform.SetParent(realHeadBone, false);
-                    wrapper.transform.localPosition = new Vector3(0f, Plugin.BodySwapHeadCutoffY?.Value ?? 0f, 0f);
+                    wrapper.transform.localPosition = new Vector3(0f, Plugin.WarriorBodySwapHeadCutoffY?.Value ?? 0f, 0f);
                     wrapper.transform.localScale = Vector3.zero;
                     marker.SyncedObjects.Add(wrapper);
                     bones[i] = wrapper.transform;
@@ -1288,7 +1291,7 @@ internal static class CharredWarriorPatches
         go.transform.SetParent(vis.transform, false);
         go.transform.localPosition = Vector3.zero;
         go.transform.localRotation = Quaternion.identity;
-        go.transform.localScale = Vector3.one * (Plugin.BodySwapScale?.Value ?? 1f);
+        go.transform.localScale = Vector3.one * (Plugin.WarriorBodySwapScale?.Value ?? 1f);
 
         // Create SMR — keep the player's original bind poses; GPU skinning deforms via Charred bones
         var smr = go.AddComponent<SkinnedMeshRenderer>();
@@ -1434,7 +1437,7 @@ internal static class CharredWarriorPatches
 
         // Scale wrappers for bracer bones — shared across all SMRs so each bone
         // gets exactly one wrapper, keyed by bone name.
-        float bracerScale = Plugin.BracerScale?.Value ?? 1f;
+        float bracerScale = Plugin.WarriorVanillaBracersScale?.Value ?? 1f;
         var bracerScaleWrappers = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
 
         // Right side of the breastplate mesh is asymmetrically rigged: 101 verts dominantly
@@ -1853,7 +1856,7 @@ internal static class CharredWarriorPatches
 
     private static Color EyeGlowPresetColor()
     {
-        return (Plugin.EyeGlowColor?.Value ?? "White") switch
+        return (Plugin.WarriorEyeGlowColor?.Value ?? "White") switch
         {
             "Blue"   => new Color(0.2f, 0.4f, 1f),
             "Cyan"   => new Color(0f,   1f,   1f),
@@ -1868,7 +1871,7 @@ internal static class CharredWarriorPatches
     {
         // Kept for the SkinnedMeshRenderer "Eyes" fallback — particle path is handled separately
         var baseColor = EyeGlowPresetColor();
-        float intensity = Plugin.EyeGlowIntensity?.Value ?? 2.0f;
+        float intensity = Plugin.WarriorEyeGlowIntensity?.Value ?? 2.0f;
 
         var mat = UObject.Instantiate(r.material);
         mat.color = baseColor;
@@ -1903,7 +1906,7 @@ internal static class CharredWarriorPatches
 
         // Eye glow particle systems — color + intensity via startColor and material _TintColor
         var baseColor = EyeGlowPresetColor();
-        float intensity = Plugin.EyeGlowIntensity?.Value ?? 2.0f;
+        float intensity = Plugin.WarriorEyeGlowIntensity?.Value ?? 2.0f;
         var tintColor = new Color(baseColor.r, baseColor.g, baseColor.b, intensity / 5f);
 
         var eyeNames = new[] { "EyeGlow", "EyeGlow (1)" };
@@ -1957,9 +1960,9 @@ internal static class CharredWarriorPatches
 
         // Apply position offsets every call (config can change at runtime).
         // Eye node local axes: X = forward/back (Z config), Y = up/down, Z = apart/together (X config).
-        float ox = Plugin.EyeGlowOffsetX?.Value ?? 0f;
-        float oy = Plugin.EyeGlowOffsetY?.Value ?? 0f;
-        float oz = Plugin.EyeGlowOffsetZ?.Value ?? 0f;
+        float ox = Plugin.WarriorEyeGlowOffsetX?.Value ?? 0f;
+        float oy = Plugin.WarriorEyeGlowOffsetY?.Value ?? 0f;
+        float oz = Plugin.WarriorEyeGlowOffsetZ?.Value ?? 0f;
         for (int idx = 0; idx < eyeNames.Length; idx++)
         {
             var eyeFX = FindInChildren(root, eyeNames[idx]);
@@ -2078,8 +2081,8 @@ internal static class CharredWarriorPatches
                 helmetGo.transform.localRotation = Quaternion.identity;
             }
 
-            var scale = Plugin.CharredWarriorHelmetScale?.Value ?? 1.1f;
-            var yOffset = Plugin.CharredWarriorHelmetYOffset?.Value ?? 0.05f;
+            var scale = Plugin.WarriorHelmetScale?.Value ?? 1.1f;
+            var yOffset = Plugin.WarriorHelmetYOffset?.Value ?? 0.05f;
 
             // Use cached prefab scale (survives marker destruction across toggle cycles).
             // Capture from the fresh instance BEFORE we modify it.
@@ -2091,7 +2094,7 @@ internal static class CharredWarriorPatches
             helmetGo.transform.localScale = _cachedHelmetPrefabScale * scale;
 
             // Set absolute rotation from config (not additive)
-            var yaw = Plugin.CharredWarriorHelmetYaw?.Value ?? -90f;
+            var yaw = Plugin.WarriorHelmetYaw?.Value ?? -90f;
             helmetGo.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
             
             // Reset local position, then apply offsets from zero
@@ -2103,7 +2106,7 @@ internal static class CharredWarriorPatches
             // Lift in world space
             helmetGo.transform.Translate(0f, yOffset, 0f, Space.World);
             // Move forward/back relative to where the face is actually pointing
-            var zOffset = Plugin.CharredWarriorHelmetZOffset?.Value ?? 0.05f;
+            var zOffset = Plugin.WarriorHelmetZOffset?.Value ?? 0.05f;
             helmetGo.transform.Translate(faceForward * zOffset, Space.World);
 
             // Important: Show the helmet now that it's correctly placed
@@ -3034,7 +3037,7 @@ internal static class CharredWarriorPatches
 
     internal static void UpdateBracerScales()
     {
-        float scale = Plugin.BracerScale?.Value ?? 1f;
+        float scale = Plugin.WarriorVanillaBracersScale?.Value ?? 1f;
         var markers = UObject.FindObjectsByType<AshlandsRebornCharredSwapped>(FindObjectsSortMode.None);
         foreach (var marker in markers)
         {
@@ -3048,7 +3051,7 @@ internal static class CharredWarriorPatches
 
     internal static void UpdateBodySwapThickness()
     {
-        float t = Plugin.BodySwapThickness?.Value ?? 1f;
+        float t = Plugin.WarriorBodySwapThickness?.Value ?? 1f;
         var s = new Vector3(t, 1f, t);
         var markers = UObject.FindObjectsByType<AshlandsRebornCharredSwapped>(FindObjectsSortMode.None);
         foreach (var marker in markers)
@@ -3102,7 +3105,7 @@ internal static class CharredWarriorPatches
             }
 
             // --- Helmet refresh ---
-            var helmetTarget = Plugin.CharredWarriorHelmetName?.Value ?? HelmetDrakeName;
+            var helmetTarget = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
             if (!string.IsNullOrEmpty(helmetTarget))
             {
                 var triggerHelmet = marker?.OriginalHelmetItem ?? "";
@@ -3116,7 +3119,7 @@ internal static class CharredWarriorPatches
             }
 
             // --- Chest refresh ---
-            var chestTarget = Plugin.CharredWarriorChestName?.Value ?? "";
+            var chestTarget = Plugin.WarriorChestName?.Value ?? "";
             if (!string.IsNullOrEmpty(chestTarget))
             {
                 var triggerChest = marker?.OriginalChestItem ?? "";
@@ -3130,7 +3133,7 @@ internal static class CharredWarriorPatches
             }
 
             // --- Legs refresh ---
-            var legsTarget = Plugin.CharredWarriorLegsName?.Value ?? "";
+            var legsTarget = Plugin.WarriorLegsName?.Value ?? "";
             if (!string.IsNullOrEmpty(legsTarget))
             {
                 var triggerLegs = marker?.OriginalLegItem ?? "";
@@ -3218,7 +3221,7 @@ internal static class CharredWarriorPatches
                      ?? vis.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
 
         // Helmet
-        var helmetTarget = Plugin.CharredWarriorHelmetName?.Value ?? HelmetDrakeName;
+        var helmetTarget = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
         if (!string.IsNullOrEmpty(helmetTarget) && !marker.HelmetSwapped)
         {
             var curHelmet = FHelmetItem?.GetValue(vis) as string ?? "";
@@ -3232,7 +3235,7 @@ internal static class CharredWarriorPatches
         }
 
         // Chest
-        var chestTarget = Plugin.CharredWarriorChestName?.Value ?? "";
+        var chestTarget = Plugin.WarriorChestName?.Value ?? "";
         if (!string.IsNullOrEmpty(chestTarget) && !marker.ChestSwapped)
         {
             var curChest = FChestItem?.GetValue(vis) as string ?? "";
@@ -3246,7 +3249,7 @@ internal static class CharredWarriorPatches
         }
 
         // Legs
-        var legsTarget = Plugin.CharredWarriorLegsName?.Value ?? "";
+        var legsTarget = Plugin.WarriorLegsName?.Value ?? "";
         if (!string.IsNullOrEmpty(legsTarget) && !marker.LegsSwapped)
         {
             var curLegs = FLegItem?.GetValue(vis) as string ?? "";
