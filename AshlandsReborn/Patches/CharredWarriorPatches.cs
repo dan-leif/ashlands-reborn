@@ -799,6 +799,7 @@ internal static class CharredWarriorPatches
         // change (destroy old instances, create new ones via AttachArmor). Without
         // this, the coroutine picks up stale instances from before the swap.
         yield return null;
+        if (!ShouldSwap()) yield break;
 
         // Wait for new armor instances to appear
         List<GameObject>? instances = null;
@@ -808,9 +809,11 @@ internal static class CharredWarriorPatches
             instances = instanceField?.GetValue(vis) as List<GameObject>;
             if (instances != null && instances.Count > 0) break;
             yield return null;
+            if (!ShouldSwap()) yield break;
         }
 
         if (instances == null || instances.Count == 0 || vis == null) yield break;
+        if (!ShouldSwap()) yield break;
 
         var bodySMR = vis.m_bodyModel;
         if (bodySMR == null) yield break;
