@@ -185,6 +185,7 @@ internal static class CharredWarriorPatches
 
         // ShowWarriorVanillaHelmet bypasses the swap — vanilla helmet attaches unmodified
         if (Plugin.ShowWarriorVanillaHelmet?.Value == true) return;
+        if (Plugin.EnableWarriorPlayerArmor?.Value != true) return;
 
         var targetHelmet = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
         if (string.IsNullOrEmpty(targetHelmet)) return;
@@ -277,21 +278,25 @@ internal static class CharredWarriorPatches
             __instance.StartCoroutine(ApplyBodySwapLayer(__instance));
         }
 
-        // Approach A: bind pose retargeting armor on top
-        var target = Plugin.WarriorChestName?.Value ?? "";
-        if (string.IsNullOrEmpty(target)) return;
+        // Player-armor pieces (chest + bracers overlay). Gated by EnableWarriorPlayerArmor.
+        if (Plugin.EnableWarriorPlayerArmor?.Value == true)
+        {
+            var target = Plugin.WarriorChestName?.Value ?? "";
+            if (!string.IsNullOrEmpty(target))
+            {
+                // When ShowVanillaChest is off (default), replace name with custom piece.
+                // When on, vanilla attaches as normal and the coroutine adds custom on top.
+                if (Plugin.ShowWarriorVanillaChest?.Value != true)
+                    name = target;
 
-        // When ShowVanillaChest is off (default), replace name with custom piece.
-        // When on, vanilla attaches as normal and the coroutine adds custom on top.
-        if (Plugin.ShowWarriorVanillaChest?.Value != true)
-            name = target;
+                marker.ChestSwapped = true;
+                __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances, target, Plugin.WarriorChestScale?.Value ?? 1f));
 
-        marker.ChestSwapped = true;
-        __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances, target, Plugin.WarriorChestScale?.Value ?? 1f));
-
-        // Overlay the vanilla Charred_Breastplate (chest + pauldrons + bracers)
-        if (Plugin.ShowWarriorVanillaBracers?.Value == true && !marker.BreastplateOverlayApplied)
-            __instance.StartCoroutine(ApplyCharredBreastplateOverlay(__instance));
+                // Overlay the vanilla Charred_Breastplate (chest + pauldrons + bracers)
+                if (Plugin.ShowWarriorVanillaBracers?.Value == true && !marker.BreastplateOverlayApplied)
+                    __instance.StartCoroutine(ApplyCharredBreastplateOverlay(__instance));
+            }
+        }
 
         // Apply eye glow color + chest glow toggle to particle FX
         ApplyCharredGlowFX(__instance.transform);
@@ -315,10 +320,13 @@ internal static class CharredWarriorPatches
         if (!marker.LegsSwapped)
             marker.OriginalLegItem = name;
 
-        name = target;
-        marker.LegsSwapped = true;
         if (Plugin.EnableWarriorBodySwap?.Value == true)
             HideBodyVisuals(__instance, true);
+
+        if (Plugin.EnableWarriorPlayerArmor?.Value != true) return;
+
+        name = target;
+        marker.LegsSwapped = true;
         __instance.StartCoroutine(RemapArmorBones(__instance, FLegItemInstances, target, Plugin.WarriorLegsScale?.Value ?? 1f));
     }
 
