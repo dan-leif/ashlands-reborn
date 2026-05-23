@@ -287,8 +287,6 @@ internal static class CharredWarriorPatches
             name = target;
 
         marker.ChestSwapped = true;
-        if (Plugin.EnableWarriorBodySwap?.Value != true)
-            HideBodyVisuals(__instance, true);
         __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances, target, Plugin.WarriorChestScale?.Value ?? 1f));
 
         // Overlay the vanilla Charred_Breastplate (chest + pauldrons + bracers)
@@ -319,7 +317,8 @@ internal static class CharredWarriorPatches
 
         name = target;
         marker.LegsSwapped = true;
-        HideBodyVisuals(__instance, true);
+        if (Plugin.EnableWarriorBodySwap?.Value == true)
+            HideBodyVisuals(__instance, true);
         __instance.StartCoroutine(RemapArmorBones(__instance, FLegItemInstances, target, Plugin.WarriorLegsScale?.Value ?? 1f));
     }
 
