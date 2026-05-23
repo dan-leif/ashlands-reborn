@@ -47,6 +47,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> WarriorBodySwapTextureSubmesh { get; private set; } = null!;
     public static ConfigEntry<bool> WarriorBodySwapHideHead { get; private set; } = null!;
     public static ConfigEntry<float> WarriorBodySwapHeadCutoffY { get; private set; } = null!;
+    public static ConfigEntry<bool> WarriorChestGlow { get; private set; } = null!;
     public static ConfigEntry<string> WarriorEyeGlowColor { get; private set; } = null!;
     public static ConfigEntry<float> WarriorEyeGlowIntensity { get; private set; } = null!;
     public static ConfigEntry<float> WarriorEyeGlowOffsetX { get; private set; } = null!;
@@ -204,6 +205,12 @@ public class Plugin : BaseUnityPlugin
             "EnableWarriorBodySwap",
             true,
             "Toggle between default skeleton body and custom player body/eyes as specified in this section.");
+
+        WarriorChestGlow = Config.Bind(
+            "Warrior Body",
+            "WarriorChestGlow",
+            false,
+            "Show the vanilla Charred chest ember/glow particle effect on the warrior's chest.");
 
         WarriorBodySwapScale = Config.Bind(
             "Warrior Body",

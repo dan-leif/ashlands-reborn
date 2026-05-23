@@ -298,8 +298,11 @@ internal static class CharredWarriorPatches
             }
         }
 
-        // Apply eye glow color + chest glow toggle to particle FX
-        ApplyCharredGlowFX(__instance.transform);
+        // Eye glow + chest glow only when body swap layer is active; otherwise revert any prior custom FX.
+        if (Plugin.EnableWarriorBodySwap?.Value == true)
+            ApplyCharredGlowFX(__instance.transform);
+        else
+            RevertCharredGlowFX(__instance.transform);
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetLegItem))]
@@ -1911,7 +1914,7 @@ internal static class CharredWarriorPatches
         {
             if (marker != null && !marker.GlowFXCaptured)
                 marker.OriginalChestGlowActive = chestFX.gameObject.activeSelf;
-            chestFX.gameObject.SetActive(false);
+            chestFX.gameObject.SetActive(Plugin.WarriorChestGlow?.Value == true);
         }
 
         // Eye glow particle systems — color + intensity via startColor and material _TintColor
