@@ -2208,15 +2208,20 @@ internal static class CharredWarriorPatches
                         vis.SetLegItem(marker.OriginalLegItem);
                     }
 
-                    // Safety net: destroy any leftover instances Valheim may have missed
-                    DestroyAndClearField(vis, FHelmetItemInstance);
+                    // Safety net: destroy any leftover instances Valheim may have missed.
+                    // Skip the helmet if we never swapped it — Charred_Helmet isn't in ObjectDB,
+                    // so destroying it leaves nothing for refresh to re-attach via SetHelmetItem.
+                    if (marker.HelmetSwapped)
+                    {
+                        DestroyAndClearField(vis, FHelmetItemInstance);
+                        FCurrentHelmetItemHash?.SetValue(vis, 0);
+                    }
                     DestroyListInstances(vis, FChestItemInstances);
                     DestroyListInstances(vis, FLegItemInstances);
                     DestroyListInstances(vis, FShoulderItemInstances);
 
                     // Reset internal hash trackers so Set*Equipped() sees a mismatch
                     // and recreates instances on next UpdateEquipmentVisuals() cycle.
-                    FCurrentHelmetItemHash?.SetValue(vis, 0);
                     FCurrentChestItemHash?.SetValue(vis, 0);
                     FCurrentLegItemHash?.SetValue(vis, 0);
                     FCurrentShoulderItemHash?.SetValue(vis, 0);
@@ -3119,7 +3124,17 @@ internal static class CharredWarriorPatches
 
             // Reset internal hash trackers so Set*Equipped() sees a mismatch
             // and recreates instances when UpdateEquipmentVisuals() runs.
-            FCurrentHelmetItemHash?.SetValue(vis, 0);
+            // Skip helmet hash when we're in all-vanilla mode and the slot already holds the
+            // rolled Charred_Helmet — its prefab isn't in ObjectDB, so SetHelmetItem would fail
+            // with "Missing attach item". RevertAllCharredWarriors preserves the instance.
+            bool allVanilla = Plugin.ForceWarriorVanillaArmor?.Value == true
+                           && Plugin.ForceWarriorVanillaArmorAll?.Value == true;
+            var currentHelmet = FHelmetItem?.GetValue(vis) as string ?? "";
+            bool keptVanillaHelmet = allVanilla
+                && !string.Equals(currentHelmet, Plugin.WarriorHelmetName?.Value, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(currentHelmet, HelmetDrakeName, StringComparison.OrdinalIgnoreCase);
+            if (!keptVanillaHelmet)
+                FCurrentHelmetItemHash?.SetValue(vis, 0);
             FCurrentChestItemHash?.SetValue(vis, 0);
             FCurrentLegItemHash?.SetValue(vis, 0);
             FCurrentShoulderItemHash?.SetValue(vis, 0);
@@ -3141,8 +3156,11 @@ internal static class CharredWarriorPatches
             }
 
             // --- Helmet refresh ---
+            // Skip when the slot holds a vanilla helmet (e.g. Charred_Helmet) we never swapped
+            // — its prefab isn't in ObjectDB so SetHelmetItem would fail. The original instance
+            // was preserved by RevertAllCharredWarriors gating its destroy on HelmetSwapped.
             var helmetTarget = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
-            if (!string.IsNullOrEmpty(helmetTarget))
+            if (!keptVanillaHelmet && !string.IsNullOrEmpty(helmetTarget))
             {
                 var triggerHelmet = marker?.OriginalHelmetItem ?? "";
                 if (string.IsNullOrEmpty(triggerHelmet))
@@ -3290,17 +3308,26 @@ internal static class CharredWarriorPatches
         var marker = vis.GetComponent<AshlandsRebornCharredSwapped>()
                      ?? vis.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
 
+        // All-vanilla mode: GiveDefaultItems already rolled Charred_Helmet at 100% and
+        // SetHelmetItem_Prefix let it through unmodified. Re-equipping here clears the field
+        // and triggers a hash-match no-op in vanilla SetHelmetEquipped, leaving the slot empty.
+        bool allVanilla = Plugin.ForceWarriorVanillaArmor?.Value == true
+                       && Plugin.ForceWarriorVanillaArmorAll?.Value == true;
+
         // Helmet
-        var helmetTarget = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
-        if (!string.IsNullOrEmpty(helmetTarget) && !marker.HelmetSwapped)
+        if (!allVanilla)
         {
-            var curHelmet = FHelmetItem?.GetValue(vis) as string ?? "";
-            if (!string.Equals(curHelmet, helmetTarget, StringComparison.OrdinalIgnoreCase))
+            var helmetTarget = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
+            if (!string.IsNullOrEmpty(helmetTarget) && !marker.HelmetSwapped)
             {
-                FHelmetItem?.SetValue(vis, "");
-                _forceSwapEmpty = string.IsNullOrEmpty(curHelmet);
-                try { vis.SetHelmetItem(curHelmet); }
-                finally { _forceSwapEmpty = false; }
+                var curHelmet = FHelmetItem?.GetValue(vis) as string ?? "";
+                if (!string.Equals(curHelmet, helmetTarget, StringComparison.OrdinalIgnoreCase))
+                {
+                    FHelmetItem?.SetValue(vis, "");
+                    _forceSwapEmpty = string.IsNullOrEmpty(curHelmet);
+                    try { vis.SetHelmetItem(curHelmet); }
+                    finally { _forceSwapEmpty = false; }
+                }
             }
         }
 
