@@ -72,7 +72,7 @@ public class Plugin : BaseUnityPlugin
 
     // --- Warrior Vanilla Armor ---
     public static ConfigEntry<bool> ForceWarriorVanillaArmor { get; private set; } = null!;
-    public static ConfigEntry<bool> ShowWarriorAllVanillaArmor { get; private set; } = null!;
+    public static ConfigEntry<bool> ForceWarriorVanillaArmorAll { get; private set; } = null!;
     public static ConfigEntry<bool> ShowWarriorVanillaHelmet { get; private set; } = null!;
     public static ConfigEntry<bool> ShowWarriorVanillaChest { get; private set; } = null!;
     public static ConfigEntry<bool> ShowWarriorVanillaShoulders { get; private set; } = null!;
@@ -396,9 +396,9 @@ public class Plugin : BaseUnityPlugin
             false,
             "Enabled: force vanilla armor pieces as specified in this section. Disabled: use default armor pieces using default 50% probabilities. Note that vanilla armor will overlap with player armor if EnableWarriorPlayerArmor is also enabled.");
 
-        ShowWarriorAllVanillaArmor = Config.Bind(
+        ForceWarriorVanillaArmorAll = Config.Bind(
             "Warrior Vanilla Armor",
-            "ShowWarriorAllVanillaArmor",
+            "ForceWarriorVanillaArmorAll",
             false,
             "Force all vanilla armor for charred warrior. Enabled: all vanilla armor appears. Disabled: apply only the armor specifically enabled below.");
 

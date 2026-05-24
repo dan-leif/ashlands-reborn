@@ -183,8 +183,11 @@ internal static class CharredWarriorPatches
         if (!ShouldSwap()) return;
         if (!IsCharredMelee(__instance.gameObject)) return;
 
-        // ShowWarriorVanillaHelmet bypasses the swap — vanilla helmet attaches unmodified
+        // ShowWarriorVanillaHelmet bypasses the swap — vanilla helmet attaches unmodified.
+        // ForceWarriorVanillaArmorAll also implies vanilla helmet.
         if (Plugin.ShowWarriorVanillaHelmet?.Value == true) return;
+        if (Plugin.ForceWarriorVanillaArmor?.Value == true
+            && Plugin.ForceWarriorVanillaArmorAll?.Value == true) return;
         if (Plugin.EnableWarriorPlayerArmor?.Value != true) return;
 
         var targetHelmet = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
@@ -291,11 +294,18 @@ internal static class CharredWarriorPatches
 
                 marker.ChestSwapped = true;
                 __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances, target, Plugin.WarriorChestScale?.Value ?? 1f));
-
-                // Overlay the vanilla Charred_Breastplate (chest + pauldrons + bracers)
-                if (Plugin.ShowWarriorVanillaBracers?.Value == true && !marker.BreastplateOverlayApplied)
-                    __instance.StartCoroutine(ApplyCharredBreastplateOverlay(__instance));
             }
+        }
+
+        // Vanilla breastplate overlay (chest + pauldrons + bracers).
+        // Independent of player armor — gated on ForceWarriorVanillaArmor.
+        if (Plugin.ForceWarriorVanillaArmor?.Value == true && !marker.BreastplateOverlayApplied)
+        {
+            bool showBracers = Plugin.ForceWarriorVanillaArmorAll?.Value == true
+                            || Plugin.ShowWarriorVanillaBracers?.Value == true
+                            || Plugin.ShowWarriorVanillaShoulders?.Value == true;
+            if (showBracers)
+                __instance.StartCoroutine(ApplyCharredBreastplateOverlay(__instance));
         }
 
         // Eye glow + chest glow only when body swap layer is active; otherwise revert any prior custom FX.
@@ -1453,6 +1463,12 @@ internal static class CharredWarriorPatches
         float bracerScale = Plugin.WarriorVanillaBracersScale?.Value ?? 1f;
         var bracerScaleWrappers = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
 
+        // Full-breastplate mode: when ForceWarriorVanillaArmorAll is on, show the entire
+        // breastplate (torso, pauldrons, bracers) instead of just the bracers. Skips the
+        // hide-bones collapse so the chest body, shoulders and head bones drive geometry.
+        bool showFullBreastplate = Plugin.ForceWarriorVanillaArmor?.Value == true
+                                   && Plugin.ForceWarriorVanillaArmorAll?.Value == true;
+
         // Right side of the breastplate mesh is asymmetrically rigged: 101 verts dominantly
         // weighted to RightArm (should be RightForeArm) and 119 verts to RightHandThumb1
         // (should be RightHand). Remap those slots to the correct live bones AND patch the
@@ -1519,13 +1535,20 @@ internal static class CharredWarriorPatches
 
                     Transform realBone = charBoneMap.TryGetValue(boneName, out var t) ? t : bodyRoot;
 
-                    if (_breastplateHideBones.Contains(boneName))
+                    bool hideBone = !showFullBreastplate && _breastplateHideBones.Contains(boneName);
+                    if (hideBone)
                     {
                         var wrapper = new GameObject($"BPHide_{boneName}");
                         wrapper.transform.SetParent(realBone, false);
                         wrapper.transform.localScale = Vector3.zero;
                         marker.SyncedObjects.Add(wrapper);
                         newBones[b] = wrapper.transform;
+                    }
+                    else if (showFullBreastplate && _breastplateHideBones.Contains(boneName))
+                    {
+                        // Full-breastplate mode: bind torso/head/leg bones directly to the live skeleton.
+                        // WarriorVanillaBracersScale must not apply to these — it's bracer-specific.
+                        newBones[b] = realBone;
                     }
                     else
                     {
@@ -3163,6 +3186,40 @@ internal static class CharredWarriorPatches
         }
 
         Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred refresh: {count} instance(s)");
+    }
+
+    // -------------------------------------------------------------------------
+    // ForceWarriorVanillaArmorAll: bump m_randomItems chances to 100% for Charred_Melee
+    // before GiveDefaultItems rolls them, then restore. Forces every vanilla piece to spawn.
+    // -------------------------------------------------------------------------
+
+    [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.GiveDefaultItems))]
+    [HarmonyPrefix]
+    private static void GiveDefaultItems_Prefix(Humanoid __instance, out float[]? __state)
+    {
+        __state = null;
+        if (!ShouldSwap()) return;
+        if (Plugin.ForceWarriorVanillaArmor?.Value != true) return;
+        if (Plugin.ForceWarriorVanillaArmorAll?.Value != true) return;
+        if (!IsCharredMelee(__instance.gameObject)) return;
+        if (__instance.m_randomItems == null || __instance.m_randomItems.Length == 0) return;
+
+        __state = new float[__instance.m_randomItems.Length];
+        for (int i = 0; i < __instance.m_randomItems.Length; i++)
+        {
+            __state[i] = __instance.m_randomItems[i].m_chance;
+            __instance.m_randomItems[i].m_chance = 1f;
+        }
+    }
+
+    [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.GiveDefaultItems))]
+    [HarmonyPostfix]
+    private static void GiveDefaultItems_Postfix(Humanoid __instance, float[]? __state)
+    {
+        if (__state == null || __instance.m_randomItems == null) return;
+        int n = __state.Length < __instance.m_randomItems.Length ? __state.Length : __instance.m_randomItems.Length;
+        for (int i = 0; i < n; i++)
+            __instance.m_randomItems[i].m_chance = __state[i];
     }
 
     // -------------------------------------------------------------------------
