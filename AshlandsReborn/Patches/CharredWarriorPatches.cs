@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text;
 using HarmonyLib;
@@ -2246,10 +2245,6 @@ internal static class CharredWarriorPatches
                     HideBodyVisuals(vis, false);
                     RevertCharredGlowFX(vis.transform);
 
-                    // Re-enable hipcloth (always visible when MasterSwitch is off, per spec).
-                    if (marker.HipClothRenderer != null)
-                        marker.HipClothRenderer.enabled = true;
-
                     // Clear *Swapped booleans so a future refresh treats this warrior as fresh,
                     // but PRESERVE the marker and the Rolled* fields so future MasterSwitch toggles
                     // can revert to the captured state again.
@@ -3265,11 +3260,6 @@ internal static class CharredWarriorPatches
                 vis.SetLegItem(triggerLegs);
             }
 
-            // --- HipCloth refresh ---
-            // Toggle the discovered renderer directly. If not yet discovered (e.g. brand-new warrior),
-            // the coroutine will run shortly after spawn and pick up the current Show flag.
-            humanoid.StartCoroutine(ApplyHipClothVisibility(vis));
-
             count++;
         }
 
@@ -3318,35 +3308,6 @@ internal static class CharredWarriorPatches
     }
 
     // -------------------------------------------------------------------------
-    // ShowWarriorVanillaHipCloth=false: strip Charred_HipCloth out of m_defaultItems
-    // before GiveDefaultItems equips it, then restore the original array.
-    // HipCloth is in m_defaultItems (always-equipped) so this is the only suppression hook.
-    // -------------------------------------------------------------------------
-
-    [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.GiveDefaultItems))]
-    [HarmonyPrefix]
-    private static void GiveDefaultItems_FilterHipCloth_Prefix(Humanoid __instance, out GameObject[]? __state)
-    {
-        __state = null;
-        if (!ShouldSwap()) return;
-        if (!IsCharredMelee(__instance.gameObject)) return;
-        if (Plugin.ShowWarriorVanillaHipCloth?.Value != false) return;
-        if (__instance.m_defaultItems == null || __instance.m_defaultItems.Length == 0) return;
-
-        __state = __instance.m_defaultItems;
-        __instance.m_defaultItems = __state
-            .Where(p => p?.name?.Equals("Charred_HipCloth", StringComparison.OrdinalIgnoreCase) != true)
-            .ToArray();
-    }
-
-    [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.GiveDefaultItems))]
-    [HarmonyPostfix]
-    private static void GiveDefaultItems_FilterHipCloth_Postfix(Humanoid __instance, GameObject[]? __state)
-    {
-        if (__state != null) __instance.m_defaultItems = __state;
-    }
-
-    // -------------------------------------------------------------------------
     // Phase 0: One-time discovery dump (fires once per session on first spawn)
     // -------------------------------------------------------------------------
 
@@ -3384,8 +3345,8 @@ internal static class CharredWarriorPatches
                 EnsureHelmetTransform(vis);
 
                 // GiveDefaultItems is called from Humanoid.Start (next frame after Awake), not Awake.
-                // Defer capture and hipcloth discovery until vanilla has settled.
-                __instance.StartCoroutine(CaptureRolledItemsAndHipCloth(vis, marker));
+                // Defer capture until vanilla has settled.
+                __instance.StartCoroutine(CaptureRolledItems(vis, marker));
             }
 
             if (ShouldSwap())
@@ -3402,10 +3363,10 @@ internal static class CharredWarriorPatches
 
     /// <summary>
     /// One-shot per-warrior coroutine that runs after vanilla GiveDefaultItems completes.
-    /// Captures the warrior's rolled helmet/chest items, discovers the HipCloth renderer,
-    /// then applies HipCloth visibility per the current config.
+    /// Captures the warrior's rolled helmet/chest items so future MasterSwitch toggles can
+    /// restore them.
     /// </summary>
-    private static System.Collections.IEnumerator CaptureRolledItemsAndHipCloth(VisEquipment vis, AshlandsRebornCharredSwapped marker)
+    private static System.Collections.IEnumerator CaptureRolledItems(VisEquipment vis, AshlandsRebornCharredSwapped marker)
     {
         // Wait for Humanoid.Start → GiveDefaultItems → Set*Item attachments to settle.
         for (int i = 0; i < 15; i++) yield return null;
@@ -3418,65 +3379,6 @@ internal static class CharredWarriorPatches
             marker.RolledItemsCaptured = true;
             Plugin.Log?.LogInfo($"[Ashlands Reborn] Captured rolls for {vis.gameObject.name}: helmet='{marker.RolledHelmetItem}' chest='{marker.RolledChestItem}'");
         }
-
-        ApplyHipClothVisibilityNow(vis, marker);
-    }
-
-    /// <summary>
-    /// Walks the warrior's SkinnedMeshRenderers looking for one whose bones[] array contains a
-    /// "hip_cloth_*" or "belt*" bone. That uniquely identifies the HipCloth mesh regardless of
-    /// GameObject/mesh naming. Caches the result on the marker.
-    ///
-    /// Visibility rule: when MasterSwitch is off, always visible (matches user spec). When on,
-    /// follows ShowWarriorVanillaHipCloth.
-    /// </summary>
-    internal static void ApplyHipClothVisibilityNow(VisEquipment vis, AshlandsRebornCharredSwapped marker)
-    {
-        if (vis == null || marker == null) return;
-
-        if (marker.HipClothRenderer == null)
-        {
-            foreach (var smr in vis.GetComponentsInChildren<SkinnedMeshRenderer>(true))
-            {
-                var bones = smr.bones;
-                if (bones == null) continue;
-                bool hasHipClothBone = false;
-                for (int i = 0; i < bones.Length; i++)
-                {
-                    var bn = bones[i]?.name ?? "";
-                    if (bn.StartsWith("hip_cloth", StringComparison.OrdinalIgnoreCase)
-                     || bn.StartsWith("belt", StringComparison.OrdinalIgnoreCase))
-                    {
-                        hasHipClothBone = true;
-                        break;
-                    }
-                }
-                if (hasHipClothBone)
-                {
-                    marker.HipClothRenderer = smr;
-                    Plugin.Log?.LogInfo($"[Ashlands Reborn] HipCloth renderer found on {vis.gameObject.name}: SMR '{smr.gameObject.name}' mesh '{smr.sharedMesh?.name}'");
-                    break;
-                }
-            }
-        }
-
-        if (marker.HipClothRenderer == null) return;
-
-        bool show = !ShouldSwap() || (Plugin.ShowWarriorVanillaHipCloth?.Value ?? true);
-        marker.HipClothRenderer.enabled = show;
-    }
-
-    /// <summary>
-    /// Refresh-path helper: walk all warriors and (re)apply HipCloth visibility.
-    /// </summary>
-    private static System.Collections.IEnumerator ApplyHipClothVisibility(VisEquipment vis)
-    {
-        // Short delay covers refresh-after-spawn cases where the renderer isn't attached yet.
-        for (int i = 0; i < 5; i++) yield return null;
-        if (vis == null) yield break;
-        var marker = vis.GetComponent<AshlandsRebornCharredSwapped>();
-        if (marker == null) yield break;
-        ApplyHipClothVisibilityNow(vis, marker);
     }
 
     /// <summary>
@@ -3729,10 +3631,6 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public bool RolledItemsCaptured;
     public string RolledHelmetItem = "";
     public string RolledChestItem = "";
-
-    // Discovered HipCloth renderer (cached after first walk). Toggled via
-    // ShowWarriorVanillaHipCloth at refresh time. Null until discovered.
-    public Renderer? HipClothRenderer;
 
     public bool HelmetSwapped;
     public bool ChestSwapped;

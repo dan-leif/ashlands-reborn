@@ -73,7 +73,6 @@ public class Plugin : BaseUnityPlugin
     // --- Warrior Vanilla Armor ---
     public static ConfigEntry<bool> ShowWarriorVanillaHelmet { get; private set; } = null!;
     public static ConfigEntry<bool> ShowWarriorVanillaBodyArmor { get; private set; } = null!;
-    public static ConfigEntry<bool> ShowWarriorVanillaHipCloth { get; private set; } = null!;
 
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
@@ -402,15 +401,6 @@ public class Plugin : BaseUnityPlugin
             "(All vanilla body armor lives in one mesh: Charred_Breastplate / 'ChestPiece'.) " +
             "Disabled: remove all vanilla body armor pieces from every Charred Warrior. " +
             "Does NOT control the custom player-armor swap — see EnableWarriorPlayerArmor in 'Warrior Player Armor'. " +
-            "Only takes effect when MasterSwitch is enabled.");
-
-        ShowWarriorVanillaHipCloth = Config.Bind(
-            "Warrior Vanilla Armor",
-            "ShowWarriorVanillaHipCloth",
-            false,
-            "Enabled: apply the vanilla Charred_HipCloth (waist rags) to every Charred Warrior. " +
-            "Disabled: remove the vanilla Charred_HipCloth from every Charred Warrior. " +
-            "(HipCloth is in m_defaultItems and is always equipped by the vanilla game.) " +
             "Only takes effect when MasterSwitch is enabled.");
 
         DevAutoLoad = Config.Bind(
