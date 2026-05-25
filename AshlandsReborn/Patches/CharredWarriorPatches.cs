@@ -183,12 +183,17 @@ internal static class CharredWarriorPatches
         if (!ShouldSwap()) return;
         if (!IsCharredMelee(__instance.gameObject)) return;
 
-        // ShowWarriorVanillaHelmet bypasses the swap — vanilla helmet attaches unmodified.
-        // ForceWarriorVanillaArmorAll also implies vanilla helmet.
+        // ShowWarriorVanillaHelmet=true bypasses the custom-helmet swap — vanilla helmet attaches unmodified.
         if (Plugin.ShowWarriorVanillaHelmet?.Value == true) return;
-        if (Plugin.ForceWarriorVanillaArmor?.Value == true
-            && Plugin.ForceWarriorVanillaArmorAll?.Value == true) return;
-        if (Plugin.EnableWarriorPlayerArmor?.Value != true) return;
+
+        // When the player-armor swap is off AND ShowWarriorVanillaHelmet is false, suppress any
+        // vanilla Charred_Helmet that was rolled at spawn or saved on the ZDO — user wants nothing on the head.
+        if (Plugin.EnableWarriorPlayerArmor?.Value != true)
+        {
+            if (name?.StartsWith("Charred_", StringComparison.OrdinalIgnoreCase) == true)
+                name = "";
+            return;
+        }
 
         var targetHelmet = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
         if (string.IsNullOrEmpty(targetHelmet)) return;
@@ -274,6 +279,19 @@ internal static class CharredWarriorPatches
         if (!marker.ChestSwapped)
             marker.OriginalChestItem = name;
 
+        // ShowWarriorVanillaBodyArmor=true lets the vanilla Charred_Breastplate through unmodified.
+        // Skips the body-swap layer and player-armor chest swap below; the unified ChestPiece mesh
+        // covers the same area as the custom Southsil chest. The vanilla glow FX block at the end
+        // still runs so eye/chest glow respects EnableWarriorBodySwap.
+        if (Plugin.ShowWarriorVanillaBodyArmor?.Value == true)
+        {
+            if (Plugin.EnableWarriorBodySwap?.Value == true)
+                ApplyCharredGlowFX(__instance.transform);
+            else
+                RevertCharredGlowFX(__instance.transform);
+            return;
+        }
+
         // Body swap layer (volumetric deforming flesh under armor)
         if (Plugin.EnableWarriorBodySwap?.Value == true && !marker.BodySwapApplied)
         {
@@ -287,25 +305,17 @@ internal static class CharredWarriorPatches
             var target = Plugin.WarriorChestName?.Value ?? "";
             if (!string.IsNullOrEmpty(target))
             {
-                // When ShowVanillaChest is off (default), replace name with custom piece.
-                // When on, vanilla attaches as normal and the coroutine adds custom on top.
-                if (Plugin.ShowWarriorVanillaChest?.Value != true)
-                    name = target;
-
+                name = target;
                 marker.ChestSwapped = true;
                 __instance.StartCoroutine(RemapArmorBones(__instance, FChestItemInstances, target, Plugin.WarriorChestScale?.Value ?? 1f));
             }
         }
-
-        // Vanilla breastplate overlay (chest + pauldrons + bracers).
-        // Independent of player armor — gated on ForceWarriorVanillaArmor.
-        if (Plugin.ForceWarriorVanillaArmor?.Value == true && !marker.BreastplateOverlayApplied)
+        else
         {
-            bool showBracers = Plugin.ForceWarriorVanillaArmorAll?.Value == true
-                            || Plugin.ShowWarriorVanillaBracers?.Value == true
-                            || Plugin.ShowWarriorVanillaShoulders?.Value == true;
-            if (showBracers)
-                __instance.StartCoroutine(ApplyCharredBreastplateOverlay(__instance));
+            // No player-armor swap and ShowWarriorVanillaBodyArmor=false ⇒ user wants nothing in the chest slot.
+            // Suppress any vanilla Charred_Breastplate that was rolled at spawn or saved on the ZDO.
+            if (name?.StartsWith("Charred_", StringComparison.OrdinalIgnoreCase) == true)
+                name = "";
         }
 
         // Eye glow + chest glow only when body swap layer is active; otherwise revert any prior custom FX.
@@ -1396,6 +1406,14 @@ internal static class CharredWarriorPatches
         "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase"
     };
 
+    // RESERVED FOR FUTURE PER-PIECE DISSECTION of Charred_Breastplate (mesh 'ChestPiece').
+    // Not currently called from anywhere. The vanilla Charred_Breastplate is a single mesh
+    // covering torso, shoulders, arms (incl. bracers), and legs — there are no separate
+    // vanilla bracer/shoulder items. This coroutine attempts to fake per-piece visibility by
+    // zero-scaling bones outside the desired region; the right-arm bracer in particular
+    // renders distorted because of bind-pose mismatches. Keep here for reference when we
+    // revisit hiding individual sub-regions of ChestPiece.
+#pragma warning disable IDE0051 // Remove unused private member
     /// <summary>
     /// Overlays the vanilla Charred_Breastplate bracers only on a Charred_Melee.
     /// The breastplate prefab uses the Charred skeleton natively, so no
@@ -1460,14 +1478,12 @@ internal static class CharredWarriorPatches
 
         // Scale wrappers for bracer bones — shared across all SMRs so each bone
         // gets exactly one wrapper, keyed by bone name.
-        float bracerScale = Plugin.WarriorVanillaBracersScale?.Value ?? 1f;
+        // NOTE: bracerScale and showFullBreastplate used to read from config; both flags
+        // have been removed. Hardcoded here so the parked coroutine still compiles. Restore
+        // config wiring if this coroutine is revived.
+        float bracerScale = 1f;
         var bracerScaleWrappers = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
-
-        // Full-breastplate mode: when ForceWarriorVanillaArmorAll is on, show the entire
-        // breastplate (torso, pauldrons, bracers) instead of just the bracers. Skips the
-        // hide-bones collapse so the chest body, shoulders and head bones drive geometry.
-        bool showFullBreastplate = Plugin.ForceWarriorVanillaArmor?.Value == true
-                                   && Plugin.ForceWarriorVanillaArmorAll?.Value == true;
+        bool showFullBreastplate = false;
 
         // Right side of the breastplate mesh is asymmetrically rigged: 101 verts dominantly
         // weighted to RightArm (should be RightForeArm) and 119 verts to RightHandThumb1
@@ -1589,6 +1605,7 @@ internal static class CharredWarriorPatches
         marker.BreastplateOverlayApplied = true;
         Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred_Breastplate overlay applied to {vis.gameObject.name}");
     }
+#pragma warning restore IDE0051
 
     /// <summary>
     /// Phase 5: Dumps raw Unity runtime matrices for the chest SMR.
@@ -2188,18 +2205,17 @@ internal static class CharredWarriorPatches
                     if (!string.IsNullOrEmpty(marker.OriginalRightItem))
                         vis.SetRightItem(marker.OriginalRightItem);
 
-                    // Use Set*Item() so Valheim updates its ZDO hashes (required for
-                    // re-creation on next enable). Force the comparison to differ first.
-                    if (marker.HelmetSwapped)
+                    // Restore each warrior to the helmet/chest it had at first Awake (captured by
+                    // Humanoid_Awake_Postfix). Unconditional — even if we never swapped, the mod
+                    // may have force-equipped vanilla via RefreshCharredWarriors, so we always
+                    // re-apply the captured roll. Empty string == no item, which Set*Item handles.
+                    if (marker.RolledItemsCaptured)
                     {
                         FHelmetItem?.SetValue(vis, "_revert");
-                        vis.SetHelmetItem(marker.OriginalHelmetItem);
-                    }
+                        vis.SetHelmetItem(marker.RolledHelmetItem ?? "");
 
-                    if (marker.ChestSwapped)
-                    {
                         FChestItem?.SetValue(vis, "_revert");
-                        vis.SetChestItem(marker.OriginalChestItem);
+                        vis.SetChestItem(marker.RolledChestItem ?? "");
                     }
 
                     if (marker.LegsSwapped)
@@ -2209,9 +2225,10 @@ internal static class CharredWarriorPatches
                     }
 
                     // Safety net: destroy any leftover instances Valheim may have missed.
-                    // Skip the helmet if we never swapped it — Charred_Helmet isn't in ObjectDB,
-                    // so destroying it leaves nothing for refresh to re-attach via SetHelmetItem.
-                    if (marker.HelmetSwapped)
+                    // Skip the helmet if the captured roll was a vanilla one (e.g. Charred_Helmet)
+                    // — its prefab isn't in ObjectDB, so destroying it leaves nothing to re-attach.
+                    bool helmetWasVanilla = marker.RolledHelmetItem?.StartsWith("Charred_", StringComparison.OrdinalIgnoreCase) == true;
+                    if (marker.HelmetSwapped && !helmetWasVanilla)
                     {
                         DestroyAndClearField(vis, FHelmetItemInstance);
                         FCurrentHelmetItemHash?.SetValue(vis, 0);
@@ -2228,9 +2245,23 @@ internal static class CharredWarriorPatches
 
                     HideBodyVisuals(vis, false);
                     RevertCharredGlowFX(vis.transform);
-                }
 
-                UObject.Destroy(marker);
+                    // Re-enable hipcloth (always visible when MasterSwitch is off, per spec).
+                    if (marker.HipClothRenderer != null)
+                        marker.HipClothRenderer.enabled = true;
+
+                    // Clear *Swapped booleans so a future refresh treats this warrior as fresh,
+                    // but PRESERVE the marker and the Rolled* fields so future MasterSwitch toggles
+                    // can revert to the captured state again.
+                    marker.HelmetSwapped = false;
+                    marker.ChestSwapped = false;
+                    marker.LegsSwapped = false;
+                    marker.BodySwapApplied = false;
+                    marker.BreastplateOverlayApplied = false;
+                    marker.HelmetScaled = false;
+                    marker.LastScaledHelmetInstance = null;
+                    marker.HelmetRescueCount = 0;
+                }
             }
         }
         finally
@@ -3076,9 +3107,12 @@ internal static class CharredWarriorPatches
         Plugin.Log?.LogInfo($"[Ashlands Reborn] Charred sinew data written to: {outPath}");
     }
 
+    // NOTE: reserved for the parked ApplyCharredBreastplateOverlay coroutine. Not called now.
+    // bracerScale was driven by Plugin.WarriorVanillaBracersScale (removed config). Restore the
+    // config wiring if this helper is revived.
     internal static void UpdateBracerScales()
     {
-        float scale = Plugin.WarriorVanillaBracersScale?.Value ?? 1f;
+        float scale = 1f;
         var markers = UObject.FindObjectsByType<AshlandsRebornCharredSwapped>(FindObjectsSortMode.None);
         foreach (var marker in markers)
         {
@@ -3119,18 +3153,29 @@ internal static class CharredWarriorPatches
             var vis = humanoid.GetComponent<VisEquipment>();
             if (vis == null) continue;
 
-            var marker = humanoid.GetComponent<AshlandsRebornCharredSwapped>();
-            if (marker != null) CleanupSyncedArmor(vis);
+            var marker = humanoid.GetComponent<AshlandsRebornCharredSwapped>()
+                         ?? humanoid.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
+            CleanupSyncedArmor(vis);
+
+            // Capture rolls on-demand for warriors that pre-existed this code path (loaded from
+            // save, or spawned before the patched build started). MUST happen before any force-equip
+            // below mutates m_helmetItem / m_chestItem, otherwise we'd capture the forced values.
+            if (!marker.RolledItemsCaptured)
+            {
+                marker.RolledHelmetItem = FHelmetItem?.GetValue(vis) as string ?? "";
+                marker.RolledChestItem  = FChestItem?.GetValue(vis) as string ?? "";
+                marker.RolledItemsCaptured = true;
+                Plugin.Log?.LogInfo($"[Ashlands Reborn] Captured rolls (refresh) for {humanoid.gameObject.name}: helmet='{marker.RolledHelmetItem}' chest='{marker.RolledChestItem}'");
+            }
 
             // Reset internal hash trackers so Set*Equipped() sees a mismatch
             // and recreates instances when UpdateEquipmentVisuals() runs.
-            // Skip helmet hash when we're in all-vanilla mode and the slot already holds the
-            // rolled Charred_Helmet — its prefab isn't in ObjectDB, so SetHelmetItem would fail
+            // Skip helmet hash when ShowWarriorVanillaHelmet is true and the slot already holds
+            // the rolled Charred_Helmet — its prefab isn't in ObjectDB, so SetHelmetItem would fail
             // with "Missing attach item". RevertAllCharredWarriors preserves the instance.
-            bool allVanilla = Plugin.ForceWarriorVanillaArmor?.Value == true
-                           && Plugin.ForceWarriorVanillaArmorAll?.Value == true;
+            bool keepVanillaHelmet = Plugin.ShowWarriorVanillaHelmet?.Value == true;
             var currentHelmet = FHelmetItem?.GetValue(vis) as string ?? "";
-            bool keptVanillaHelmet = allVanilla
+            bool keptVanillaHelmet = keepVanillaHelmet
                 && !string.Equals(currentHelmet, Plugin.WarriorHelmetName?.Value, StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(currentHelmet, HelmetDrakeName, StringComparison.OrdinalIgnoreCase);
             if (!keptVanillaHelmet)
@@ -3140,7 +3185,6 @@ internal static class CharredWarriorPatches
             FCurrentShoulderItemHash?.SetValue(vis, 0);
 
             // --- Sword refresh ---
-            marker = humanoid.GetComponent<AshlandsRebornCharredSwapped>();
             var triggerSword = marker?.OriginalRightItem ?? "";
             if (string.IsNullOrEmpty(triggerSword))
             {
@@ -3156,34 +3200,55 @@ internal static class CharredWarriorPatches
             }
 
             // --- Helmet refresh ---
-            // Skip when the slot holds a vanilla helmet (e.g. Charred_Helmet) we never swapped
-            // — its prefab isn't in ObjectDB so SetHelmetItem would fail. The original instance
-            // was preserved by RevertAllCharredWarriors gating its destroy on HelmetSwapped.
-            var helmetTarget = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
-            if (!keptVanillaHelmet && !string.IsNullOrEmpty(helmetTarget))
+            // ShowWarriorVanillaHelmet=true: force Charred_Helmet onto every warrior, regardless of
+            // whatever they originally rolled. Calling SetHelmetItem with a non-empty name will hit
+            // SetHelmetItem_Prefix which returns early (ShowWarriorVanillaHelmet=true), letting
+            // vanilla equip Charred_Helmet directly.
+            if (keepVanillaHelmet)
             {
-                var triggerHelmet = marker?.OriginalHelmetItem ?? "";
-                if (string.IsNullOrEmpty(triggerHelmet))
-                    triggerHelmet = FHelmetItem?.GetValue(vis) as string ?? "";
-                if (string.IsNullOrEmpty(triggerHelmet)) triggerHelmet = "_none";
-
-                if (marker != null) { marker.OriginalHelmetItem = ""; marker.HelmetSwapped = false; marker.HelmetScaled = false; marker.LastScaledHelmetInstance = null; marker.HelmetRescueCount = 0; }
                 FHelmetItem?.SetValue(vis, "");
-                vis.SetHelmetItem(triggerHelmet);
+                vis.SetHelmetItem("Charred_Helmet");
+            }
+            else
+            {
+                var helmetTarget = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
+                if (!string.IsNullOrEmpty(helmetTarget))
+                {
+                    var triggerHelmet = marker?.OriginalHelmetItem ?? "";
+                    if (string.IsNullOrEmpty(triggerHelmet))
+                        triggerHelmet = FHelmetItem?.GetValue(vis) as string ?? "";
+                    if (string.IsNullOrEmpty(triggerHelmet)) triggerHelmet = "_none";
+
+                    if (marker != null) { marker.OriginalHelmetItem = ""; marker.HelmetSwapped = false; marker.HelmetScaled = false; marker.LastScaledHelmetInstance = null; marker.HelmetRescueCount = 0; }
+                    FHelmetItem?.SetValue(vis, "");
+                    vis.SetHelmetItem(triggerHelmet);
+                }
             }
 
             // --- Chest refresh ---
-            var chestTarget = Plugin.WarriorChestName?.Value ?? "";
-            if (!string.IsNullOrEmpty(chestTarget))
+            // ShowWarriorVanillaBodyArmor=true: force Charred_Breastplate onto every warrior.
+            // SetChestItem_Prefix's early-out for ShowWarriorVanillaBodyArmor=true lets vanilla
+            // attach unmodified.
+            if (Plugin.ShowWarriorVanillaBodyArmor?.Value == true)
             {
-                var triggerChest = marker?.OriginalChestItem ?? "";
-                if (string.IsNullOrEmpty(triggerChest))
-                    triggerChest = FChestItem?.GetValue(vis) as string ?? "";
-                if (string.IsNullOrEmpty(triggerChest)) triggerChest = "_none";
-
                 if (marker != null) { marker.OriginalChestItem = ""; marker.ChestSwapped = false; marker.BodySwapApplied = false; }
                 FChestItem?.SetValue(vis, "");
-                vis.SetChestItem(triggerChest);
+                vis.SetChestItem("Charred_Breastplate");
+            }
+            else
+            {
+                var chestTarget = Plugin.WarriorChestName?.Value ?? "";
+                if (!string.IsNullOrEmpty(chestTarget))
+                {
+                    var triggerChest = marker?.OriginalChestItem ?? "";
+                    if (string.IsNullOrEmpty(triggerChest))
+                        triggerChest = FChestItem?.GetValue(vis) as string ?? "";
+                    if (string.IsNullOrEmpty(triggerChest)) triggerChest = "_none";
+
+                    if (marker != null) { marker.OriginalChestItem = ""; marker.ChestSwapped = false; marker.BodySwapApplied = false; }
+                    FChestItem?.SetValue(vis, "");
+                    vis.SetChestItem(triggerChest);
+                }
             }
 
             // --- Legs refresh ---
@@ -3200,6 +3265,11 @@ internal static class CharredWarriorPatches
                 vis.SetLegItem(triggerLegs);
             }
 
+            // --- HipCloth refresh ---
+            // Toggle the discovered renderer directly. If not yet discovered (e.g. brand-new warrior),
+            // the coroutine will run shortly after spawn and pick up the current Show flag.
+            humanoid.StartCoroutine(ApplyHipClothVisibility(vis));
+
             count++;
         }
 
@@ -3207,8 +3277,10 @@ internal static class CharredWarriorPatches
     }
 
     // -------------------------------------------------------------------------
-    // ForceWarriorVanillaArmorAll: bump m_randomItems chances to 100% for Charred_Melee
-    // before GiveDefaultItems rolls them, then restore. Forces every vanilla piece to spawn.
+    // Show… toggles: per-slot 0%/100% override on Charred_Melee m_randomItems.
+    // ShowWarriorVanillaHelmet / ShowWarriorVanillaBodyArmor each set the matching
+    // entry's chance to 1f (force) or 0f (suppress) before GiveDefaultItems rolls,
+    // and the postfix restores the original chances.
     // -------------------------------------------------------------------------
 
     [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.GiveDefaultItems))]
@@ -3217,16 +3289,21 @@ internal static class CharredWarriorPatches
     {
         __state = null;
         if (!ShouldSwap()) return;
-        if (Plugin.ForceWarriorVanillaArmor?.Value != true) return;
-        if (Plugin.ForceWarriorVanillaArmorAll?.Value != true) return;
         if (!IsCharredMelee(__instance.gameObject)) return;
         if (__instance.m_randomItems == null || __instance.m_randomItems.Length == 0) return;
+
+        bool showHelmet = Plugin.ShowWarriorVanillaHelmet?.Value == true;
+        bool showBody   = Plugin.ShowWarriorVanillaBodyArmor?.Value == true;
 
         __state = new float[__instance.m_randomItems.Length];
         for (int i = 0; i < __instance.m_randomItems.Length; i++)
         {
             __state[i] = __instance.m_randomItems[i].m_chance;
-            __instance.m_randomItems[i].m_chance = 1f;
+            var itemName = __instance.m_randomItems[i].m_prefab?.name ?? "";
+            if (itemName.Equals("Charred_Helmet", StringComparison.OrdinalIgnoreCase))
+                __instance.m_randomItems[i].m_chance = showHelmet ? 1f : 0f;
+            else if (itemName.Equals("Charred_Breastplate", StringComparison.OrdinalIgnoreCase))
+                __instance.m_randomItems[i].m_chance = showBody ? 1f : 0f;
         }
     }
 
@@ -3238,6 +3315,35 @@ internal static class CharredWarriorPatches
         int n = __state.Length < __instance.m_randomItems.Length ? __state.Length : __instance.m_randomItems.Length;
         for (int i = 0; i < n; i++)
             __instance.m_randomItems[i].m_chance = __state[i];
+    }
+
+    // -------------------------------------------------------------------------
+    // ShowWarriorVanillaHipCloth=false: strip Charred_HipCloth out of m_defaultItems
+    // before GiveDefaultItems equips it, then restore the original array.
+    // HipCloth is in m_defaultItems (always-equipped) so this is the only suppression hook.
+    // -------------------------------------------------------------------------
+
+    [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.GiveDefaultItems))]
+    [HarmonyPrefix]
+    private static void GiveDefaultItems_FilterHipCloth_Prefix(Humanoid __instance, out GameObject[]? __state)
+    {
+        __state = null;
+        if (!ShouldSwap()) return;
+        if (!IsCharredMelee(__instance.gameObject)) return;
+        if (Plugin.ShowWarriorVanillaHipCloth?.Value != false) return;
+        if (__instance.m_defaultItems == null || __instance.m_defaultItems.Length == 0) return;
+
+        __state = __instance.m_defaultItems;
+        __instance.m_defaultItems = __state
+            .Where(p => p?.name?.Equals("Charred_HipCloth", StringComparison.OrdinalIgnoreCase) != true)
+            .ToArray();
+    }
+
+    [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.GiveDefaultItems))]
+    [HarmonyPostfix]
+    private static void GiveDefaultItems_FilterHipCloth_Postfix(Humanoid __instance, GameObject[]? __state)
+    {
+        if (__state != null) __instance.m_defaultItems = __state;
     }
 
     // -------------------------------------------------------------------------
@@ -3276,6 +3382,10 @@ internal static class CharredWarriorPatches
                              ?? __instance.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
 
                 EnsureHelmetTransform(vis);
+
+                // GiveDefaultItems is called from Humanoid.Start (next frame after Awake), not Awake.
+                // Defer capture and hipcloth discovery until vanilla has settled.
+                __instance.StartCoroutine(CaptureRolledItemsAndHipCloth(vis, marker));
             }
 
             if (ShouldSwap())
@@ -3288,6 +3398,85 @@ internal static class CharredWarriorPatches
 
         _dumpDone = true;
         DumpCharredWarrior(__instance, prefabName);
+    }
+
+    /// <summary>
+    /// One-shot per-warrior coroutine that runs after vanilla GiveDefaultItems completes.
+    /// Captures the warrior's rolled helmet/chest items, discovers the HipCloth renderer,
+    /// then applies HipCloth visibility per the current config.
+    /// </summary>
+    private static System.Collections.IEnumerator CaptureRolledItemsAndHipCloth(VisEquipment vis, AshlandsRebornCharredSwapped marker)
+    {
+        // Wait for Humanoid.Start → GiveDefaultItems → Set*Item attachments to settle.
+        for (int i = 0; i < 15; i++) yield return null;
+        if (vis == null || marker == null) yield break;
+
+        if (!marker.RolledItemsCaptured)
+        {
+            marker.RolledHelmetItem = FHelmetItem?.GetValue(vis) as string ?? "";
+            marker.RolledChestItem  = FChestItem?.GetValue(vis) as string ?? "";
+            marker.RolledItemsCaptured = true;
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Captured rolls for {vis.gameObject.name}: helmet='{marker.RolledHelmetItem}' chest='{marker.RolledChestItem}'");
+        }
+
+        ApplyHipClothVisibilityNow(vis, marker);
+    }
+
+    /// <summary>
+    /// Walks the warrior's SkinnedMeshRenderers looking for one whose bones[] array contains a
+    /// "hip_cloth_*" or "belt*" bone. That uniquely identifies the HipCloth mesh regardless of
+    /// GameObject/mesh naming. Caches the result on the marker.
+    ///
+    /// Visibility rule: when MasterSwitch is off, always visible (matches user spec). When on,
+    /// follows ShowWarriorVanillaHipCloth.
+    /// </summary>
+    internal static void ApplyHipClothVisibilityNow(VisEquipment vis, AshlandsRebornCharredSwapped marker)
+    {
+        if (vis == null || marker == null) return;
+
+        if (marker.HipClothRenderer == null)
+        {
+            foreach (var smr in vis.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var bones = smr.bones;
+                if (bones == null) continue;
+                bool hasHipClothBone = false;
+                for (int i = 0; i < bones.Length; i++)
+                {
+                    var bn = bones[i]?.name ?? "";
+                    if (bn.StartsWith("hip_cloth", StringComparison.OrdinalIgnoreCase)
+                     || bn.StartsWith("belt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        hasHipClothBone = true;
+                        break;
+                    }
+                }
+                if (hasHipClothBone)
+                {
+                    marker.HipClothRenderer = smr;
+                    Plugin.Log?.LogInfo($"[Ashlands Reborn] HipCloth renderer found on {vis.gameObject.name}: SMR '{smr.gameObject.name}' mesh '{smr.sharedMesh?.name}'");
+                    break;
+                }
+            }
+        }
+
+        if (marker.HipClothRenderer == null) return;
+
+        bool show = !ShouldSwap() || (Plugin.ShowWarriorVanillaHipCloth?.Value ?? true);
+        marker.HipClothRenderer.enabled = show;
+    }
+
+    /// <summary>
+    /// Refresh-path helper: walk all warriors and (re)apply HipCloth visibility.
+    /// </summary>
+    private static System.Collections.IEnumerator ApplyHipClothVisibility(VisEquipment vis)
+    {
+        // Short delay covers refresh-after-spawn cases where the renderer isn't attached yet.
+        for (int i = 0; i < 5; i++) yield return null;
+        if (vis == null) yield break;
+        var marker = vis.GetComponent<AshlandsRebornCharredSwapped>();
+        if (marker == null) yield break;
+        ApplyHipClothVisibilityNow(vis, marker);
     }
 
     /// <summary>
@@ -3308,14 +3497,13 @@ internal static class CharredWarriorPatches
         var marker = vis.GetComponent<AshlandsRebornCharredSwapped>()
                      ?? vis.gameObject.AddComponent<AshlandsRebornCharredSwapped>();
 
-        // All-vanilla mode: GiveDefaultItems already rolled Charred_Helmet at 100% and
+        // Vanilla-helmet mode: GiveDefaultItems already rolled Charred_Helmet at 100% and
         // SetHelmetItem_Prefix let it through unmodified. Re-equipping here clears the field
         // and triggers a hash-match no-op in vanilla SetHelmetEquipped, leaving the slot empty.
-        bool allVanilla = Plugin.ForceWarriorVanillaArmor?.Value == true
-                       && Plugin.ForceWarriorVanillaArmorAll?.Value == true;
+        bool keepVanillaHelmet = Plugin.ShowWarriorVanillaHelmet?.Value == true;
 
         // Helmet
-        if (!allVanilla)
+        if (!keepVanillaHelmet)
         {
             var helmetTarget = Plugin.WarriorHelmetName?.Value ?? HelmetDrakeName;
             if (!string.IsNullOrEmpty(helmetTarget) && !marker.HelmetSwapped)
@@ -3533,6 +3721,19 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
     public string OriginalHelmetItem = "";
     public string OriginalChestItem = "";
     public string OriginalLegItem = "";
+
+    // Captured once per warrior at first Awake — the helmet/chest values that vanilla
+    // GiveDefaultItems left on the slot after our spawn-time chance overrides ran.
+    // Used by RevertAllCharredWarriors to restore each warrior to what it was equipped
+    // with at spawn time, regardless of subsequent force-equip activity.
+    public bool RolledItemsCaptured;
+    public string RolledHelmetItem = "";
+    public string RolledChestItem = "";
+
+    // Discovered HipCloth renderer (cached after first walk). Toggled via
+    // ShowWarriorVanillaHipCloth at refresh time. Null until discovered.
+    public Renderer? HipClothRenderer;
+
     public bool HelmetSwapped;
     public bool ChestSwapped;
     public bool LegsSwapped;

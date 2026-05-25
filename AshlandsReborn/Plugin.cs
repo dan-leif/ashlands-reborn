@@ -71,13 +71,9 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> WarriorHelmetZOffset { get; private set; } = null!;
 
     // --- Warrior Vanilla Armor ---
-    public static ConfigEntry<bool> ForceWarriorVanillaArmor { get; private set; } = null!;
-    public static ConfigEntry<bool> ForceWarriorVanillaArmorAll { get; private set; } = null!;
     public static ConfigEntry<bool> ShowWarriorVanillaHelmet { get; private set; } = null!;
-    public static ConfigEntry<bool> ShowWarriorVanillaChest { get; private set; } = null!;
-    public static ConfigEntry<bool> ShowWarriorVanillaShoulders { get; private set; } = null!;
-    public static ConfigEntry<bool> ShowWarriorVanillaBracers { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorVanillaBracersScale { get; private set; } = null!;
+    public static ConfigEntry<bool> ShowWarriorVanillaBodyArmor { get; private set; } = null!;
+    public static ConfigEntry<bool> ShowWarriorVanillaHipCloth { get; private set; } = null!;
 
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
@@ -390,49 +386,32 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(-0.5f, 0.5f)));
 
         // --- Warrior Vanilla Armor ---
-        ForceWarriorVanillaArmor = Config.Bind(
-            "Warrior Vanilla Armor",
-            "ForceWarriorVanillaArmor",
-            false,
-            "Enabled: force vanilla armor pieces as specified in this section. Disabled: use default armor pieces using default 50% probabilities. Note that vanilla armor will overlap with player armor if EnableWarriorPlayerArmor is also enabled.");
-
-        ForceWarriorVanillaArmorAll = Config.Bind(
-            "Warrior Vanilla Armor",
-            "ForceWarriorVanillaArmorAll",
-            false,
-            "Force all vanilla armor for charred warrior. Enabled: all vanilla armor appears. Disabled: apply only the armor specifically enabled below.");
-
         ShowWarriorVanillaHelmet = Config.Bind(
             "Warrior Vanilla Armor",
             "ShowWarriorVanillaHelmet",
             false,
-            "Force the default vanilla helmet on charred warrior.");
+            "Enabled: apply the vanilla Charred_Helmet to every Charred Warrior. " +
+            "Disabled: remove the vanilla Charred_Helmet from every Charred Warrior. " +
+            "Only takes effect when MasterSwitch is enabled — otherwise each warrior keeps whatever it rolled at spawn.");
 
-        ShowWarriorVanillaChest = Config.Bind(
+        ShowWarriorVanillaBodyArmor = Config.Bind(
             "Warrior Vanilla Armor",
-            "ShowWarriorVanillaChest",
+            "ShowWarriorVanillaBodyArmor",
             false,
-            "Also show the vanilla chest piece alongside the custom one (for comparison).");
+            "Enabled: apply all body armor pieces to every Charred Warrior, including those on the legs, hips, chest, shoulders, and arms. " +
+            "(All vanilla body armor lives in one mesh: Charred_Breastplate / 'ChestPiece'.) " +
+            "Disabled: remove all vanilla body armor pieces from every Charred Warrior. " +
+            "Does NOT control the custom player-armor swap — see EnableWarriorPlayerArmor in 'Warrior Player Armor'. " +
+            "Only takes effect when MasterSwitch is enabled.");
 
-        ShowWarriorVanillaShoulders = Config.Bind(
+        ShowWarriorVanillaHipCloth = Config.Bind(
             "Warrior Vanilla Armor",
-            "ShowWarriorVanillaShoulders",
+            "ShowWarriorVanillaHipCloth",
             false,
-            "Also show the vanilla shoulder piece alongside the custom one (for comparison).");
-
-        ShowWarriorVanillaBracers = Config.Bind(
-            "Warrior Vanilla Armor",
-            "ShowWarriorVanillaBracers",
-            true,
-            "Also show the vanilla utility/bracer piece alongside the custom one (for comparison).");
-
-        WarriorVanillaBracersScale = Config.Bind(
-            "Warrior Vanilla Armor",
-            "WarriorVanillaBracersScale",
-            1.0f,
-            new ConfigDescription(
-                "Uniform scale of the vanilla bracer overlay. 1.0 = default size.",
-                new AcceptableValueRange<float>(0.1f, 3.0f)));
+            "Enabled: apply the vanilla Charred_HipCloth (waist rags) to every Charred Warrior. " +
+            "Disabled: remove the vanilla Charred_HipCloth from every Charred Warrior. " +
+            "(HipCloth is in m_defaultItems and is always equipped by the vanilla game.) " +
+            "Only takes effect when MasterSwitch is enabled.");
 
         DevAutoLoad = Config.Bind(
             "Dev Automation",
@@ -585,13 +564,22 @@ public class Plugin : BaseUnityPlugin
             MigrateKey("Charred Warrior", "CharredWarriorHelmetYaw", WarriorHelmetYaw);
             MigrateKey("Charred Warrior", "CharredWarriorHelmetYOffset", WarriorHelmetYOffset);
             MigrateKey("Charred Warrior", "CharredWarriorHelmetZOffset", WarriorHelmetZOffset);
-            MigrateKey("Charred Warrior", "ShowVanillaChest", ShowWarriorVanillaChest);
-            MigrateKey("Charred Warrior", "ShowVanillaShoulders", ShowWarriorVanillaShoulders);
-            MigrateKey("Charred Warrior", "ShowVanillaBracers", ShowWarriorVanillaBracers);
-            MigrateKey("Charred Warrior", "BracerScale", WarriorVanillaBracersScale);
             // DataDumpKey removed — just clean it up
             var defDataDump = new ConfigDefinition("Charred Warrior", "DataDumpKey");
             if (Config.ContainsKey(defDataDump)) Config.Remove(defDataDump);
+
+            // Removed config keys from the previous "Warrior Vanilla Armor" iteration —
+            // delete from saved cfg files so they don't linger in ConfigurationManager.
+            foreach (var dead in new[]
+                     {
+                         "ForceWarriorVanillaArmor", "ForceWarriorVanillaArmorAll",
+                         "ShowWarriorVanillaChest", "ShowWarriorVanillaShoulders",
+                         "ShowWarriorVanillaBracers", "WarriorVanillaBracersScale",
+                     })
+            {
+                var def = new ConfigDefinition("Warrior Vanilla Armor", dead);
+                if (Config.ContainsKey(def)) Config.Remove(def);
+            }
         }
         catch
         {
