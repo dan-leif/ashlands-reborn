@@ -67,6 +67,34 @@ internal static class CharredWarriorPatches
     private static bool _dumpDone;
     private static bool _breastplateDumpDone;
 
+    // Stable-hash codes for the vanilla pieces we conditionally block (see Set*Equipped prefixes).
+    // Lazy-computed once via Valheim's GetStableHashCode extension on first use.
+    private static int _hashCharredHelmet;
+    private static int _hashCharredBreastplate;
+    private static bool _hashesCached;
+    private static void EnsureCharredHashes()
+    {
+        if (_hashesCached) return;
+        _hashCharredHelmet      = StableHashCode(CharredHelmetName);
+        _hashCharredBreastplate = StableHashCode("Charred_Breastplate");
+        _hashesCached = true;
+    }
+
+    // Mirror of Valheim's Utils.GetStableHashCode (string extension): identical FNV-style hash
+    // used everywhere on the server/client wire and by VisEquipment.Set*Equipped(int).
+    private static int StableHashCode(string s)
+    {
+        int num = 5381;
+        int num2 = num;
+        for (int i = 0; i < s.Length && s[i] != 0; i += 2)
+        {
+            num = ((num << 5) + num) ^ s[i];
+            if (i == s.Length - 1 || s[i + 1] == 0) break;
+            num2 = ((num2 << 5) + num2) ^ s[i + 1];
+        }
+        return num + num2 * 1566083941;
+    }
+
     // Helmet prefab scale cache — survives marker destruction across toggle cycles
     private static Vector3 _cachedHelmetPrefabScale;
 
@@ -322,6 +350,46 @@ internal static class CharredWarriorPatches
             ApplyCharredGlowFX(__instance.transform);
         else
             RevertCharredGlowFX(__instance.transform);
+    }
+
+    // -------------------------------------------------------------------------
+    // Block vanilla LateUpdate from re-attaching the vanilla Charred_Helmet /
+    // Charred_Breastplate after we've destroyed them. RefreshCharredWarriors
+    // clears m_*Item and resets the hash, but vanilla's UpdateEquipmentVisuals
+    // still re-runs SetChestEquipped(hashOfCharredBreastplate) every LateUpdate
+    // (likely sourced from the ZDO) — and AttachItem leaks a new attach_skin
+    // GameObject parented to TheCharred each time. We can't reach the ZDO from
+    // here cleanly, so we just refuse the re-attach at the hash gate.
+    // -------------------------------------------------------------------------
+
+    [HarmonyPatch(typeof(VisEquipment), "SetHelmetEquipped")]
+    [HarmonyPrefix]
+    private static bool SetHelmetEquipped_Prefix(VisEquipment __instance, int hash, ref bool __result)
+    {
+        if (!ShouldSwap() || !IsCharredMelee(__instance.gameObject)) return true;
+        if (Plugin.ShowWarriorVanillaHelmet?.Value == true) return true;
+        EnsureCharredHashes();
+        if (hash != _hashCharredHelmet) return true;
+        // Refuse the Charred_Helmet attach — pretend it succeeded as a no-op so vanilla
+        // doesn't retry. Also clear the tracked instance so subsequent frames see "no helmet".
+        DestroyAndClearField(__instance, FHelmetItemInstance);
+        FCurrentHelmetItemHash?.SetValue(__instance, 0);
+        __result = false;
+        return false;
+    }
+
+    [HarmonyPatch(typeof(VisEquipment), "SetChestEquipped")]
+    [HarmonyPrefix]
+    private static bool SetChestEquipped_Prefix(VisEquipment __instance, int hash, ref bool __result)
+    {
+        if (!ShouldSwap() || !IsCharredMelee(__instance.gameObject)) return true;
+        if (Plugin.ShowWarriorVanillaBodyArmor?.Value == true) return true;
+        EnsureCharredHashes();
+        if (hash != _hashCharredBreastplate) return true;
+        DestroyListInstances(__instance, FChestItemInstances);
+        FCurrentChestItemHash?.SetValue(__instance, 0);
+        __result = false;
+        return false;
     }
 
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.SetLegItem))]
@@ -2290,6 +2358,38 @@ internal static class CharredWarriorPatches
         list.Clear();
     }
 
+    /// <summary>
+    /// Brute-force hierarchy cleanup: finds any vanilla Charred_Helmet ('Helmet' SMR) and/or
+    /// Charred_Breastplate ('ChestPiece' SMR) attach_skin GameObjects under the warrior and
+    /// destroys them. Necessary because vanilla SetChestEquipped/SetHelmetEquipped leaks the
+    /// previous attach_skin GO when re-attaching, and m_*ItemInstance(s) sometimes loses the
+    /// reference, so destroying via those fields alone misses the actual visible GameObject.
+    /// SMR names 'Helmet' and 'ChestPiece' are vanilla-specific (player armor uses different
+    /// SMR names like 'Padded_Cuirrass' for knightchest), so this won't touch player armor.
+    /// </summary>
+    private static void DestroyVanillaCharredAttachments(GameObject root, bool destroyHelmet, bool destroyChest)
+    {
+        if (!destroyHelmet && !destroyChest) return;
+
+        // Collect first to avoid mutating the hierarchy mid-enumeration.
+        var toDestroy = new List<GameObject>();
+        foreach (var smr in root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            bool isHelmet = destroyHelmet && smr.name.Equals("Helmet", StringComparison.OrdinalIgnoreCase);
+            bool isChest  = destroyChest  && smr.name.Equals("ChestPiece", StringComparison.OrdinalIgnoreCase);
+            if (!isHelmet && !isChest) continue;
+
+            // The instantiated prefab root is the immediate parent named attach_skin(Clone).
+            var parent = smr.transform.parent;
+            GameObject target = (parent != null && parent.name.StartsWith("attach", StringComparison.OrdinalIgnoreCase))
+                ? parent.gameObject
+                : smr.gameObject;
+            if (!toDestroy.Contains(target)) toDestroy.Add(target);
+        }
+        foreach (var go in toDestroy)
+            UObject.Destroy(go);
+    }
+
     // -------------------------------------------------------------------------
     // Refresh: re-apply swap to all live Charred_Melee instances
     // -------------------------------------------------------------------------
@@ -3178,6 +3278,33 @@ internal static class CharredWarriorPatches
             FCurrentChestItemHash?.SetValue(vis, 0);
             FCurrentLegItemHash?.SetValue(vis, 0);
             FCurrentShoulderItemHash?.SetValue(vis, 0);
+
+            // When the user toggles ShowWarriorVanilla*=false, the existing refresh else-branch
+            // can't actually clean up because: (a) the refresh's own previous run already mutated
+            // FHelmetItem to "_none" and FChestItem to "", defeating any name-based guard; (b) the
+            // vanilla attach_skin(Clone) GameObject for Charred_Helmet/Breastplate lives as a child
+            // of a persistent "TheCharred" node and isn't always tracked by m_*ItemInstance(s); and
+            // (c) vanilla LateUpdate re-attaches the leaked GO between refreshes. The robust fix is
+            // a brute-force hierarchy scan for the vanilla-only SMR names ('Helmet', 'ChestPiece').
+            bool keepVanillaChest = Plugin.ShowWarriorVanillaBodyArmor?.Value == true;
+            DestroyVanillaCharredAttachments(
+                humanoid.gameObject,
+                destroyHelmet: !keepVanillaHelmet,
+                destroyChest:  !keepVanillaChest);
+
+            // Also clear the fields and tracked instance references so vanilla's UpdateEquipmentVisuals
+            // doesn't observe a stale "needs re-attach" state.
+            if (!keepVanillaHelmet)
+            {
+                DestroyAndClearField(vis, FHelmetItemInstance);
+                FHelmetItem?.SetValue(vis, "");
+            }
+            if (!keepVanillaChest)
+            {
+                DestroyListInstances(vis, FChestItemInstances);
+                FChestItem?.SetValue(vis, "");
+            }
+
 
             // --- Sword refresh ---
             var triggerSword = marker?.OriginalRightItem ?? "";
