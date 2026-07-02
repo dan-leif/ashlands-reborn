@@ -4,7 +4,7 @@ import json
 import os
 import sys
 
-DB_PATH = r"C:\Users\danjo\AppData\Roaming\Cursor\User\globalStorage\state.vscdb"
+DB_PATH = os.path.join(os.environ["APPDATA"], "Cursor", "User", "globalStorage", "state.vscdb")
 
 def extract_text_from_richtext(rt):
     """Extract plain text from Lexical richText JSON."""
