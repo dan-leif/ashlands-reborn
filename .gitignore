@@ -33,3 +33,9 @@ extracted_shaders/
 
 # DXDecompiler clone (script clones automatically)
 tools/
+
+# Photo-mode verification harness output (dev-only screenshots, churns every run)
+AR_PhotoMode/
+
+# Claude Code agent worktrees (each is its own git checkout, not a submodule)
+.claude/worktrees/

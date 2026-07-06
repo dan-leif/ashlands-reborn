@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using HarmonyLib;
@@ -103,10 +104,12 @@ internal static class CharredWarriorPatches
     private static Material? _cachedPlayerBodyMaterial;
     private static string[]? _cachedPlayerBoneNames;
 
-    // Swap active when master switch + EnableWarriorSwap are on
+    // Swap active when master switch + EnableWarriorSwap are on, and the Fable Warrior
+    // puppet feature (which replaces this entire legacy path) isn't active.
     private static bool ShouldSwap() =>
         (Plugin.MasterSwitch?.Value ?? false) &&
-        (Plugin.EnableWarriorSwap?.Value ?? false);
+        (Plugin.EnableWarriorSwap?.Value ?? false) &&
+        (Plugin.EnableFableWarrior?.Value != true);
 
     private static readonly Dictionary<string, Transform> _boneCache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -1277,6 +1280,303 @@ internal static class CharredWarriorPatches
         }
     }
 
+    // =====================================================================
+    // Vanilla Charred_Breastplate per-region mods (mask + collapse + scale)
+    // Three knobs the user can tweak in-game via ConfigurationManager:
+    //   1) WarriorVanillaVisibleSubmeshes — keep only listed submeshes visible
+    //   2) WarriorVanillaCollapseBones    — zero-scale bones to hide their geometry
+    //   3) WarriorVanillaScaleBones       — per-bone scale (BoneName:scale,...)
+    // Called every ~0.2s from Plugin.Update. Each marker tracks the last applied
+    // config strings so re-applies only happen when the user actually changed something.
+    // =====================================================================
+    internal static void UpdateVanillaBreastplateMods()
+    {
+        var markers = UObject.FindObjectsByType<AshlandsRebornCharredSwapped>(FindObjectsSortMode.None);
+        if (markers.Length == 0) return;
+
+        bool shouldApplyGlobally = ShouldSwap() && (Plugin.ShowWarriorVanillaBodyArmor?.Value ?? false);
+        string maskCfg = Plugin.WarriorVanillaVisibleSubmeshes?.Value ?? "";
+        string collapseCfg = Plugin.WarriorVanillaCollapseBones?.Value ?? "";
+        string scaleCfg = Plugin.WarriorVanillaScaleBones?.Value ?? "";
+
+        foreach (var marker in markers)
+        {
+            var vis = marker.GetComponent<VisEquipment>();
+            if (vis == null) continue;
+            if (!IsCharredMelee(vis.gameObject)) continue;
+
+            // (Re)locate the vanilla breastplate SMR if our cached reference is stale
+            var smr = marker.VanillaBreastplateSMR;
+            if (smr == null) // Unity-overloaded == catches destroyed objects too
+            {
+                smr = FindVanillaBreastplateSMR(vis);
+                if (smr != null)
+                {
+                    marker.VanillaBreastplateSMR = smr;
+                    marker.VanillaBreastplateOriginalMats = (Material[])smr.sharedMaterials.Clone();
+                    marker.VanillaBreastplateOriginalBones = (Transform[])smr.bones.Clone();
+                    // Force re-apply on next config check (instance is fresh)
+                    marker.VanillaBreastplateLastMaskConfig = "\0";
+                    marker.VanillaBreastplateLastCollapseConfig = "\0";
+                    marker.VanillaBreastplateLastScaleConfig = "\0";
+                }
+            }
+            if (smr == null) continue;
+
+            if (!shouldApplyGlobally)
+            {
+                RevertVanillaBreastplateMods(marker);
+                continue;
+            }
+
+            if (maskCfg != marker.VanillaBreastplateLastMaskConfig)
+            {
+                ApplyVanillaBreastplateMask(smr, marker, maskCfg);
+                marker.VanillaBreastplateLastMaskConfig = maskCfg;
+            }
+
+            if (collapseCfg != marker.VanillaBreastplateLastCollapseConfig
+                || scaleCfg != marker.VanillaBreastplateLastScaleConfig)
+            {
+                ApplyVanillaBreastplateBoneMods(smr, marker, collapseCfg, scaleCfg);
+                marker.VanillaBreastplateLastCollapseConfig = collapseCfg;
+                marker.VanillaBreastplateLastScaleConfig = scaleCfg;
+            }
+        }
+    }
+
+    private static SkinnedMeshRenderer? FindVanillaBreastplateSMR(VisEquipment vis)
+    {
+        var chestObjs = FChestItemInstances?.GetValue(vis) as List<GameObject>;
+        if (chestObjs == null) return null;
+        foreach (var go in chestObjs)
+        {
+            if (go == null) continue;
+            foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var meshName = smr.sharedMesh != null ? smr.sharedMesh.name : "";
+                // ChestPiece is the canonical name of the Charred_Breastplate mesh.
+                // Be tolerant of clone suffixes like "ChestPiece(Clone)".
+                if (meshName.StartsWith("ChestPiece", StringComparison.OrdinalIgnoreCase))
+                    return smr;
+            }
+        }
+        return null;
+    }
+
+    private static void ApplyVanillaBreastplateMask(SkinnedMeshRenderer smr, AshlandsRebornCharredSwapped marker, string maskCfg)
+    {
+        if (marker.VanillaBreastplateOriginalMats == null) return;
+
+        // Restore from originals first so each apply is idempotent
+        var mats = (Material[])marker.VanillaBreastplateOriginalMats.Clone();
+
+        // Empty config = all visible (no masking)
+        var trimmed = maskCfg.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            smr.sharedMaterials = mats;
+            return;
+        }
+
+        var keep = new HashSet<int>();
+        foreach (var part in trimmed.Split(','))
+        {
+            if (int.TryParse(part.Trim(), out var idx)) keep.Add(idx);
+        }
+
+        var invisMat = GetInvisibleMaterial(smr);
+        if (invisMat == null)
+        {
+            smr.sharedMaterials = mats;
+            return;
+        }
+
+        for (int i = 0; i < mats.Length; i++)
+        {
+            if (!keep.Contains(i)) mats[i] = invisMat;
+        }
+        smr.sharedMaterials = mats;
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] VanillaBreastplate mask: keeping submeshes [{string.Join(",", keep)}] of {mats.Length} on '{smr.name}'");
+    }
+
+    private static void ApplyVanillaBreastplateBoneMods(SkinnedMeshRenderer smr, AshlandsRebornCharredSwapped marker, string collapseCfg, string scaleCfg)
+    {
+        if (marker.VanillaBreastplateOriginalBones == null) return;
+
+        // Destroy any previous wrappers so re-applies don't leak GameObjects
+        DestroyVanillaBreastplateWrappers(marker);
+
+        // Build collapse set + scale map
+        var collapseSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var part in (collapseCfg ?? "").Split(','))
+        {
+            var n = part.Trim();
+            if (!string.IsNullOrEmpty(n)) collapseSet.Add(n);
+        }
+        var scaleMap = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        foreach (var part in (scaleCfg ?? "").Split(','))
+        {
+            var pair = part.Trim();
+            if (string.IsNullOrEmpty(pair)) continue;
+            var colon = pair.IndexOf(':');
+            if (colon <= 0 || colon >= pair.Length - 1) continue;
+            var boneName = pair.Substring(0, colon).Trim();
+            var valStr = pair.Substring(colon + 1).Trim();
+            if (string.IsNullOrEmpty(boneName)) continue;
+            if (!float.TryParse(valStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) continue;
+            scaleMap[boneName] = v;
+        }
+
+        // Start from the cached originals so we don't compound prior modifications
+        var origBones = marker.VanillaBreastplateOriginalBones;
+        var newBones = (Transform[])origBones.Clone();
+
+        if (collapseSet.Count == 0 && scaleMap.Count == 0)
+        {
+            smr.bones = newBones;
+            return;
+        }
+
+        int collapsed = 0, scaled = 0;
+        for (int i = 0; i < origBones.Length; i++)
+        {
+            var liveBone = origBones[i];
+            if (liveBone == null) continue;
+            var boneName = liveBone.name;
+
+            bool collapse = collapseSet.Contains(boneName);
+            bool scale = !collapse && scaleMap.TryGetValue(boneName, out var sval);
+            if (!collapse && !scale) continue;
+
+            var wrapper = new GameObject(collapse ? $"VBPCollapse_{boneName}" : $"VBPScale_{boneName}");
+            wrapper.transform.SetParent(liveBone, false);
+            if (collapse)
+            {
+                wrapper.transform.localScale = Vector3.zero;
+                collapsed++;
+            }
+            else
+            {
+                scaleMap.TryGetValue(boneName, out var s);
+                wrapper.transform.localScale = Vector3.one * s;
+                scaled++;
+            }
+            newBones[i] = wrapper.transform;
+            marker.VanillaBreastplateBoneWrappers.Add(wrapper);
+        }
+
+        smr.bones = newBones;
+        Plugin.Log?.LogInfo($"[Ashlands Reborn] VanillaBreastplate bone mods: collapsed={collapsed}, scaled={scaled} on '{smr.name}'");
+    }
+
+    private static void RevertVanillaBreastplateMods(AshlandsRebornCharredSwapped marker)
+    {
+        var smr = marker.VanillaBreastplateSMR;
+        if (smr != null)
+        {
+            if (marker.VanillaBreastplateOriginalMats != null)
+                smr.sharedMaterials = (Material[])marker.VanillaBreastplateOriginalMats.Clone();
+            if (marker.VanillaBreastplateOriginalBones != null)
+                smr.bones = (Transform[])marker.VanillaBreastplateOriginalBones.Clone();
+        }
+        DestroyVanillaBreastplateWrappers(marker);
+        marker.VanillaBreastplateLastMaskConfig = "\0";
+        marker.VanillaBreastplateLastCollapseConfig = "\0";
+        marker.VanillaBreastplateLastScaleConfig = "\0";
+    }
+
+    private static void DestroyVanillaBreastplateWrappers(AshlandsRebornCharredSwapped marker)
+    {
+        foreach (var w in marker.VanillaBreastplateBoneWrappers)
+        {
+            if (w != null) UObject.Destroy(w);
+        }
+        marker.VanillaBreastplateBoneWrappers.Clear();
+    }
+
+    /// <summary>
+    /// F12 debug dump: logs per-submesh info for the live vanilla Charred_Breastplate
+    /// on every Charred Warrior currently in the scene. Use the output to decide
+    /// which indices to keep via WarriorVanillaVisibleSubmeshes.
+    /// </summary>
+    internal static void DumpVanillaBreastplateSubmeshes()
+    {
+        var markers = UObject.FindObjectsByType<AshlandsRebornCharredSwapped>(FindObjectsSortMode.None);
+        int dumped = 0;
+        foreach (var marker in markers)
+        {
+            var vis = marker.GetComponent<VisEquipment>();
+            if (vis == null || !IsCharredMelee(vis.gameObject)) continue;
+            var smr = FindVanillaBreastplateSMR(vis);
+            if (smr == null || smr.sharedMesh == null) continue;
+
+            var mesh = smr.sharedMesh;
+            var bones = smr.bones;
+            var sb = new StringBuilder();
+            sb.AppendLine($"=== VANILLA CHARRED_BREASTPLATE DUMP ({vis.gameObject.name}) ===");
+            sb.AppendLine($"  Mesh: '{mesh.name}' verts={mesh.vertexCount} subMeshes={mesh.subMeshCount} isReadable={mesh.isReadable} bones={bones.Length}");
+            var mats = smr.sharedMaterials;
+            for (int s = 0; s < mesh.subMeshCount; s++)
+            {
+                var sub = mesh.GetSubMesh(s);
+                var matName = (s < mats.Length && mats[s] != null) ? mats[s].name : "<none>";
+                sb.AppendLine($"  Submesh[{s}]: material='{matName}' indexStart={sub.indexStart} indexCount={sub.indexCount} topology={sub.topology}");
+            }
+            // Dominant-bone-per-submesh requires GetTriangles+boneWeights, only possible if mesh isReadable
+            if (mesh.isReadable)
+            {
+                try
+                {
+                    var weights = mesh.boneWeights;
+                    var tris = mesh.triangles;
+                    for (int s = 0; s < mesh.subMeshCount; s++)
+                    {
+                        var sub = mesh.GetSubMesh(s);
+                        var counts = new Dictionary<int, float>();
+                        int end = sub.indexStart + sub.indexCount;
+                        for (int t = sub.indexStart; t < end; t++)
+                        {
+                            var vi = tris[t];
+                            if (vi < 0 || vi >= weights.Length) continue;
+                            var bw = weights[vi];
+                            AccumWeight(counts, bw.boneIndex0, bw.weight0);
+                            AccumWeight(counts, bw.boneIndex1, bw.weight1);
+                            AccumWeight(counts, bw.boneIndex2, bw.weight2);
+                            AccumWeight(counts, bw.boneIndex3, bw.weight3);
+                        }
+                        var topBones = counts.OrderByDescending(kv => kv.Value).Take(3)
+                            .Select(kv => $"{(kv.Key < bones.Length && bones[kv.Key] != null ? bones[kv.Key].name : "?")}({kv.Value:F1})");
+                        sb.AppendLine($"    -> top weighted bones: {string.Join(", ", topBones)}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    sb.AppendLine($"  (bone-weight scan failed: {ex.Message})");
+                }
+            }
+            else
+            {
+                sb.AppendLine("  (mesh not readable — dominant-bone-per-submesh scan skipped)");
+            }
+            sb.AppendLine("  Bones:");
+            for (int b = 0; b < bones.Length; b++)
+                sb.AppendLine($"    [{b}] '{(bones[b] != null ? bones[b].name : "NULL")}'");
+            sb.AppendLine("=== END VANILLA CHARRED_BREASTPLATE DUMP ===");
+            Plugin.Log?.LogInfo(sb.ToString());
+            dumped++;
+        }
+        if (dumped == 0)
+            Plugin.Log?.LogWarning("[Ashlands Reborn] VanillaBreastplate dump: no Charred Warrior with vanilla breastplate found nearby. Enable ShowWarriorVanillaBodyArmor and spawn a warrior first.");
+    }
+
+    private static void AccumWeight(Dictionary<int, float> dict, int boneIdx, float w)
+    {
+        if (w <= 0f) return;
+        dict.TryGetValue(boneIdx, out var cur);
+        dict[boneIdx] = cur + w;
+    }
+
 
     // =====================================================================
     // Hybrid body swap layer — player mesh underneath Approach A armor
@@ -1972,6 +2272,16 @@ internal static class CharredWarriorPatches
         marker.RemappedInstances.Clear();
         marker.BodySwapApplied = false;
         marker.BreastplateOverlayApplied = false;
+
+        // Vanilla Charred_Breastplate mods: tear down wrappers and forget cached refs
+        // (the SMR is about to be destroyed/recreated by the refresh path).
+        DestroyVanillaBreastplateWrappers(marker);
+        marker.VanillaBreastplateSMR = null;
+        marker.VanillaBreastplateOriginalMats = null;
+        marker.VanillaBreastplateOriginalBones = null;
+        marker.VanillaBreastplateLastMaskConfig = "\0";
+        marker.VanillaBreastplateLastCollapseConfig = "\0";
+        marker.VanillaBreastplateLastScaleConfig = "\0";
     }
 
     private static Color EyeGlowPresetColor()
@@ -3772,6 +4082,15 @@ internal class AshlandsRebornCharredSwapped : MonoBehaviour
 
     /// <summary>Original chest SMR materials, cached before debug hiding so they can be restored.</summary>
     public Material[]? ChestOriginalMaterials;
+
+    // --- Vanilla Charred_Breastplate per-region mods (Knobs 1+2+3) ---
+    public Material[]? VanillaBreastplateOriginalMats;
+    public Transform[]? VanillaBreastplateOriginalBones;
+    public List<GameObject> VanillaBreastplateBoneWrappers = new();
+    public SkinnedMeshRenderer? VanillaBreastplateSMR;
+    public string VanillaBreastplateLastMaskConfig = "\0";
+    public string VanillaBreastplateLastCollapseConfig = "\0";
+    public string VanillaBreastplateLastScaleConfig = "\0";
 
     /// <summary>True when we've scaled the Krom weapon (avoids re-scaling every frame).</summary>
     public bool KromScaled;

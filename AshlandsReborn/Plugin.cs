@@ -13,6 +13,7 @@ namespace AshlandsReborn;
 public class Plugin : BaseUnityPlugin
 {
     internal static ManualLogSource Log { get; private set; } = null!;
+    internal static Plugin Instance { get; private set; } = null!;
 
     // --- General ---
     public static ConfigEntry<bool> MasterSwitch { get; private set; } = null!;
@@ -73,20 +74,36 @@ public class Plugin : BaseUnityPlugin
     // --- Warrior Vanilla Armor ---
     public static ConfigEntry<bool> ShowWarriorVanillaHelmet { get; private set; } = null!;
     public static ConfigEntry<bool> ShowWarriorVanillaBodyArmor { get; private set; } = null!;
+    public static ConfigEntry<string> WarriorVanillaVisibleSubmeshes { get; private set; } = null!;
+    public static ConfigEntry<string> WarriorVanillaCollapseBones { get; private set; } = null!;
+    public static ConfigEntry<string> WarriorVanillaScaleBones { get; private set; } = null!;
+    public static ConfigEntry<KeyCode> WarriorVanillaDumpSubmeshesKey { get; private set; } = null!;
+
+    // --- Fable Warrior ---
+    public static ConfigEntry<bool> EnableFableWarrior { get; private set; } = null!;
+    public static ConfigEntry<bool> ClonePlayerToWarrior { get; private set; } = null!;
+    public static ConfigEntry<float> FableWarriorScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableWarriorRetargetSource { get; private set; } = null!;
 
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
     public static ConfigEntry<string> DevAutoLoadCharacter { get; private set; } = null!;
     public static ConfigEntry<string> DevAutoLoadWorld { get; private set; } = null!;
+    public static ConfigEntry<KeyCode> PhotoModeKey { get; private set; } = null!;
+    public static ConfigEntry<bool> PhotoModeAuto { get; private set; } = null!;
+    public static ConfigEntry<float> PhotoModeSpawnDistance { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
+    public static bool IsFablePuppetActive =>
+        MasterSwitch?.Value == true && EnableFableWarrior?.Value == true && ClonePlayerToWarrior?.Value == true;
 
     private static readonly Harmony Harmony = new(PluginInfo.PLUGIN_GUID);
 
     private void Awake()
     {
+        Instance = this;
         Log = Logger;
 
         Config.SaveOnConfigSet = false;
@@ -403,6 +420,76 @@ public class Plugin : BaseUnityPlugin
             "Does NOT control the custom player-armor swap — see EnableWarriorPlayerArmor in 'Warrior Player Armor'. " +
             "Only takes effect when MasterSwitch is enabled.");
 
+        WarriorVanillaVisibleSubmeshes = Config.Bind(
+            "Warrior Vanilla Armor",
+            "WarriorVanillaVisibleSubmeshes",
+            "",
+            "Comma-separated submesh indices of the vanilla Charred_Breastplate ('ChestPiece') mesh to KEEP visible. " +
+            "All other submeshes are hidden via an invisible material. Empty = all visible (no masking). " +
+            "Example: '3,4' to show only submeshes 3 and 4. " +
+            "Press WarriorVanillaDumpSubmeshesKey (F12) in-game to log the submesh layout to BepInEx/LogOutput.log. " +
+            "Only effective when ShowWarriorVanillaBodyArmor=true and MasterSwitch=true.");
+
+        WarriorVanillaCollapseBones = Config.Bind(
+            "Warrior Vanilla Armor",
+            "WarriorVanillaCollapseBones",
+            "",
+            "Comma-separated bone names to collapse (zero-scale) on the vanilla Charred_Breastplate, hiding any geometry weighted to them. " +
+            "Examples: 'LeftShoulder,RightShoulder' to remove pauldrons; 'LeftUpLeg,RightUpLeg' to remove leg armor; 'Spine,Spine1,Spine2' to remove torso plate. " +
+            "WARNING: avoid 'RightArm' and 'RightHandThumb1' — the vanilla mesh has mis-weighted vertices on those bones (101 verts and 119 verts respectively) and collapsing them distorts the right bracer. " +
+            "Only effective when ShowWarriorVanillaBodyArmor=true and MasterSwitch=true.");
+
+        WarriorVanillaScaleBones = Config.Bind(
+            "Warrior Vanilla Armor",
+            "WarriorVanillaScaleBones",
+            "",
+            "Comma-separated 'BoneName:scale' pairs to scale (rather than fully hide) geometry on the vanilla Charred_Breastplate. " +
+            "Example: 'LeftShoulder:0.5,RightShoulder:0.5' halves the pauldrons. " +
+            "Bones listed in WarriorVanillaCollapseBones take precedence (collapsed to zero) over scale entries for the same bone. " +
+            "Only effective when ShowWarriorVanillaBodyArmor=true and MasterSwitch=true.");
+
+        WarriorVanillaDumpSubmeshesKey = Config.Bind(
+            "Warrior Vanilla Armor",
+            "WarriorVanillaDumpSubmeshesKey",
+            KeyCode.F12,
+            "Press this key in-game to log a per-submesh dump of the live vanilla Charred_Breastplate (mesh, materials, triangle ranges, dominant bone per submesh). " +
+            "Use the dump to decide which indices to put in WarriorVanillaVisibleSubmeshes.");
+
+        // --- Fable Warrior ---
+        EnableFableWarrior = Config.Bind(
+            "Fable Warrior",
+            "EnableFableWarrior",
+            true,
+            "Master toggle for the Fable Warrior feature. When true, overrides and bypasses ALL legacy " +
+            "Charred Warrior modifications (body swap layer, SouthsilArmor attach, vanilla breastplate mods, " +
+            "bracers, old sword-swap path) in favor of the settings in this section.");
+
+        ClonePlayerToWarrior = Config.Bind(
+            "Fable Warrior",
+            "ClonePlayerToWarrior",
+            true,
+            "Build a player-rig puppet (the local player's body + current armor, scaled up) on every " +
+            "Charred_Melee, driven by the warrior's own animation. Requires EnableFableWarrior.");
+
+        FableWarriorScale = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorScale",
+            1.0f,
+            new ConfigDescription(
+                "Multiplier on the auto-computed height-match scale for the Fable Warrior puppet. 1.0 = auto scale.",
+                new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        FableWarriorRetargetSource = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorRetargetSource",
+            "Prefab",
+            new ConfigDescription(
+                "Dev knob: source of per-bone rest rotations for the puppet bone retarget offsets. " +
+                "'Prefab' derives rest poses from the Charred_Melee and Player prefab hierarchies. " +
+                "'BindPose' derives them from skinned mesh bind poses instead (fallback if Prefab causes a " +
+                "constant per-bone angle offset).",
+                new AcceptableValueList<string>("Prefab", "BindPose")));
+
         DevAutoLoad = Config.Bind(
             "Dev Automation",
             "DevAutoLoad",
@@ -420,6 +507,28 @@ public class Plugin : BaseUnityPlugin
             "DevAutoLoadWorld",
             "Reborn",
             "World name to auto-select when DevAutoLoad is true.");
+
+        PhotoModeKey = Config.Bind(
+            "Dev Automation",
+            "PhotoModeKey",
+            KeyCode.F6,
+            "Hotkey to run the Fable Warrior verification harness: spawns a Charred_Melee near the player, " +
+            "orbits the camera around it, captures screenshots, then despawns it. Output goes to " +
+            "<plugin dir>\\AR_PhotoMode\\.");
+
+        PhotoModeAuto = Config.Bind(
+            "Dev Automation",
+            "PhotoModeAuto",
+            false,
+            "Automatically run the photo-mode verification harness once, ~10s after entering the world.");
+
+        PhotoModeSpawnDistance = Config.Bind(
+            "Dev Automation",
+            "PhotoModeSpawnDistance",
+            5.0f,
+            new ConfigDescription(
+                "Distance in front of the player to spawn the photo-mode Charred_Melee.",
+                new AcceptableValueRange<float>(2f, 15f)));
 
         // Migrate renamed/moved config keys
         try
@@ -578,6 +687,9 @@ public class Plugin : BaseUnityPlugin
 
         Config.Save();
         Config.SaveOnConfigSet = true;
+
+        EnableFableWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        ClonePlayerToWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
 
         try
         {
@@ -739,6 +851,7 @@ public class Plugin : BaseUnityPlugin
     private void Update()
     {
         Patches.DevAutoLoadPatches.Tick();
+        Patches.PhotoModePatches.Tick();
 
         var inWorld = Player.m_localPlayer != null;
         if (inWorld)
@@ -753,6 +866,7 @@ public class Plugin : BaseUnityPlugin
                     Patches.TreePatches.RefreshTrees();
                     Patches.ValkyriePatches.RefreshValkyries();
                     Patches.CharredWarriorPatches.RefreshCharredWarriors();
+                    Patches.FableWarriorPatches.RefreshAll();
                     Log.LogInfo("[Ashlands Reborn] Master switch ON - all overrides applied");
                 }
                 else
@@ -762,6 +876,7 @@ public class Plugin : BaseUnityPlugin
                     Patches.TreePatches.RevertAllTrees();
                     Patches.ValkyriePatches.RevertAllValkyries();
                     Patches.CharredWarriorPatches.RevertAllCharredWarriors();
+                    Patches.FableWarriorPatches.RevertAll();
                     Log.LogInfo("[Ashlands Reborn] Master switch OFF - all overrides reverted");
                 }
             }
@@ -780,18 +895,35 @@ public class Plugin : BaseUnityPlugin
             if (Input.GetKeyDown(WarriorRefreshKey?.Value ?? KeyCode.F10) && Time.time - _lastCharredRefreshTime >= 1f)
             {
                 _lastCharredRefreshTime = Time.time;
-                // Dump BEFORE refresh — _lastChestSMR is still valid
-                Patches.CharredWarriorPatches.DumpChestMatricesNow();
-                Patches.CharredWarriorPatches.RefreshCharredWarriors();
-                Log.LogInfo("[Ashlands Reborn] Warrior matrix dump + refresh triggered");
+                if (IsFablePuppetActive)
+                {
+                    Patches.FableWarriorPatches.RefreshAll();
+                    Log.LogInfo("[Ashlands Reborn] Fable Warrior refresh triggered");
+                }
+                else
+                {
+                    // Dump BEFORE refresh — _lastChestSMR is still valid
+                    Patches.CharredWarriorPatches.DumpChestMatricesNow();
+                    Patches.CharredWarriorPatches.RefreshCharredWarriors();
+                    Log.LogInfo("[Ashlands Reborn] Warrior matrix dump + refresh triggered");
+                }
+            }
+            if (Input.GetKeyDown(WarriorVanillaDumpSubmeshesKey?.Value ?? KeyCode.F12))
+            {
+                Patches.CharredWarriorPatches.DumpVanillaBreastplateSubmeshes();
             }
 
             if (Time.time - _lastBracerScaleUpdateTime >= 0.2f)
             {
                 _lastBracerScaleUpdateTime = Time.time;
-                Patches.CharredWarriorPatches.UpdateBracerScales();
-                Patches.CharredWarriorPatches.UpdateChestSubmeshesHidden();
-                Patches.CharredWarriorPatches.UpdateBodySwapThickness();
+                if (!IsFablePuppetActive)
+                {
+                    Patches.CharredWarriorPatches.UpdateBracerScales();
+                    Patches.CharredWarriorPatches.UpdateChestSubmeshesHidden();
+                    Patches.CharredWarriorPatches.UpdateBodySwapThickness();
+                    Patches.CharredWarriorPatches.UpdateVanillaBreastplateMods();
+                }
+                Patches.FableWarriorPatches.PeriodicUpdate();
             }
         }
 
@@ -819,6 +951,25 @@ public class Plugin : BaseUnityPlugin
         {
             Console.instance.TryRunCommand("god");
             Log.LogInfo("[Ashlands Reborn] Ran god");
+        }
+    }
+
+    // Mode transitions between the legacy Charred Warrior swap and the Fable Warrior puppet
+    // must clean up the mode being left before applying the mode being entered - otherwise
+    // stale attachments/instances from one system can linger under the other.
+    private void OnFableWarriorModeChanged()
+    {
+        if (!MasterSwitch.Value || Player.m_localPlayer == null) return;
+
+        if (IsFablePuppetActive)
+        {
+            Patches.CharredWarriorPatches.RevertAllCharredWarriors();
+            Patches.FableWarriorPatches.RefreshAll();
+        }
+        else
+        {
+            Patches.FableWarriorPatches.RevertAll();
+            Patches.CharredWarriorPatches.RefreshCharredWarriors();
         }
     }
 

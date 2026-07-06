@@ -1,0 +1,1402 @@
+[Message:   BepInEx] BepInEx 5.4.23.3 - valheim (2/4/2026 8:13:43 PM)
+[Message:   BepInEx] User is running BepInExPack Valheim version 5.4.2333 from Thunderstore
+[Info   :   BepInEx] Running under Unity v6000.0.61.7643309
+[Info   :   BepInEx] CLR runtime version: 4.0.30319.42000
+[Info   :   BepInEx] Supports SRE: True
+[Info   :   BepInEx] System platform: Bits64, Windows
+[Message:   BepInEx] Preloader started
+[Info   :   BepInEx] Loaded 1 patcher method from [BepInEx.Preloader 5.4.23.3]
+[Info   :   BepInEx] 1 patcher plugin loaded
+[Info   :   BepInEx] Patching [UnityEngine.CoreModule] with [BepInEx.Chainloader]
+[Message:   BepInEx] Preloader finished
+[Message:   BepInEx] Valheim Version: 0.221.12 (network version 36)
+[Message:   BepInEx] Chainloader ready
+[Message:   BepInEx] Chainloader started
+[Info   :   BepInEx] 3 plugins to load
+[Info   :   BepInEx] Loading [Ashlands Reborn 1.0.0]
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain patches applied: GetBiomeColor, RebuildRenderMesh, Heightmap.OnEnable, FindBiomeClutter, ClutterSystem.GetGroundInfo (Heightmap from assembly_valheim)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Tree patch applied: TreeBase.Awake
+[Info   :Ashlands Reborn] Ashlands Reborn v1.0.0 loaded. Mod: ON, Weather: ON, Terrain: ON, Trees: ON, Valkyrie: Enabled, CharredSwap: ON
+[Info   :   BepInEx] Loading [Configuration Manager 18.4.1]
+[Info   :   BepInEx] Loading [SouthsilArmor 3.1.8]
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #0 - 'localization' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #1 - 'localization_extra' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #2 - 'heightmap_message' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #3 - 'localization_witch' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #4 - 'localization_ashlands' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #5 - 'localization_captions' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #6 - 'localization_combatupdate' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #7 - 'localization_celebrationupdate' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #0 - 'localization' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #1 - 'localization_extra' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #2 - 'heightmap_message' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #3 - 'localization_witch' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #4 - 'localization_ashlands' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #5 - 'localization_captions' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #6 - 'localization_combatupdate' language: 'English'
+
+[Info   : Unity Log] 03/05/2026 22:23:19: Loaded localization file #7 - 'localization_celebrationupdate' language: 'English'
+
+[Message:   BepInEx] Chainloader startup complete
+[Info   : Unity Log] 03/05/2026 22:23:27: Using environment steamid 892970
+
+[Info   : Unity Log] 03/05/2026 22:23:27: Using steam APPID:892970
+
+Setting breakpad minidump AppID = 892970
+SteamInternal_SetMinidumpSteamID:  Caching Steam ID:  76561198258770998 [API loaded no]
+[Info   : Unity Log] 03/05/2026 22:23:27: Authentication:k_ESteamNetworkingAvailability_Attempting
+
+[Info   : Unity Log] 03/05/2026 22:23:28: Platform doesn't implement Process Lifetime Management! Don't initialize suspend manager.
+
+[Info   : Unity Log] 03/05/2026 22:23:28: Initialized platform!
+
+[Info   : Unity Log] 03/05/2026 22:23:28: Platform doesn't implement matchmaking! Don't initialize matchmaking manager.
+
+[Info   : Unity Log] 03/05/2026 22:23:28: All files in local storage save data:
+C:/Users/danjo/AppData/LocalLow/IronGate/Valheim\adminlist.txt (40)
+C:/Users/danjo/AppData/LocalLow/IronGate/Valheim\bannedlist.txt (41)
+C:/Users/danjo/AppData/LocalLow/IronGate/Valheim\permittedlist.txt (43)
+C:/Users/danjo/AppData/LocalLow/IronGate/Valheim\Player-prev.log (444518)
+C:/Users/danjo/AppData/LocalLow/IronGate/Valheim\Player.log (4757)
+
+[Info   : Unity Log] 03/05/2026 22:23:28: All files in platform save data:
+characters/bear.fch (111412)
+characters/bear.fch.old (108210)
+characters/falcon.fch (94038)
+characters/falcon.fch.old (93972)
+characters/hawk.fch (4345933)
+characters/hawk.fch.old (4333022)
+characters/hawk_backup_20240519-195023.fch (4330000)
+characters/hawk_backup_auto-20221218204735.fch (4329316)
+characters/hawk_backup_auto-20221218224810.fch (4328074)
+characters/hawk_backup_auto-20221219152537.fch (4327812)
+characters/hawk_backup_auto-20221219233824.fch (4330264)
+characters/kinglet.fch (55153)
+characters/kinglet.fch.old (55191)
+characters/leif.fch (326424)
+characters/leif.fch.old (326491)
+characters/light.fch (61028)
+characters/light.fch.old (61505)
+characters/light_backup_20230819-070009.fch (16510)
+characters/light_backup_auto-20230923214019.fch (52326)
+characters/light_backup_auto-20230924014638.fch (52967)
+characters/light_backup_auto-20230925221359.fch (53419)
+characters/light_backup_auto-20231015195905.fch (51987)
+characters/light_backup_restore-20230819-210909.fch (18657)
+characters/light_backup_restore-20230919-200947.fch (40496)
+characters/light_backup_restore-20230919-201725.fch (49086)
+characters/light_backup_restore-20230919-201904.fch (46673)
+characters/light_backup_restore-20230921-004853.fch (49002)
+characters/light_backup_restore-20230921-211937.fch (50924)
+characters/light_backup_restore-20230921-212206.fch (49115)
+characters/lucky.fch (16652)
+characters/lucky.fch.old (16325)
+characters/lucky_backup_auto-20220929214804.fch (416)
+characters/lucky_backup_auto-20221008172734.fch (16652)
+characters/moi.fch.old (9477)
+characters/moi_backup_auto-20220929204056.fch (319)
+characters/pyro.fch (13010)
+characters/pyro.fch.old (12907)
+characters/pyro_backup_auto-20240520213345.fch (789)
+characters/pyro_backup_auto-20240815161138.fch (13010)
+characters/swallow.fch (25804)
+characters/swallow.fch.old (25801)
+characters/wolverine.fch (40249)
+characters/wolverine.fch.old (45476)
+characters/wren.fch (89815)
+characters/wren.fch.old (80947)
+characters/wren_backup_20241029-221737.fch (34722)
+characters/wren_backup_auto-20241026081716.fch (33921)
+characters/wren_backup_auto-20241027194717.fch (34578)
+characters/wren_backup_auto-20241029222647.fch (35312)
+serverlist/favorite (190)
+serverlist/favorite.old (190)
+serverlist/recent (498)
+serverlist/recent.old (498)
+worlds/Being.db (23847490)
+worlds/Being.fwl (52)
+worlds/Being_backup_20230819-070010.db (3916509)
+worlds/Being_backup_20230819-070010.fwl (42)
+worlds/Being_backup_auto-20230923214019.db (23506169)
+worlds/Being_backup_auto-20230923214019.fwl (52)
+worlds/Being_backup_auto-20230924014638.db (23830419)
+worlds/Being_backup_auto-20230924014638.fwl (52)
+worlds/Being_backup_auto-20230925221359.db (23833909)
+worlds/Being_backup_auto-20230925221359.fwl (52)
+worlds/Being_backup_auto-20231015195905.db (23841476)
+worlds/Being_backup_auto-20231015195905.fwl (52)
+worlds/Being_backup_restore-20230819-210931.db (3909040)
+worlds/Being_backup_restore-20230819-210931.fwl (46)
+worlds/Being_backup_restore-20230919-201107.db (22017784)
+worlds/Being_backup_restore-20230919-201107.fwl (52)
+worlds/Being_backup_restore-20230919-201925.db (21994356)
+worlds/Being_backup_restore-20230919-201925.fwl (46)
+worlds/Being_backup_restore-20230921-004906.db (22481791)
+worlds/Being_backup_restore-20230921-004906.fwl (46)
+worlds/Being_backup_restore-20230921-211948.db (23368341)
+worlds/Being_backup_restore-20230921-211948.fwl (46)
+worlds/Being_backup_restore-20230921-212216.db (22712247)
+worlds/Being_backup_restore-20230921-212216.fwl (46)
+worlds/burnbabyburn.db (2235944)
+worlds/burnbabyburn.fwl (155)
+worlds/burnbabyburn_backup_auto-20240520213507.fwl (53)
+worlds/burnbabyburn_backup_auto-20240815154611.db (1836378)
+worlds/burnbabyburn_backup_auto-20240815154611.fwl (149)
+worlds/Habitat.db (27790100)
+worlds/Habitat.fwl (48)
+worlds/Habitat_backup_20241029-221738.db (27786480)
+worlds/Habitat_backup_20241029-221738.fwl (48)
+worlds/Habitat_backup_auto-20241025195436.db (27700624)
+worlds/Habitat_backup_auto-20241025195436.fwl (48)
+worlds/Habitat_backup_auto-20241026081716.db (27762938)
+worlds/Habitat_backup_auto-20241026081716.fwl (48)
+worlds/Habitat_backup_auto-20241027194717.db (27784426)
+worlds/Habitat_backup_auto-20241027194717.fwl (48)
+worlds/Habitat_backup_auto-20241029222648.fwl (48)
+worlds/Harmony.db (5065687)
+worlds/Harmony.db.old (13493360)
+worlds/Harmony.fwl (48)
+worlds/Harmony.fwl.old (43)
+worlds/Hawkthorne.db (66344543)
+worlds/Hawkthorne.db.old (165338705)
+worlds/Hawkthorne.fwl (51)
+worlds/Hawkthorne.fwl.old (46)
+worlds/Hawkthorne_backup_20240519-195023.fwl (46)
+worlds/Hawkthorne_backup_20240519-201109.db (165338705)
+worlds/Hawkthorne_backup_20240519-201109.fwl (46)
+worlds/Hawkthorne_backup_auto-20221218204737.db (170430053)
+worlds/Hawkthorne_backup_auto-20221218204737.fwl (46)
+worlds/Hawkthorne_backup_auto-20221219152541.db (170370400)
+worlds/Hawkthorne_backup_auto-20221219152541.fwl (46)
+worlds/Hawkthorne_backup_auto-20221219233826.fwl (46)
+worlds/Hawkthorne_backup_auto-20221220001518.db (171432601)
+worlds/Hawkthorne_backup_restore-20240519-193643.db (171432601)
+worlds/Hawkthorne_backup_restore-20240519-195124.db (1291173)
+worlds/Hawkthorne_backup_restore-20240519-195124.fwl (51)
+worlds/Marvelheim.db (58958422)
+worlds/Marvelheim.db.old (57166397)
+worlds/Marvelheim.fwl (46)
+worlds/Marvelheim.fwl.old (46)
+worlds/Marvelheim_backup_auto-20221129052725.db (57661334)
+worlds/Marvelheim_backup_auto-20221129052725.fwl (46)
+worlds/Marvelheim_backup_auto-20221129164549.db (57204094)
+worlds/Marvelheim_backup_auto-20221129164549.fwl (46)
+worlds/Marvelheim_backup_auto-20221130044349.db (58119282)
+worlds/Marvelheim_backup_auto-20221130044349.fwl (46)
+worlds/Marvelheim_backup_auto-20221130064406.db (58577842)
+worlds/Marvelheim_backup_auto-20221130064406.fwl (46)
+worlds/Thicket.db (4857954)
+worlds/Thicket.fwl (139)
+worlds/Uncharted.db (29358447)
+worlds/Uncharted.fwl (45)
+worlds/Thicket_backup_auto-20250212181342.db (4044502)
+worlds/Thicket_backup_auto-20250212181342.fwl (139)
+worlds/Thicket_backup_auto-20250212161037.fwl (139)
+worlds/Thicket_backup_auto-20250212161037.db (4023693)
+worlds/Thicket_backup_auto-20250215100359.fwl (139)
+worlds/Thicket_backup_auto-20250215100359.db (4048166)
+worlds/Thicket_backup_auto-20250215162026.fwl (139)
+worlds/Thicket_backup_auto-20250215162026.db (4857018)
+characters/light_backup_20250215-181701.fch (51961)
+characters/wren_backup_auto-20250215184840.fch (80947)
+worlds/Hawkthorne_backup_20250215-184841.fwl (51)
+worlds/Hawkthorne_backup_20250215-184841.db (66500546)
+worlds/Hawkthorne_backup_auto-20250215184841.fwl (51)
+worlds/Hawkthorne_backup_auto-20250215184841.db (66358629)
+characters/falcon_backup_20250215-185120.fch (45109)
+worlds/Harmony_backup_20250215-185120.fwl (43)
+worlds/Harmony_backup_20250215-185120.db (13555386)
+characters/raven.fch (32491)
+worlds/Whisper.fwl (48)
+worlds/Whisper_backup_auto-20250222200046.fwl (48)
+characters/raven.fch.old (32491)
+worlds/Whisper.db (8557899)
+worlds/Whisper_backup_auto-20250223021457.fwl (54)
+worlds/Whisper_backup_auto-20250223021457.db (4152653)
+worlds/Whisper_backup_auto-20250223231527.db (8575995)
+characters/raven_backup_auto-20250223131813.fch (14705)
+worlds/Whisper_backup_auto-20250223131813.fwl (54)
+worlds/Whisper_backup_auto-20250223131813.db (5050194)
+worlds/Whisper_backup_auto-20250223231527.fwl (54)
+characters/raven_backup_auto-20250223231527.fch (17826)
+characters/raven_backup_auto-20250224195727.fch (29463)
+characters/raven_backup_auto-20250225183211.fch (29628)
+characters/fledge.fch (20592)
+worlds/TheNest.fwl (159)
+characters/fledge.fch.old (21180)
+worlds/TheNest.db (2715515)
+characters/falcon_backup_auto-20250318202405.fch (82196)
+characters/fledge_backup_auto-20250228020651.fch (20541)
+worlds/TheNest_backup_auto-20250228020651.fwl (159)
+worlds/TheNest_backup_auto-20250228020651.db (2506432)
+characters/fledge_backup_auto-20250228210909.fch (18810)
+worlds/TheNest_backup_auto-20250228232453.db (2529648)
+worlds/TheNest_backup_auto-20250228232453.fwl (159)
+characters/fledge_backup_auto-20250228232452.fch (19415)
+characters/hawk_backup_20250228-232903.fch (4333022)
+characters/bear_backup_20250301-193352.fch (50788)
+characters/bear_backup_auto-20250302150557.fch (70287)
+characters/bear_backup_auto-20250304191720.fch (107423)
+characters/bear_backup_auto-20250304211804.fch (108218)
+characters/migrant_backup_auto-20250305200724.fch (784)
+characters/warbler.fch (32744)
+characters/warbler_backup_auto-20250305200904.fch (789)
+worlds/Seasons.fwl (54)
+worlds/Seasons_backup_auto-20250305200917.fwl (48)
+characters/warbler.fch.old (32699)
+worlds/Seasons.db (1779669)
+worlds/Seasons2.fwl (49)
+worlds/Seasons2_backup_auto-20250306183154.fwl (49)
+worlds/Seasons2.db (1043102)
+characters/bear_backup_auto-20250306192330.fch (109497)
+characters/falcon_backup_auto-20250308180659.fch (81708)
+characters/falcon_backup_auto-20250309030010.fch (81954)
+worlds/TheNest_backup_auto-20250317220607.fwl (159)
+worlds/TheNest_backup_auto-20250317220607.db (2525472)
+characters/fledge_backup_auto-20250318195356.fch (20592)
+worlds/TheNest_backup_auto-20250318195357.fwl (159)
+worlds/TheNest_backup_auto-20250318195357.db (2715515)
+characters/falcon_backup_auto-20250323172238.fch (82614)
+worlds/Creative.fwl (197)
+worlds/Creative_backup_auto-20250323181032.fwl (49)
+worlds/Creative.db (8684978)
+characters/leif_backup_20250615-141027.fch (218935)
+characters/leif_backup_auto-20250711233900.fch (311446)
+characters/leif_backup_auto-20250712203144.fch (313753)
+characters/leif_backup_auto-20250713123133.fch (320785)
+characters/leif_backup_auto-20250718203142.fch (326491)
+characters/warbler_backup_20251115-184932.fch (21712)
+characters/kinglet_backup_20251116-103305.fch (20426)
+characters/warbler_backup_auto-20251115191932.fch (31258)
+worlds/Habitat_backup_20251116-103306.fwl (48)
+worlds/Habitat_backup_20251116-103306.db (27791801)
+worlds/Bearpaw.fwl (163)
+worlds/Bearpaw.db (20915030)
+characters/warbler_backup_auto-20251116150722.fch (32699)
+worlds/Bearpaw_backup_auto-20260215141341.db (20048089)
+worlds/Bearpaw_backup_auto-20260214212429.db (17948800)
+worlds/Bearpaw_backup_auto-20260214212429.fwl (163)
+characters/kinglet_backup_auto-20260214212429.fch (53706)
+worlds/Bearpaw_backup_auto-20260215141341.fwl (163)
+characters/kinglet_backup_auto-20260215141341.fch (54884)
+characters/owl.fch (18875)
+worlds/Roost.fwl (52)
+characters/owl.fch.old (18980)
+worlds/Roost.db (6626081)
+characters/owl_backup_auto-20260206205335.fch (16650)
+worlds/Roost_backup_auto-20260206205335.fwl (52)
+worlds/Roost_backup_auto-20260206205335.db (3851332)
+characters/owl_backup_auto-20260207113940.fch (18150)
+worlds/Roost_backup_auto-20260207113940.fwl (52)
+worlds/Roost_backup_auto-20260207113940.db (5589510)
+characters/owl_backup_auto-20260207185209.fch (19429)
+worlds/Roost_backup_auto-20260207185210.fwl (52)
+worlds/Roost_backup_auto-20260207185210.db (6594081)
+characters/owl_backup_auto-20260210201331.fch (18875)
+worlds/Roost_backup_auto-20260210201331.fwl (52)
+worlds/Roost_backup_auto-20260210201331.db (6626081)
+worlds/Bearpaw_backup_auto-20260215004852.db (19847936)
+worlds/Bearpaw_backup_auto-20260215004852.fwl (163)
+characters/kinglet_backup_20260211-173029.fch (52201)
+worlds/Bearpaw_backup_20260211-173029.fwl (163)
+worlds/Bearpaw_backup_20260211-173029.db (16698788)
+characters/kinglet_backup_auto-20260215004851.fch (54439)
+worlds/Reborn.fwl (282)
+characters/dove.fch (89695)
+characters/kinglet_backup_auto-20260213220739.fch (53158)
+worlds/Bearpaw_backup_auto-20260213220740.fwl (163)
+worlds/Bearpaw_backup_auto-20260213220740.db (17839529)
+characters/dove.fch.old (89695)
+worlds/Reborn.db (2940753)
+worlds/Hawkthorne_backup_20260221-184905.db (66336997)
+worlds/Hawkthorne_backup_20260221-184905.fwl (51)
+characters/dove_backup_auto-20260217113535.fch (26292)
+worlds/Reborn_backup_auto-20260221181839.fwl (282)
+worlds/Reborn_backup_auto-20260221181839.db (2901555)
+characters/falcon_backup_20260221-190045.fch (93972)
+characters/dove_backup_auto-20260223180529.fch (84345)
+worlds/Reborn_backup_auto-20260223180529.fwl (282)
+worlds/Reborn_backup_auto-20260223180529.db (2923972)
+characters/dove_backup_auto-20260223202342.fch (87030)
+worlds/Reborn_backup_auto-20260223202342.fwl (282)
+worlds/Reborn_backup_auto-20260223202342.db (2920737)
+characters/dove_backup_auto-20260301124451.fch (88790)
+worlds/Reborn_backup_auto-20260301124451.fwl (282)
+worlds/Reborn_backup_auto-20260301124451.db (2938540)
+
+[Info   : Unity Log] 03/05/2026 22:23:28: Initializing preferences provider...
+
+[Info   : Unity Log] 03/05/2026 22:23:28: No preference provider available for this platform!
+
+[Info   : Unity Log] 03/05/2026 22:23:28: Set background loading budget to Low
+
+[Info   : Unity Log] 03/05/2026 22:23:28: Loading first scene!
+
+[Info   : Unity Log] 03/05/2026 22:23:28: Preferences initialized! Activating first scene!
+
+[Info   : Unity Log] 03/05/2026 22:23:28:
+
+[Info   : Unity Log] 03/05/2026 22:23:28: Starting to load scene:start.unity (169d7618616154c03be07e9ad3af5893)
+
+[Info   : Unity Log] 03/05/2026 22:23:28: Set background loading budget to Normal
+
+[Info   : Unity Log] 03/05/2026 22:23:32: Set background loading budget to High
+
+[Info   : Unity Log] 03/05/2026 22:23:32: GPU Device: 10DE:28A0 (NVIDIA)
+
+[Info   : Unity Log] 03/05/2026 22:23:33: Set background loading budget to Low
+
+[Warning: Unity Log] Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Amb_MainMenu).
+[Warning: Unity Log] 03/05/2026 22:23:34: Missing audio clip in music respawn
+
+[Info   : Unity Log] 03/05/2026 22:23:34: Steam initialized, persona:Hawk
+
+[Info   : Unity Log] 03/05/2026 22:23:34: Valheim version: 0.221.12 (network version 36)
+
+[Info   : Unity Log] 03/05/2026 22:23:34: Worldgenerator version setup:2
+
+[Info   : Unity Log] 03/05/2026 22:23:34: Render threading mode:LegacyJobified
+
+[Info   : Unity Log] 03/05/2026 22:23:34: Checking for installed DLCs
+
+[Info   : Unity Log] 03/05/2026 22:23:34: DLC:beta installed:False
+
+[Info   : Unity Log] 03/05/2026 22:23:35: Sending PlayFab login request (attempt 1)
+
+[Info   : Unity Log] 03/05/2026 22:23:35: Starting music menu
+
+[Info   : Unity Log] 03/05/2026 22:23:35: Session auth respons callback
+
+[Info   : Unity Log] 03/05/2026 22:23:36: Logged in PlayFab user via Steam auth session ticket
+
+[Info   : Unity Log] 03/05/2026 22:23:36: PlayFab local entity ID is 639CE0F50C354EC4
+
+[Info   : Unity Log] 03/05/2026 22:23:36: Released session ticket
+
+[Info   : Unity Log] 03/05/2026 22:23:39: show character selection
+
+[Info   : Unity Log] 03/05/2026 22:23:40: OnCharacterStart
+
+[Info   : Unity Log] 03/05/2026 22:23:42: Loading main scene
+
+[Info   : Unity Log] 03/05/2026 22:23:43: Audioman already exist, destroying self
+
+[Info   : Unity Log] 03/05/2026 22:23:43: Steam initialized, persona:Hawk
+
+[Info   : Unity Log] 03/05/2026 22:23:43: Loading player profile dove
+
+[Info   : Unity Log] 03/05/2026 22:23:43: isModded: True
+
+[Info   : Unity Log] 03/05/2026 22:23:43: Zonesystem Awake 698
+
+[Info   : Unity Log] 03/05/2026 22:23:43: DungeonDB Awake 698
+
+[Info   : Unity Log] 03/05/2026 22:23:43: Steam initialized, persona:Hawk
+
+[Info   : Unity Log] 03/05/2026 22:23:43: Worldgenerator version setup:2
+
+[Info   : Unity Log] Registered 'southsil.SouthsilArmor ConfigSync' RPC - waiting for incoming connections
+[Info   : Unity Log] Registered 'southsil.SouthsilArmor ItemManager ConfigSync' RPC - waiting for incoming connections
+[Info   : Unity Log] 03/05/2026 22:23:45: Checking for installed DLCs
+
+[Info   : Unity Log] 03/05/2026 22:23:45: DLC:beta installed:False
+
+[Warning: Unity Log] The required item 'Blackmetal' does not exist.
+[Warning: Unity Log] The required item 'Yggdrasil' does not exist.
+[Warning: Unity Log] The required item 'Blackmetal' does not exist.
+[Info   : Unity Log] 03/05/2026 22:23:45: Zonesystem Start 698
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Added 3 locations, 0 vegetations, 0 environments, 0 biome env-setups, 0 clutter  from main
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Added 1 locations, 0 vegetations, 2 environments, 0 biome env-setups, 0 clutter  from main
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Added 27 locations, 25 vegetations, 5 environments, 1 biome env-setups, 3 clutter  from main
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Added 4 locations, 0 vegetations, 1 environments, 0 biome env-setups, 0 clutter  from main
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Added 25 locations, 33 vegetations, 8 environments, 2 biome env-setups, 2 clutter  from main
+
+[Info   : Unity Log] 03/05/2026 22:23:45: DungeonDB Start 698
+
+[Info   : Unity Log] 03/05/2026 22:23:45: ZRpc timeout set to 30s
+
+[Info   : Unity Log] 03/05/2026 22:23:45: ZNET START
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Load world: Reborn (Reborn)
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Loading 60348 zdos, my sessionID: -391379541, data version: 37
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Loading in ZDOs
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Adding to Dictionary
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Adding to Sectors
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Connecting Portals, Spawners & ZSyncTransforms
+
+[Info   : Unity Log] ConnectPortals => Connected 1 portals.
+[Info   : Unity Log] ConnectSpawners => Connected 28 spawners and 23 'done' spawners.
+[Info   : Unity Log] 03/05/2026 22:23:45: Loaded 11331 locations
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Unloading unused assets
+
+[Info   : Unity Log] 03/05/2026 22:23:45: Starting respawn
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Baked Oak1: 2 parts, 2 materials
+[Info   :Ashlands Reborn] [Ashlands Reborn] Baked Beech1: 2 parts, 2 materials
+[Info   :Ashlands Reborn] [Ashlands Reborn] Tree replacement: 3 Ashlands tree types, 4 Meadows prefabs cached
+[Info   : Unity Log] 03/05/2026 22:23:46: Loading minimap textures done [301ms]
+
+[Info   : Unity Log] 03/05/2026 22:23:46: Minimap: unpacking compressed mapData 8848 => 8388760 bytes
+
+[Info   : Unity Log] 03/05/2026 22:23:46: tip:$loadscreen_tip18
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree3 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree3 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree3 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree3 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree6 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override: lava restore for 1729 vertices at (128, -9792)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override: lava restore for 286 vertices at (0, -9856)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override: lava restore for 2601 vertices at (0, -9728)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override: lava restore for 2534 vertices at (0, -9792)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override: lava restore for 74 vertices at (64, -9792)
+[Info   : Unity Log] 03/05/2026 22:23:49: Loading dungeon
+
+[Info   : Unity Log] 03/05/2026 22:23:49: Dungeon loaded with 19 rooms in 2.5104 ms.
+
+[Info   : Unity Log] 03/05/2026 22:23:49: Loading room prefabs asynchronously
+
+[Info   : Unity Log] 03/05/2026 22:23:49: Spawning dungeon
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   :Ashlands Reborn] === CHARRED WARRIOR DUMP ===
+Prefab name: 'Charred_Melee'
+Position: (83.88, 47.69, -9776.66)
+
+--- m_defaultItems (always equipped) ---
+  Charred_HipCloth
+  charred_greatsword_swing
+  charred_greatsword_thrust
+  charred_greatsword_feint
+  charred_greatsword_thrustfeint
+--- m_randomWeapon (one chosen randomly) ---
+  (empty)
+--- m_randomArmor (one chosen randomly) ---
+  null
+--- m_randomShield (one chosen randomly) ---
+  (empty)
+--- m_randomItems (each has a chance) ---
+  Charred_Helmet (50%)
+  Charred_Breastplate (50%)
+--- m_randomSets ---
+
+--- VisEquipment Slots (at Awake time) ---
+  m_rightItem: ''
+  m_leftItem: ''
+  m_chestItem: ''
+  m_legItem: ''
+  m_helmetItem: ''
+  m_shoulderItem: ''
+  m_utilityItem: ''
+
+--- Hierarchy (depth ≤ 6) ---
+Charred_Melee(Clone)
+  EyePos
+  Visual
+    TheCharred
+      Armature
+        Root
+          Hips
+            LeftUpLeg
+            RightUpLeg
+            Spine
+      Body
+      Eyes
+      Sinew
+      Skull
+
+--- SkinnedMeshRenderers ---
+  SMR: 'Body'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.01, 0.00)  size=(0.03, 0.03, 0.01)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+  SMR: 'Eyes'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.02, 0.00)  size=(0.00, 0.00, 0.00)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+  SMR: 'Sinew'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.01, 0.00)  size=(0.01, 0.02, 0.00)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+  SMR: 'Skull'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.02, 0.00)  size=(0.00, 0.00, 0.00)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+
+--- Renderers & Materials ---
+  ParticleSystemRenderer: 'EyeGlow'
+    Material: 'flame'  Shader: 'Legacy Shaders/Particles/Additive'
+  ParticleSystemRenderer: 'EyeGlow (1)'
+    Material: 'flame'  Shader: 'Legacy Shaders/Particles/Additive'
+  ParticleSystemRenderer: 'fx_charred_chestglow'
+    Material: 'glow'  Shader: 'Legacy Shaders/Particles/Alpha Blended'
+  ParticleSystemRenderer: '1-Star FX'
+    Material: 'fireworks_poof'  Shader: 'Particles/Standard Unlit2'
+  ParticleSystemRenderer: '2-Star FX'
+    Material: 'fireworks_poof'  Shader: 'Particles/Standard Unlit2'
+  ParticleSystemRenderer: '1-Star FX'
+    Material: 'fireworks_poof'  Shader: 'Particles/Standard Unlit2'
+  SkinnedMeshRenderer: 'Body'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+  SkinnedMeshRenderer: 'Eyes'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+  SkinnedMeshRenderer: 'Sinew'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+  SkinnedMeshRenderer: 'Skull'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+
+=== END CHARRED WARRIOR DUMP ===
+
+[Info   : Unity Log] 03/05/2026 22:23:50: Setting saddle:False
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   : Unity Log] 03/05/2026 22:23:50: Missing shoulder item 250838217
+
+[Info   : Unity Log] 03/05/2026 22:23:50: Missing shoulder item 250838217
+
+[Info   : Unity Log] 03/05/2026 22:23:50: Missing shoulder item 250838217
+
+[Info   : Unity Log] 03/05/2026 22:23:50: Missing shoulder item 250838217
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'knighthelm'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee sword: 'charred_greatsword_thrustfeint' → 'THSwordKrom'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'knighthelm'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'knighthelm'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'knighthelm'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'knighthelm'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'knighthelm'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'knighthelm'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'knighthelm'
+[Info   :Ashlands Reborn] === ARMOR BONE MAPPING DUMP ===
+Armor: 'knightchest'
+
+--- Charred_Melee available bones ---
+  'Root'
+  'Hips'
+  'Spine'
+  'Spine1'
+  'Spine2'
+  'Neck'
+  'Head'
+  'Jaw'
+  'LeftShoulder'
+  'LeftArm'
+  'LeftForeArm'
+  'LeftHand'
+  'LeftHandThumb1'
+  'LeftHandThumb2'
+  'LeftHandThumb3'
+  'LeftHandIndex1'
+  'LeftHandIndex2'
+  'LeftHandIndex3'
+  'LeftHandMiddle1'
+  'LeftHandMiddle2'
+  'LeftHandMiddle3'
+  'LeftHandRing1'
+  'LeftHandRing2'
+  'LeftHandRing3'
+  'LeftHandPinky1'
+  'LeftHandPinky2'
+  'LeftHandPinky3'
+  'Attach.l'
+  'RightShoulder'
+  'RightArm'
+  'RightForeArm'
+  'RightHand'
+  'RightHandThumb1'
+  'RightHandThumb2'
+  'RightHandThumb3'
+  'RightHandIndex1'
+  'RightHandIndex2'
+  'RightHandIndex3'
+  'RightHandMiddle1'
+  'RightHandMiddle2'
+  'RightHandMiddle3'
+  'RightHandRing1'
+  'RightHandRing2'
+  'RightHandRing3'
+  'RightHandPinky1'
+  'RightHandPinky2'
+  'RightHandPinky3'
+  'Attach.r'
+  'LeftUpLeg'
+  'LeftLeg'
+  'LeftFoot'
+  'LeftToeBase'
+  'RightUpLeg'
+  'RightLeg'
+  'RightFoot'
+  'RightToeBase'
+  'Charred_Melee(Clone)'
+  'EyePos'
+  'Visual'
+  'TheCharred'
+  'Armature'
+  'EyeGlow'
+  'EyeGlow (1)'
+  'attach(Clone)'
+  'Helm.004'
+  'Krom'
+  'equiped'
+  'trail'
+  'base'
+  'tip'
+  'fx_charred_chestglow'
+  '1-Star FX'
+  '2-Star FX'
+  'Body'
+  'Eyes'
+  'Sinew'
+  'Skull'
+  'attach_skin(Clone)'
+  'Padded_Cuirrass'
+  'Padded_Grieves'
+
+--- Armor SMR 'Padded_Cuirrass' expected bones (53) ---
+  [0] 'Hips' -> OK
+  [1] 'Spine' -> OK
+  [2] 'Spine1' -> OK
+  [3] 'Spine2' -> OK
+  [4] 'Neck' -> OK
+  [5] 'Head' -> OK
+  [6] 'Jaw' -> OK
+  [7] 'LeftShoulder' -> OK
+  [8] 'LeftArm' -> OK
+  [9] 'LeftForeArm' -> OK
+  [10] 'LeftHand' -> OK
+  [11] 'LeftHandThumb1' -> OK
+  [12] 'LeftHandThumb2' -> OK
+  [13] 'LeftHandThumb3' -> OK
+  [14] 'LeftHandIndex1' -> OK
+  [15] 'LeftHandIndex2' -> OK
+  [16] 'LeftHandIndex3' -> OK
+  [17] 'LeftHandMiddle1' -> OK
+  [18] 'LeftHandMiddle2' -> OK
+  [19] 'LeftHandMiddle3' -> OK
+  [20] 'LeftHandRing1' -> OK
+  [21] 'LeftHandRing2' -> OK
+  [22] 'LeftHandRing3' -> OK
+  [23] 'LeftHandPinky1' -> OK
+  [24] 'LeftHandPinky2' -> OK
+  [25] 'LeftHandPinky3' -> OK
+  [26] 'RightShoulder' -> OK
+  [27] 'RightArm' -> OK
+  [28] 'RightForeArm' -> OK
+  [29] 'RightHand' -> OK
+  [30] 'RightHandThumb1' -> OK
+  [31] 'RightHandThumb2' -> OK
+  [32] 'RightHandThumb3' -> OK
+  [33] 'RightHandIndex1' -> OK
+  [34] 'RightHandIndex2' -> OK
+  [35] 'RightHandIndex3' -> OK
+  [36] 'RightHandMiddle1' -> OK
+  [37] 'RightHandMiddle2' -> OK
+  [38] 'RightHandMiddle3' -> OK
+  [39] 'RightHandRing1' -> OK
+  [40] 'RightHandRing2' -> OK
+  [41] 'RightHandRing3' -> OK
+  [42] 'RightHandPinky1' -> OK
+  [43] 'RightHandPinky2' -> OK
+  [44] 'RightHandPinky3' -> OK
+  [45] 'LeftUpLeg' -> OK
+  [46] 'LeftLeg' -> OK
+  [47] 'LeftFoot' -> OK
+  [48] 'LeftToeBase' -> OK
+  [49] 'RightUpLeg' -> OK
+  [50] 'RightLeg' -> OK
+  [51] 'RightFoot' -> OK
+  [52] 'RightToeBase' -> OK
+  Total: 53, Missing: 0
+=== END ARMOR BONE MAPPING DUMP ===
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] === BIND-POSE DIAGNOSTIC DUMP ===
+Armor: 'knightchest', SMR: 'Padded_Cuirrass'
+Charred m_bodyModel: 'Body', bones=56, rootBone='Root'
+
+--- Per-bone bind-pose comparison (Player prefab vs Charred body) ---
+Format: bone | playerPos | charredPos | posDelta | playerRotEuler | charredRotEuler | rotDelta(deg) | playerScale | charredScale
+  Hips:
+    Player:  pos=(-0.00015,-0.00098,-0.02315)  rot=(270.0,0.0,0.0)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00017,0.01402)  rot=(270.0,0.0,0.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.03719  rotAngle=0.0deg
+  Spine:
+    Player:  pos=(-0.00015,-0.00098,-0.01667)  rot=(274.5,0.0,0.0)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00017,0.01567)  rot=(273.9,0.0,0.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.03237  rotAngle=0.6deg
+  Spine1:
+    Player:  pos=(-0.00015,0.00036,-0.00048)  rot=(275.7,0.0,0.0)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00034,0.01822)  rot=(278.7,0.0,0.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.01870  rotAngle=3.1deg
+  Spine2:
+    Player:  pos=(-0.00015,0.00120,0.00761)  rot=(275.7,0.0,0.0)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00066,0.02030)  rot=(271.2,180.0,180.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.01271  rotAngle=6.9deg
+  Neck:
+    Player:  pos=(-0.00015,0.00212,0.01645)  rot=(305.0,175.4,185.5)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00062,0.02231)  rot=(276.5,185.8,180.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.00605  rotAngle=29.0deg
+  Head:
+    Player:  pos=(-0.00039,-0.00043,0.01993)  rot=(292.0,90.0,180.0)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00000,0.00041,0.02412)  rot=(270.3,0.0,270.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.00429  rotAngle=22.0deg
+  LeftShoulder:
+    Player:  pos=(-0.00448,0.00217,0.01528)  rot=(19.0,174.0,270.2)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00032,-0.00051,0.02181)  rot=(0.5,1.6,292.1)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.00820  rotAngle=176.3deg
+  LeftArm:
+    Player:  pos=(-0.01309,0.00220,0.01246)  rot=(58.4,179.6,269.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00314,0.00063,0.02178)  rot=(10.8,0.8,278.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.01372  rotAngle=176.5deg
+  LeftForeArm:
+    Player:  pos=(-0.02303,0.00219,-0.00290)  rot=(57.6,178.8,269.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00700,0.00118,0.02104)  rot=(358.0,2.0,269.7)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.02883  rotAngle=177.6deg
+  LeftHand:
+    Player:  pos=(-0.03135,0.00205,-0.01534)  rot=(50.2,177.9,271.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.01093,0.00116,0.02118)  rot=(0.0,0.0,270.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.04185  rotAngle=177.3deg
+  RightShoulder:
+    Player:  pos=(0.00419,0.00217,0.01528)  rot=(19.0,186.0,89.8)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00032,-0.00051,0.02181)  rot=(0.5,358.4,67.9)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.00805  rotAngle=176.3deg
+  RightArm:
+    Player:  pos=(0.01280,0.00220,0.01246)  rot=(58.4,180.4,90.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00314,0.00063,0.02178)  rot=(10.8,359.2,82.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.01351  rotAngle=176.5deg
+  RightForeArm:
+    Player:  pos=(0.02274,0.00219,-0.00290)  rot=(57.6,181.2,90.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00700,0.00118,0.02104)  rot=(358.0,358.0,90.3)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.02867  rotAngle=177.6deg
+  RightHand:
+    Player:  pos=(0.03106,0.00205,-0.01534)  rot=(50.2,182.1,88.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.01093,0.00116,0.02118)  rot=(0.0,0.0,90.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.04171  rotAngle=177.3deg
+  LeftUpLeg:
+    Player:  pos=(-0.00597,-0.00068,-0.01698)  rot=(86.0,166.9,346.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00190,0.00012,0.01393)  rot=(89.8,0.0,0.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.03119  rotAngle=180.0deg
+  LeftLeg:
+    Player:  pos=(-0.00639,0.00112,-0.04246)  rot=(85.7,172.9,352.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00190,0.00015,0.00674)  rot=(82.7,358.8,358.6)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.04941  rotAngle=179.8deg
+  LeftFoot:
+    Player:  pos=(-0.00664,0.00312,-0.06771)  rot=(36.3,0.3,175.9)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(-0.00192,0.00090,0.00088)  rot=(25.5,180.0,180.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.06878  rotAngle=177.6deg
+  RightUpLeg:
+    Player:  pos=(0.00568,-0.00068,-0.01698)  rot=(86.0,193.1,13.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00190,0.00012,0.01393)  rot=(89.8,0.0,0.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.03115  rotAngle=180.0deg
+  RightLeg:
+    Player:  pos=(0.00610,0.00112,-0.04246)  rot=(85.7,187.1,7.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00190,0.00015,0.00674)  rot=(82.7,1.2,1.4)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.04938  rotAngle=179.8deg
+  RightFoot:
+    Player:  pos=(0.00634,0.00312,-0.06771)  rot=(36.3,359.7,184.1)  scale=(0.1766,0.1766,0.1856)
+    Charred: pos=(0.00192,0.00090,0.00088)  rot=(25.5,180.0,180.0)  scale=(1.0000,1.0000,1.0000)
+    Delta:   posDist=0.06876  rotAngle=177.6deg
+
+--- Charred skeleton hierarchy (parent chain + local transforms) ---
+  Transform chain from root:
+    'Charred_Melee(Clone)' localPos=(83.88, 47.68, -9776.66) localRot=(0.00, 0.00, 0.00) localScale=(0.90, 0.90, 0.90)
+  Armature -> root chain:
+    'Armature' localPos=(0.00, 0.00, 0.00) localRot=(270.02, 0.00, 0.00) localScale=(100.00, 100.00, 100.00) worldScale=(90.00, 90.00, 90.00)
+    'Root' localPos=(0.00, 0.00, 0.00) localRot=(89.98, 0.00, 0.00) localScale=(1.00, 1.00, 1.00) worldScale=(90.00, 90.00, 90.00)
+    'Hips' localPos=(0.00, 0.01, 0.00) localRot=(0.00, 0.00, 0.00) localScale=(1.00, 1.00, 1.00) worldScale=(90.00, 90.00, 90.00)
+    'LeftUpLeg' localPos=(0.00, 0.00, 0.00) localRot=(359.81, 180.00, 180.00) localScale=(1.00, 1.00, 1.00) worldScale=(90.00, 90.00, 90.00)
+    'LeftLeg' localPos=(0.00, 0.01, 0.00) localRot=(7.08, 359.85, 0.15) localScale=(1.00, 1.00, 1.00) worldScale=(90.00, 90.00, 90.00)
+  Per-bone parent chains:
+    Hips: chain=[Visual > TheCharred > Armature > Root > Hips]  localPos=(0.00, 0.01, 0.00)  localRot=(0.00, 0.00, 0.00)  localScale=(1.00, 1.00, 1.00)
+    Spine: chain=[Visual > TheCharred > Armature > Root > Hips > Spine]  localPos=(0.00, 0.00, 0.00)  localRot=(356.08, 0.00, 0.00)  localScale=(1.00, 1.00, 1.00)
+    Spine1: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1]  localPos=(0.00, 0.00, 0.00)  localRot=(355.18, 0.00, 0.00)  localScale=(1.00, 1.00, 1.00)
+    Spine2: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2]  localPos=(0.00, 0.00, 0.00)  localRot=(9.93, 0.00, 0.00)  localScale=(1.00, 1.00, 1.00)
+    Neck: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > Neck]  localPos=(0.00, 0.00, 0.00)  localRot=(5.32, 354.14, 359.45)  localScale=(1.00, 1.00, 1.00)
+    Head: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > Neck > Head]  localPos=(0.00, 0.00, 0.00)  localRot=(0.00, 95.84, 353.46)  localScale=(1.00, 1.00, 1.00)
+    LeftShoulder: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > LeftShoulder]  localPos=(0.00, 0.00, 0.00)  localRot=(271.12, 275.12, 152.80)  localScale=(1.00, 1.00, 1.00)
+    LeftArm: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > LeftShoulder > LeftArm]  localPos=(0.00, 0.00, 0.00)  localRot=(350.25, 358.19, 14.40)  localScale=(1.00, 1.00, 1.00)
+    LeftForeArm: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > LeftShoulder > LeftArm > LeftForeArm]  localPos=(0.00, 0.00, 0.00)  localRot=(13.08, 359.06, 7.90)  localScale=(1.00, 1.00, 1.00)
+    LeftHand: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > LeftShoulder > LeftArm > LeftForeArm > LeftHand]  localPos=(0.00, 0.00, 0.00)  localRot=(358.01, 2.00, 359.75)  localScale=(1.00, 1.00, 1.00)
+    RightShoulder: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > RightShoulder]  localPos=(0.00, 0.00, 0.00)  localRot=(271.12, 84.88, 207.20)  localScale=(1.00, 1.00, 1.00)
+    RightArm: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > RightShoulder > RightArm]  localPos=(0.00, 0.00, 0.00)  localRot=(350.25, 1.81, 345.60)  localScale=(1.00, 1.00, 1.00)
+    RightForeArm: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > RightShoulder > RightArm > RightForeArm]  localPos=(0.00, 0.00, 0.00)  localRot=(13.08, 0.94, 352.10)  localScale=(1.00, 1.00, 1.00)
+    RightHand: chain=[Visual > TheCharred > Armature > Root > Hips > Spine > Spine1 > Spine2 > RightShoulder > RightArm > RightForeArm > RightHand]  localPos=(0.00, 0.00, 0.00)  localRot=(358.01, 358.00, 0.25)  localScale=(1.00, 1.00, 1.00)
+    LeftUpLeg: chain=[Visual > TheCharred > Armature > Root > Hips > LeftUpLeg]  localPos=(0.00, 0.00, 0.00)  localRot=(359.81, 180.00, 180.00)  localScale=(1.00, 1.00, 1.00)
+    LeftLeg: chain=[Visual > TheCharred > Armature > Root > Hips > LeftUpLeg > LeftLeg]  localPos=(0.00, 0.01, 0.00)  localRot=(7.08, 359.85, 0.15)  localScale=(1.00, 1.00, 1.00)
+    LeftFoot: chain=[Visual > TheCharred > Armature > Root > Hips > LeftUpLeg > LeftLeg > LeftFoot]  localPos=(0.00, 0.01, 0.00)  localRot=(288.19, 0.67, 359.45)  localScale=(1.00, 1.00, 1.00)
+    RightUpLeg: chain=[Visual > TheCharred > Armature > Root > Hips > RightUpLeg]  localPos=(0.00, 0.00, 0.00)  localRot=(359.81, 180.00, 180.00)  localScale=(1.00, 1.00, 1.00)
+    RightLeg: chain=[Visual > TheCharred > Armature > Root > Hips > RightUpLeg > RightLeg]  localPos=(0.00, 0.01, 0.00)  localRot=(7.08, 0.15, 359.85)  localScale=(1.00, 1.00, 1.00)
+    RightFoot: chain=[Visual > TheCharred > Armature > Root > Hips > RightUpLeg > RightLeg > RightFoot]  localPos=(0.00, 0.01, 0.00)  localRot=(288.19, 359.33, 0.55)  localScale=(1.00, 1.00, 1.00)
+
+--- Vanilla AttachArmor state (armor SMR as vanilla left it) ---
+  SMR 'Padded_Cuirrass': bones=56, rootBone='Root'
+  SMR transform: localPos=(0.00, 0.00, 0.00), localRot=(270.02, 0.00, 0.00), localScale=(100.00, 100.00, 100.00)
+  SMR localToWorld row0=((90.00, 0.00, 0.00, 83.88))
+  SMR localToWorld row1=((0.00, 0.00, 90.00, 47.69))
+  SMR localToWorld row2=((0.00, -90.00, 0.00, -9776.66))
+  SMR localToWorld row3=((0.00, 0.00, 0.00, 1.00))
+  Vanilla bone array (56 entries):
+    [0] 'Root'  worldPos=(83.88, 47.69, -9776.66)
+    [1] 'Hips'  worldPos=(83.88, 48.95, -9776.68)
+    [2] 'Spine'  worldPos=(83.88, 49.10, -9776.68)
+    [3] 'Spine1'  worldPos=(83.88, 49.33, -9776.69)
+    [4] 'Spine2'  worldPos=(83.88, 49.52, -9776.72)
+    [5] 'Neck'  worldPos=(83.88, 49.70, -9776.72)
+    [6] 'Head'  worldPos=(83.88, 49.86, -9776.70)
+    [7] 'Jaw'  worldPos=(83.88, 49.87, -9776.67)
+    [8] 'LeftShoulder'  worldPos=(83.85, 49.65, -9776.61)
+    [9] 'LeftArm'  worldPos=(83.60, 49.65, -9776.72)
+    [10] 'LeftForeArm'  worldPos=(83.25, 49.58, -9776.77)
+    [11] 'LeftHand'  worldPos=(82.90, 49.60, -9776.77)
+    [12] 'LeftHandThumb1'  worldPos=(82.86, 49.59, -9776.71)
+    [13] 'LeftHandThumb2'  worldPos=(82.82, 49.56, -9776.68)
+    [14] 'LeftHandThumb3'  worldPos=(82.77, 49.52, -9776.68)
+    [15] 'LeftHandIndex1'  worldPos=(82.76, 49.61, -9776.72)
+    [16] 'LeftHandIndex2'  worldPos=(82.71, 49.61, -9776.72)
+    [17] 'LeftHandIndex3'  worldPos=(82.68, 49.60, -9776.72)
+    [18] 'LeftHandMiddle1'  worldPos=(82.75, 49.61, -9776.76)
+    [19] 'LeftHandMiddle2'  worldPos=(82.70, 49.61, -9776.75)
+    [20] 'LeftHandMiddle3'  worldPos=(82.66, 49.59, -9776.75)
+    [21] 'LeftHandRing1'  worldPos=(82.77, 49.60, -9776.79)
+    [22] 'LeftHandRing2'  worldPos=(82.72, 49.59, -9776.79)
+    [23] 'LeftHandRing3'  worldPos=(82.70, 49.58, -9776.79)
+    [24] 'LeftHandPinky1'  worldPos=(82.79, 49.58, -9776.81)
+    [25] 'LeftHandPinky2'  worldPos=(82.76, 49.57, -9776.81)
+    [26] 'LeftHandPinky3'  worldPos=(82.75, 49.55, -9776.82)
+    [27] 'Attach.l'  worldPos=(82.80, 49.57, -9776.76)
+    [28] 'RightShoulder'  worldPos=(83.91, 49.65, -9776.61)
+    [29] 'RightArm'  worldPos=(84.17, 49.65, -9776.72)
+    [30] 'RightForeArm'  worldPos=(84.51, 49.58, -9776.77)
+    [31] 'RightHand'  worldPos=(84.87, 49.60, -9776.77)
+    [32] 'RightHandThumb1'  worldPos=(84.91, 49.59, -9776.71)
+    [33] 'RightHandThumb2'  worldPos=(84.95, 49.56, -9776.68)
+    [34] 'RightHandThumb3'  worldPos=(85.00, 49.52, -9776.68)
+    [35] 'RightHandIndex1'  worldPos=(85.01, 49.61, -9776.72)
+    [36] 'RightHandIndex2'  worldPos=(85.05, 49.61, -9776.72)
+    [37] 'RightHandIndex3'  worldPos=(85.08, 49.60, -9776.72)
+    [38] 'RightHandMiddle1'  worldPos=(85.02, 49.61, -9776.76)
+    [39] 'RightHandMiddle2'  worldPos=(85.07, 49.61, -9776.75)
+    [40] 'RightHandMiddle3'  worldPos=(85.10, 49.59, -9776.75)
+    [41] 'RightHandRing1'  worldPos=(85.00, 49.60, -9776.79)
+    [42] 'RightHandRing2'  worldPos=(85.04, 49.59, -9776.79)
+    [43] 'RightHandRing3'  worldPos=(85.07, 49.58, -9776.79)
+    [44] 'RightHandPinky1'  worldPos=(84.97, 49.58, -9776.81)
+    [45] 'RightHandPinky2'  worldPos=(85.00, 49.57, -9776.81)
+    [46] 'RightHandPinky3'  worldPos=(85.02, 49.55, -9776.82)
+    [47] 'Attach.r'  worldPos=(84.96, 49.57, -9776.76)
+    [48] 'LeftUpLeg'  worldPos=(83.71, 48.94, -9776.67)
+    [49] 'LeftLeg'  worldPos=(83.71, 48.30, -9776.67)
+    [50] 'LeftFoot'  worldPos=(83.71, 47.77, -9776.74)
+    [51] 'LeftToeBase'  worldPos=(83.71, 47.69, -9776.58)
+    [52] 'RightUpLeg'  worldPos=(84.05, 48.94, -9776.67)
+  Vanilla mesh bind poses (53 entries, showing diag bones):
+    [1] 'Hips' pos=(-0.00015,-0.00098,-0.01667) rot=(274.5,0.0,0.0)
+    [2] 'Spine' pos=(-0.00015,0.00036,-0.00048) rot=(275.7,0.0,0.0)
+    [3] 'Spine1' pos=(-0.00015,0.00120,0.00761) rot=(275.7,0.0,0.0)
+    [4] 'Spine2' pos=(-0.00015,0.00212,0.01645) rot=(305.0,175.4,185.5)
+    [5] 'Neck' pos=(-0.00039,-0.00043,0.01993) rot=(292.0,90.0,180.0)
+    [6] 'Head' pos=(-0.00039,-0.00470,0.02226) rot=(28.4,180.0,180.0)
+    [8] 'LeftShoulder' pos=(-0.01309,0.00220,0.01246) rot=(58.4,179.6,269.9)
+    [9] 'LeftArm' pos=(-0.02303,0.00219,-0.00290) rot=(57.6,178.8,269.1)
+    [10] 'LeftForeArm' pos=(-0.03135,0.00205,-0.01534) rot=(50.2,177.9,271.9)
+    [11] 'LeftHand' pos=(-0.03237,-0.00076,-0.01752) rot=(43.5,138.1,216.5)
+    [28] 'RightShoulder' pos=(0.02274,0.00219,-0.00290) rot=(57.6,181.2,90.9)
+    [29] 'RightArm' pos=(0.03106,0.00205,-0.01534) rot=(50.2,182.1,88.1)
+    [30] 'RightForeArm' pos=(0.03207,-0.00076,-0.01752) rot=(43.5,221.9,143.5)
+    [31] 'RightHand' pos=(0.03346,-0.00263,-0.01962) rot=(49.8,227.6,121.0)
+    [48] 'LeftUpLeg' pos=(-0.00593,-0.00671,-0.07459) rot=(2.4,351.0,186.7)
+    [49] 'LeftLeg' pos=(0.00568,-0.00068,-0.01698) rot=(86.0,193.1,13.1)
+    [50] 'LeftFoot' pos=(0.00610,0.00112,-0.04246) rot=(85.7,187.1,7.1)
+    [52] 'RightUpLeg' pos=(0.00564,-0.00671,-0.07459) rot=(2.4,9.0,173.3)
+=== END BIND-POSE DIAGNOSTIC DUMP ===
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | SMR='Padded_Cuirrass'
+  hipsMeshPosPlayer  (player prefab BP inverse.pos)   = (0.00, 0.00, -0.02)
+  hipsBPMeshPos      (charred BP inverse.pos for Hips) = (0.00, 0.00, 0.01)
+  spine2BPMeshPos    (charred BP inverse.pos Spine2)   = (0.00, 0.00, 0.02)
+  hipsWorldPos       (Hips bone world pos)             = (83.88, 48.95, -9776.68)
+  hipsLocalPos       (Hips via InverseTransformPoint)  = (0.00, 0.00, 0.01)
+  smrL2W.pos         (SMR origin world)                = (83.88, 47.69, -9776.66)
+  scaleMat           (autoCorr*userScale)              = 0.2346
+  SMR localPos=(0.00, 0.00, 0.00)  localRot=(270.02, 0.00, 0.00)  localScale=(100.00, 100.00, 100.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | Hips newBP[0]:
+  row0=(0.23, 0.00, 0.00, 0.00)
+  row1=(0.00, 0.00, 0.23, -0.02)
+  row2=(0.00, -0.23, 0.00, 0.00)
+  row3=(0.00, 0.00, 0.00, 1.00)
+  inverse.pos=(0.00, 0.00, 0.07)
+[Error  : Unity Log] Not allowed to call RecalculateBounds() on mesh 'Body(Clone)'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest bounds | SMR='Padded_Cuirrass'  newBounds center=(0.00, 0.00, 0.00)  size=(0.08, 0.03, 0.05)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): Padded_Cuirrass on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): Padded_Grieves on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | SMR='Padded_Cuirrass'
+  hipsMeshPosPlayer  (player prefab BP inverse.pos)   = (0.00, 0.00, -0.02)
+  hipsBPMeshPos      (charred BP inverse.pos for Hips) = (0.00, 0.00, 0.01)
+  spine2BPMeshPos    (charred BP inverse.pos Spine2)   = (0.00, 0.00, 0.02)
+  hipsWorldPos       (Hips bone world pos)             = (87.21, 51.73, -9760.22)
+  hipsLocalPos       (Hips via InverseTransformPoint)  = (0.00, 0.00, 0.01)
+  smrL2W.pos         (SMR origin world)                = (87.21, 50.47, -9760.20)
+  scaleMat           (autoCorr*userScale)              = 0.2346
+  SMR localPos=(0.00, 0.00, 0.00)  localRot=(270.02, 0.00, 0.00)  localScale=(100.00, 100.00, 100.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | Hips newBP[0]:
+  row0=(0.23, 0.00, 0.00, 0.00)
+  row1=(0.00, 0.00, 0.23, -0.02)
+  row2=(0.00, -0.23, 0.00, 0.00)
+  row3=(0.00, 0.00, 0.00, 1.00)
+  inverse.pos=(0.00, 0.00, 0.07)
+[Error  : Unity Log] Not allowed to call RecalculateBounds() on mesh 'Body(Clone)'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest bounds | SMR='Padded_Cuirrass'  newBounds center=(0.00, 0.00, 0.00)  size=(0.08, 0.03, 0.05)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): Padded_Cuirrass on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): Padded_Grieves on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | SMR='Padded_Cuirrass'
+  hipsMeshPosPlayer  (player prefab BP inverse.pos)   = (0.00, 0.00, -0.02)
+  hipsBPMeshPos      (charred BP inverse.pos for Hips) = (0.00, 0.00, 0.01)
+  spine2BPMeshPos    (charred BP inverse.pos Spine2)   = (0.00, 0.00, 0.02)
+  hipsWorldPos       (Hips bone world pos)             = (76.95, 54.44, -9763.36)
+  hipsLocalPos       (Hips via InverseTransformPoint)  = (0.00, 0.00, 0.01)
+  smrL2W.pos         (SMR origin world)                = (76.95, 53.18, -9763.34)
+  scaleMat           (autoCorr*userScale)              = 0.2346
+  SMR localPos=(0.00, 0.00, 0.00)  localRot=(270.02, 0.00, 0.00)  localScale=(100.00, 100.00, 100.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | Hips newBP[0]:
+  row0=(0.23, 0.00, 0.00, 0.00)
+  row1=(0.00, 0.00, 0.23, -0.02)
+  row2=(0.00, -0.23, 0.00, 0.00)
+  row3=(0.00, 0.00, 0.00, 1.00)
+  inverse.pos=(0.00, 0.00, 0.07)
+[Error  : Unity Log] Not allowed to call RecalculateBounds() on mesh 'Body(Clone)'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest bounds | SMR='Padded_Cuirrass'  newBounds center=(0.00, 0.00, 0.00)  size=(0.08, 0.03, 0.05)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): Padded_Cuirrass on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): Padded_Grieves on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | SMR='Padded_Cuirrass'
+  hipsMeshPosPlayer  (player prefab BP inverse.pos)   = (0.00, 0.00, -0.02)
+  hipsBPMeshPos      (charred BP inverse.pos for Hips) = (0.00, 0.00, 0.01)
+  spine2BPMeshPos    (charred BP inverse.pos Spine2)   = (0.00, 0.00, 0.02)
+  hipsWorldPos       (Hips bone world pos)             = (92.27, 50.72, -9745.81)
+  hipsLocalPos       (Hips via InverseTransformPoint)  = (0.00, 0.00, 0.01)
+  smrL2W.pos         (SMR origin world)                = (92.27, 49.46, -9745.79)
+  scaleMat           (autoCorr*userScale)              = 0.2346
+  SMR localPos=(0.00, 0.00, 0.00)  localRot=(270.02, 0.00, 0.00)  localScale=(100.00, 100.00, 100.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | Hips newBP[0]:
+  row0=(0.23, 0.00, 0.00, 0.00)
+  row1=(0.00, 0.00, 0.23, -0.02)
+  row2=(0.00, -0.23, 0.00, 0.00)
+  row3=(0.00, 0.00, 0.00, 1.00)
+  inverse.pos=(0.00, 0.00, 0.07)
+[Error  : Unity Log] Not allowed to call RecalculateBounds() on mesh 'Body(Clone)'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest bounds | SMR='Padded_Cuirrass'  newBounds center=(0.00, 0.00, 0.00)  size=(0.08, 0.03, 0.05)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): Padded_Cuirrass on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): Padded_Grieves on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   : Unity Log] 03/05/2026 22:23:50: Setting saddle:False
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   : Unity Log] 03/05/2026 22:23:50: Setting saddle:False
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | SMR='Padded_Cuirrass'
+  hipsMeshPosPlayer  (player prefab BP inverse.pos)   = (0.00, 0.00, -0.02)
+  hipsBPMeshPos      (charred BP inverse.pos for Hips) = (0.00, 0.00, 0.01)
+  spine2BPMeshPos    (charred BP inverse.pos Spine2)   = (0.00, 0.00, 0.02)
+  hipsWorldPos       (Hips bone world pos)             = (204.87, 36.96, -9794.76)
+  hipsLocalPos       (Hips via InverseTransformPoint)  = (0.00, 0.00, 0.01)
+  smrL2W.pos         (SMR origin world)                = (204.87, 35.70, -9794.75)
+  scaleMat           (autoCorr*userScale)              = 0.2346
+  SMR localPos=(0.00, 0.00, 0.00)  localRot=(270.02, 0.00, 0.00)  localScale=(100.00, 100.00, 100.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | Hips newBP[0]:
+  row0=(0.23, 0.00, 0.00, 0.00)
+  row1=(0.00, 0.00, 0.23, -0.02)
+  row2=(0.00, -0.23, 0.00, 0.00)
+  row3=(0.00, 0.00, 0.00, 1.00)
+  inverse.pos=(0.00, 0.00, 0.07)
+[Error  : Unity Log] Not allowed to call RecalculateBounds() on mesh 'Body(Clone)'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest bounds | SMR='Padded_Cuirrass'  newBounds center=(0.00, 0.00, 0.00)  size=(0.08, 0.03, 0.05)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): Padded_Cuirrass on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): Padded_Grieves on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Krom sword adjusted: scale=1.16
+[Info   :Ashlands Reborn] [Ashlands Reborn] Krom sword adjusted: scale=1.16
+[Info   :Ashlands Reborn] [Ashlands Reborn] Krom sword adjusted: scale=1.16
+[Info   :Ashlands Reborn] [Ashlands Reborn] Krom sword adjusted: scale=1.16
+[Info   :Ashlands Reborn] [Ashlands Reborn] Krom sword adjusted: scale=1.16
+[Info   :Ashlands Reborn] [Ashlands Reborn] Drake Helmet adjusted and shown: rootForward=(0.00, 0.00, 1.00), faceForward=(0.00, 0.00, 1.00), yOff=0.05, zOff=0.05
+[Info   :Ashlands Reborn] [Ashlands Reborn] Drake Helmet adjusted and shown: rootForward=(0.00, 0.00, 1.00), faceForward=(0.00, 0.00, 1.00), yOff=0.05, zOff=0.05
+[Info   :Ashlands Reborn] [Ashlands Reborn] Drake Helmet adjusted and shown: rootForward=(0.00, 0.00, 1.00), faceForward=(0.00, 0.00, 1.00), yOff=0.05, zOff=0.05
+[Info   :Ashlands Reborn] [Ashlands Reborn] Drake Helmet adjusted and shown: rootForward=(0.00, 0.00, 1.00), faceForward=(0.00, 0.00, 1.00), yOff=0.05, zOff=0.05
+[Info   :Ashlands Reborn] [Ashlands Reborn] Drake Helmet adjusted and shown: rootForward=(0.00, 0.00, 1.00), faceForward=(0.00, 0.00, 1.00), yOff=0.05, zOff=0.05
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   : Unity Log] 03/05/2026 22:23:50: Setting saddle:False
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | SMR='ChestPiece'
+  hipsMeshPosPlayer  (player prefab BP inverse.pos)   = (0.00, 0.00, -0.02)
+  hipsBPMeshPos      (charred BP inverse.pos for Hips) = (0.00, 0.00, 0.01)
+  spine2BPMeshPos    (charred BP inverse.pos Spine2)   = (0.00, 0.00, 0.02)
+  hipsWorldPos       (Hips bone world pos)             = (160.16, 50.73, -9692.14)
+  hipsLocalPos       (Hips via InverseTransformPoint)  = (0.00, 0.00, 0.01)
+  smrL2W.pos         (SMR origin world)                = (160.16, 49.46, -9692.13)
+  scaleMat           (autoCorr*userScale)              = 0.2346
+  SMR localPos=(0.00, 0.00, 0.00)  localRot=(270.02, 0.00, 0.00)  localScale=(100.00, 100.00, 100.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | Hips newBP[0]:
+  row0=(0.23, 0.00, 0.00, 0.00)
+  row1=(0.00, 0.00, 0.23, -0.02)
+  row2=(0.00, -0.23, 0.00, 0.00)
+  row3=(0.00, 0.00, 0.00, 1.00)
+  inverse.pos=(0.00, 0.00, 0.07)
+[Error  : Unity Log] Not allowed to call RecalculateBounds() on mesh 'Body(Clone)'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest bounds | SMR='ChestPiece'  newBounds center=(0.00, 0.00, 0.00)  size=(0.08, 0.03, 0.05)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): ChestPiece on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | SMR='ChestPiece'
+  hipsMeshPosPlayer  (player prefab BP inverse.pos)   = (0.00, 0.00, -0.02)
+  hipsBPMeshPos      (charred BP inverse.pos for Hips) = (0.00, 0.00, 0.01)
+  spine2BPMeshPos    (charred BP inverse.pos Spine2)   = (0.00, 0.00, 0.02)
+  hipsWorldPos       (Hips bone world pos)             = (224.12, 35.08, -9789.17)
+  hipsLocalPos       (Hips via InverseTransformPoint)  = (0.00, 0.00, 0.01)
+  smrL2W.pos         (SMR origin world)                = (224.13, 33.82, -9789.17)
+  scaleMat           (autoCorr*userScale)              = 0.2346
+  SMR localPos=(0.00, 0.00, 0.00)  localRot=(270.02, 0.00, 0.00)  localScale=(100.00, 100.00, 100.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | Hips newBP[0]:
+  row0=(0.23, 0.00, 0.00, 0.00)
+  row1=(0.00, 0.00, 0.23, -0.02)
+  row2=(0.00, -0.23, 0.00, 0.00)
+  row3=(0.00, 0.00, 0.00, 1.00)
+  inverse.pos=(0.00, 0.00, 0.07)
+[Error  : Unity Log] Not allowed to call RecalculateBounds() on mesh 'Body(Clone)'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest bounds | SMR='ChestPiece'  newBounds center=(0.00, 0.00, 0.00)  size=(0.08, 0.03, 0.05)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): ChestPiece on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightchest'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Auto-scale correction: playerSpine=0.0431, charredSpine=0.0101, ratio=0.2346
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | SMR='ChestPiece'
+  hipsMeshPosPlayer  (player prefab BP inverse.pos)   = (0.00, 0.00, -0.02)
+  hipsBPMeshPos      (charred BP inverse.pos for Hips) = (0.00, 0.00, 0.01)
+  spine2BPMeshPos    (charred BP inverse.pos Spine2)   = (0.00, 0.00, 0.02)
+  hipsWorldPos       (Hips bone world pos)             = (225.95, 42.36, -9691.04)
+  hipsLocalPos       (Hips via InverseTransformPoint)  = (0.00, 0.00, 0.01)
+  smrL2W.pos         (SMR origin world)                = (225.97, 40.97, -9691.04)
+  scaleMat           (autoCorr*userScale)              = 0.2346
+  SMR localPos=(0.00, 0.00, 0.00)  localRot=(270.02, 0.00, 0.00)  localScale=(100.00, 100.00, 100.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest BP diag v3 | Hips newBP[0]:
+  row0=(0.23, 0.00, 0.00, 0.00)
+  row1=(0.00, 0.00, 0.23, -0.02)
+  row2=(0.00, -0.23, 0.00, 0.00)
+  row3=(0.00, 0.00, 0.00, 1.00)
+  inverse.pos=(0.00, 0.00, 0.07)
+[Error  : Unity Log] Not allowed to call RecalculateBounds() on mesh 'Body(Clone)'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Chest bounds | SMR='ChestPiece'  newBounds center=(0.00, 0.00, 0.00)  size=(0.08, 0.03, 0.05)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Armor bind-pose remap (runtime): ChestPiece on Charred_Melee(Clone) (53 BPs, autoScale=0.2346, userScale=1.00)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred bind-pose map: 56 bones from all SMRs for 'knightlegs'
+[Warning:Ashlands Reborn] [Ashlands Reborn] Drake Helmet GO not found after 20 frames on Charred_Melee(Clone). m_helmet=Head
+[Warning:Ashlands Reborn] [Ashlands Reborn] Drake Helmet GO not found after 20 frames on Charred_Melee(Clone). m_helmet=Head
+[Warning:Ashlands Reborn] [Ashlands Reborn] Drake Helmet GO not found after 20 frames on Charred_Melee(Clone). m_helmet=Head
+[Info   : Unity Log] 03/05/2026 22:23:54: Spawned after 8.019993
+
+[Warning: Unity Log] 03/05/2026 22:23:54: Character ID for player ([Dove, 0:0], [Hawk, 0:0], Hawk) was 0:0. Skipping.
+
+[Info   : Unity Log] 03/05/2026 22:23:54: Skipping unloading unused assets
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Ran devcommands, god in 1s
+[Info   : Unity Log] 03/05/2026 22:23:54: Minimap: Adding unique location (-129.19, 35.16, -3.38)
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override applied: regenerating 25 heightmaps, resetting grass
+[Info   : Unity Log] 03/05/2026 22:23:54: Setting forced environment Clear
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Ran god
+[Info   : Unity Log] 03/05/2026 22:23:57: Starting music ashlands
+
+[Info   : Unity Log] 03/05/2026 22:23:57: Resumed music ashlands at 0
+
+[Info   : Unity Log] 03/05/2026 22:24:04: Activating default element Continue
+

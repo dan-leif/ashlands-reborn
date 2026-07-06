@@ -1,0 +1,1069 @@
+[Message:   BepInEx] BepInEx 5.4.23.3 - valheim (2/4/2026 8:13:43 PM)
+[Message:   BepInEx] User is running BepInExPack Valheim version 5.4.2333 from Thunderstore
+[Info   :   BepInEx] Running under Unity v6000.0.61.7643309
+[Info   :   BepInEx] CLR runtime version: 4.0.30319.42000
+[Info   :   BepInEx] Supports SRE: True
+[Info   :   BepInEx] System platform: Bits64, Windows
+[Message:   BepInEx] Preloader started
+[Info   :   BepInEx] Loaded 1 patcher method from [BepInEx.Preloader 5.4.23.3]
+[Info   :   BepInEx] 1 patcher plugin loaded
+[Info   :   BepInEx] Patching [UnityEngine.CoreModule] with [BepInEx.Chainloader]
+[Message:   BepInEx] Preloader finished
+[Message:   BepInEx] Valheim Version: 0.221.12 (network version 36)
+[Message:   BepInEx] Chainloader ready
+[Message:   BepInEx] Chainloader started
+[Info   :   BepInEx] 3 plugins to load
+[Info   :   BepInEx] Loading [Ashlands Reborn 1.0.0]
+[Info   :Ashlands Reborn] [Ashlands Reborn] SteamworksInitCompatibility: patched PlatformPrefs.MigratePlatformKeyIfNeeded
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain patches applied: GetBiomeColor, RebuildRenderMesh, Heightmap.OnEnable, FindBiomeClutter, ClutterSystem.GetGroundInfo (Heightmap from assembly_valheim)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Tree patch applied: TreeBase.Awake
+[Info   :Ashlands Reborn] Ashlands Reborn v1.0.0 loaded. Mod: ON, Weather: ON, Terrain: ON, Trees: ON, Valkyrie: Enabled, CharredSwap: ON
+[Info   :   BepInEx] Loading [Configuration Manager 18.4.1]
+[Info   :   BepInEx] Loading [SouthsilArmor 3.1.8]
+[Info   : Unity Log] 03/07/2026 20:58:39: Loaded localization file #0 - 'localization' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:39: Loaded localization file #1 - 'localization_extra' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:39: Loaded localization file #2 - 'heightmap_message' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:39: Loaded localization file #3 - 'localization_witch' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:39: Loaded localization file #4 - 'localization_ashlands' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:39: Loaded localization file #5 - 'localization_captions' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:39: Loaded localization file #6 - 'localization_combatupdate' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:39: Loaded localization file #7 - 'localization_celebrationupdate' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:39: Language has not been set explicitly yet
+
+[Info   : Unity Log] 03/07/2026 20:58:39: Setting language from locale
+
+[Error  : Unity Log] NullReferenceException: Object reference not set to an instance of an object
+Stack trace:
+Localization.SetLanguageFromLocale () (at <f9c1e10e233e4d07bcb7e2919c8ed6a6>:0)
+Localization.SetStartupLanguage () (at <f9c1e10e233e4d07bcb7e2919c8ed6a6>:0)
+Localization..ctor () (at <f9c1e10e233e4d07bcb7e2919c8ed6a6>:0)
+Localization.Initialize () (at <f9c1e10e233e4d07bcb7e2919c8ed6a6>:0)
+Localization.get_instance () (at <f9c1e10e233e4d07bcb7e2919c8ed6a6>:0)
+ItemManager.LocalizeKey.addForLang (System.String lang, System.String value) (at <a4cec17e051844f5bad6d8f253285773>:0)
+ItemManager.LocalizeKey.English (System.String key) (at <a4cec17e051844f5bad6d8f253285773>:0)
+ItemManagerModTemplate.ItemManagerModTemplatePlugin.Awake () (at <a4cec17e051844f5bad6d8f253285773>:0)
+UnityEngine.GameObject:AddComponent(Type)
+BepInEx.Bootstrap.Chainloader:Start() (at C:/Users/crypt/RiderProjects/BepInEx/BepInEx/Bootstrap/Chainloader.cs:434)
+UnityEngine.GameObject:.cctor()
+PlatformInitializer:EarlyInitialize()
+
+[Message:   BepInEx] Chainloader startup complete
+[Info   : Unity Log] 03/07/2026 20:58:40: Using environment steamid 892970
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Using steam APPID:892970
+
+Setting breakpad minidump AppID = 892970
+SteamInternal_SetMinidumpSteamID:  Caching Steam ID:  76561198258770998 [API loaded no]
+[Info   : Unity Log] 03/07/2026 20:58:40: Authentication:k_ESteamNetworkingAvailability_Attempting
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Platform doesn't implement Process Lifetime Management! Don't initialize suspend manager.
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Initialized platform!
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Platform doesn't implement matchmaking! Don't initialize matchmaking manager.
+
+[Info   : Unity Log] 03/07/2026 20:58:40: All files in local storage save data:
+C:/Users/Dev/AppData/LocalLow/IronGate/Valheim\adminlist.txt (40)
+C:/Users/Dev/AppData/LocalLow/IronGate/Valheim\bannedlist.txt (41)
+C:/Users/Dev/AppData/LocalLow/IronGate/Valheim\permittedlist.txt (43)
+C:/Users/Dev/AppData/LocalLow/IronGate/Valheim\Player-prev.log (48290)
+C:/Users/Dev/AppData/LocalLow/IronGate/Valheim\Player.log (5574)
+
+[Info   : Unity Log] 03/07/2026 20:58:40: All files in platform save data:
+characters/bear.fch (111412)
+characters/bear.fch.old (108210)
+characters/falcon.fch (94038)
+characters/falcon.fch.old (93972)
+characters/hawk.fch (4345933)
+characters/hawk.fch.old (4333022)
+characters/hawk_backup_20240519-195023.fch (4330000)
+characters/hawk_backup_auto-20221218204735.fch (4329316)
+characters/hawk_backup_auto-20221218224810.fch (4328074)
+characters/hawk_backup_auto-20221219152537.fch (4327812)
+characters/hawk_backup_auto-20221219233824.fch (4330264)
+characters/kinglet.fch (55153)
+characters/kinglet.fch.old (55191)
+characters/leif.fch (326424)
+characters/leif.fch.old (326491)
+characters/light.fch (61028)
+characters/light.fch.old (61505)
+characters/light_backup_20230819-070009.fch (16510)
+characters/light_backup_auto-20230923214019.fch (52326)
+characters/light_backup_auto-20230924014638.fch (52967)
+characters/light_backup_auto-20230925221359.fch (53419)
+characters/light_backup_auto-20231015195905.fch (51987)
+characters/light_backup_restore-20230819-210909.fch (18657)
+characters/light_backup_restore-20230919-200947.fch (40496)
+characters/light_backup_restore-20230919-201725.fch (49086)
+characters/light_backup_restore-20230919-201904.fch (46673)
+characters/light_backup_restore-20230921-004853.fch (49002)
+characters/light_backup_restore-20230921-211937.fch (50924)
+characters/light_backup_restore-20230921-212206.fch (49115)
+characters/lucky.fch (16652)
+characters/lucky.fch.old (16325)
+characters/lucky_backup_auto-20220929214804.fch (416)
+characters/lucky_backup_auto-20221008172734.fch (16652)
+characters/moi.fch.old (9477)
+characters/moi_backup_auto-20220929204056.fch (319)
+characters/pyro.fch (13010)
+characters/pyro.fch.old (12907)
+characters/pyro_backup_auto-20240520213345.fch (789)
+characters/pyro_backup_auto-20240815161138.fch (13010)
+characters/swallow.fch (25804)
+characters/swallow.fch.old (25801)
+characters/wolverine.fch (40249)
+characters/wolverine.fch.old (45476)
+characters/wren.fch (89815)
+characters/wren.fch.old (80947)
+characters/wren_backup_20241029-221737.fch (34722)
+characters/wren_backup_auto-20241026081716.fch (33921)
+characters/wren_backup_auto-20241027194717.fch (34578)
+characters/wren_backup_auto-20241029222647.fch (35312)
+serverlist/favorite (190)
+serverlist/favorite.old (190)
+serverlist/recent (498)
+serverlist/recent.old (498)
+worlds/Being.db (23847490)
+worlds/Being.fwl (52)
+worlds/Being_backup_20230819-070010.db (3916509)
+worlds/Being_backup_20230819-070010.fwl (42)
+worlds/Being_backup_auto-20230923214019.db (23506169)
+worlds/Being_backup_auto-20230923214019.fwl (52)
+worlds/Being_backup_auto-20230924014638.db (23830419)
+worlds/Being_backup_auto-20230924014638.fwl (52)
+worlds/Being_backup_auto-20230925221359.db (23833909)
+worlds/Being_backup_auto-20230925221359.fwl (52)
+worlds/Being_backup_auto-20231015195905.db (23841476)
+worlds/Being_backup_auto-20231015195905.fwl (52)
+worlds/Being_backup_restore-20230819-210931.db (3909040)
+worlds/Being_backup_restore-20230819-210931.fwl (46)
+worlds/Being_backup_restore-20230919-201107.db (22017784)
+worlds/Being_backup_restore-20230919-201107.fwl (52)
+worlds/Being_backup_restore-20230919-201925.db (21994356)
+worlds/Being_backup_restore-20230919-201925.fwl (46)
+worlds/Being_backup_restore-20230921-004906.db (22481791)
+worlds/Being_backup_restore-20230921-004906.fwl (46)
+worlds/Being_backup_restore-20230921-211948.db (23368341)
+worlds/Being_backup_restore-20230921-211948.fwl (46)
+worlds/Being_backup_restore-20230921-212216.db (22712247)
+worlds/Being_backup_restore-20230921-212216.fwl (46)
+worlds/burnbabyburn.db (2235944)
+worlds/burnbabyburn.fwl (155)
+worlds/burnbabyburn_backup_auto-20240520213507.fwl (53)
+worlds/burnbabyburn_backup_auto-20240815154611.db (1836378)
+worlds/burnbabyburn_backup_auto-20240815154611.fwl (149)
+worlds/Habitat.db (27790100)
+worlds/Habitat.fwl (48)
+worlds/Habitat_backup_20241029-221738.db (27786480)
+worlds/Habitat_backup_20241029-221738.fwl (48)
+worlds/Habitat_backup_auto-20241025195436.db (27700624)
+worlds/Habitat_backup_auto-20241025195436.fwl (48)
+worlds/Habitat_backup_auto-20241026081716.db (27762938)
+worlds/Habitat_backup_auto-20241026081716.fwl (48)
+worlds/Habitat_backup_auto-20241027194717.db (27784426)
+worlds/Habitat_backup_auto-20241027194717.fwl (48)
+worlds/Habitat_backup_auto-20241029222648.fwl (48)
+worlds/Harmony.db (5065687)
+worlds/Harmony.db.old (13493360)
+worlds/Harmony.fwl (48)
+worlds/Harmony.fwl.old (43)
+worlds/Hawkthorne.db (66344543)
+worlds/Hawkthorne.db.old (165338705)
+worlds/Hawkthorne.fwl (51)
+worlds/Hawkthorne.fwl.old (46)
+worlds/Hawkthorne_backup_20240519-195023.fwl (46)
+worlds/Hawkthorne_backup_20240519-201109.db (165338705)
+worlds/Hawkthorne_backup_20240519-201109.fwl (46)
+worlds/Hawkthorne_backup_auto-20221218204737.db (170430053)
+worlds/Hawkthorne_backup_auto-20221218204737.fwl (46)
+worlds/Hawkthorne_backup_auto-20221219152541.db (170370400)
+worlds/Hawkthorne_backup_auto-20221219152541.fwl (46)
+worlds/Hawkthorne_backup_auto-20221219233826.fwl (46)
+worlds/Hawkthorne_backup_auto-20221220001518.db (171432601)
+worlds/Hawkthorne_backup_restore-20240519-193643.db (171432601)
+worlds/Hawkthorne_backup_restore-20240519-195124.db (1291173)
+worlds/Hawkthorne_backup_restore-20240519-195124.fwl (51)
+worlds/Marvelheim.db (58958422)
+worlds/Marvelheim.db.old (57166397)
+worlds/Marvelheim.fwl (46)
+worlds/Marvelheim.fwl.old (46)
+worlds/Marvelheim_backup_auto-20221129052725.db (57661334)
+worlds/Marvelheim_backup_auto-20221129052725.fwl (46)
+worlds/Marvelheim_backup_auto-20221129164549.db (57204094)
+worlds/Marvelheim_backup_auto-20221129164549.fwl (46)
+worlds/Marvelheim_backup_auto-20221130044349.db (58119282)
+worlds/Marvelheim_backup_auto-20221130044349.fwl (46)
+worlds/Marvelheim_backup_auto-20221130064406.db (58577842)
+worlds/Marvelheim_backup_auto-20221130064406.fwl (46)
+worlds/Thicket.db (4857954)
+worlds/Thicket.fwl (139)
+worlds/Uncharted.db (29358447)
+worlds/Uncharted.fwl (45)
+worlds/Thicket_backup_auto-20250212181342.db (4044502)
+worlds/Thicket_backup_auto-20250212181342.fwl (139)
+worlds/Thicket_backup_auto-20250212161037.fwl (139)
+worlds/Thicket_backup_auto-20250212161037.db (4023693)
+worlds/Thicket_backup_auto-20250215100359.fwl (139)
+worlds/Thicket_backup_auto-20250215100359.db (4048166)
+worlds/Thicket_backup_auto-20250215162026.fwl (139)
+worlds/Thicket_backup_auto-20250215162026.db (4857018)
+characters/light_backup_20250215-181701.fch (51961)
+characters/wren_backup_auto-20250215184840.fch (80947)
+worlds/Hawkthorne_backup_20250215-184841.fwl (51)
+worlds/Hawkthorne_backup_20250215-184841.db (66500546)
+worlds/Hawkthorne_backup_auto-20250215184841.fwl (51)
+worlds/Hawkthorne_backup_auto-20250215184841.db (66358629)
+characters/falcon_backup_20250215-185120.fch (45109)
+worlds/Harmony_backup_20250215-185120.fwl (43)
+worlds/Harmony_backup_20250215-185120.db (13555386)
+characters/raven.fch (32491)
+worlds/Whisper.fwl (48)
+worlds/Whisper_backup_auto-20250222200046.fwl (48)
+characters/raven.fch.old (32491)
+worlds/Whisper.db (8557899)
+worlds/Whisper_backup_auto-20250223021457.fwl (54)
+worlds/Whisper_backup_auto-20250223021457.db (4152653)
+worlds/Whisper_backup_auto-20250223231527.db (8575995)
+characters/raven_backup_auto-20250223131813.fch (14705)
+worlds/Whisper_backup_auto-20250223131813.fwl (54)
+worlds/Whisper_backup_auto-20250223131813.db (5050194)
+worlds/Whisper_backup_auto-20250223231527.fwl (54)
+characters/raven_backup_auto-20250223231527.fch (17826)
+characters/raven_backup_auto-20250224195727.fch (29463)
+characters/raven_backup_auto-20250225183211.fch (29628)
+characters/fledge.fch (20592)
+worlds/TheNest.fwl (159)
+characters/fledge.fch.old (21180)
+worlds/TheNest.db (2715515)
+characters/falcon_backup_auto-20250318202405.fch (82196)
+characters/fledge_backup_auto-20250228020651.fch (20541)
+worlds/TheNest_backup_auto-20250228020651.fwl (159)
+worlds/TheNest_backup_auto-20250228020651.db (2506432)
+characters/fledge_backup_auto-20250228210909.fch (18810)
+worlds/TheNest_backup_auto-20250228232453.db (2529648)
+worlds/TheNest_backup_auto-20250228232453.fwl (159)
+characters/fledge_backup_auto-20250228232452.fch (19415)
+characters/hawk_backup_20250228-232903.fch (4333022)
+characters/bear_backup_20250301-193352.fch (50788)
+characters/bear_backup_auto-20250302150557.fch (70287)
+characters/bear_backup_auto-20250304191720.fch (107423)
+characters/bear_backup_auto-20250304211804.fch (108218)
+characters/migrant_backup_auto-20250305200724.fch (784)
+characters/warbler.fch (32744)
+characters/warbler_backup_auto-20250305200904.fch (789)
+worlds/Seasons.fwl (54)
+worlds/Seasons_backup_auto-20250305200917.fwl (48)
+characters/warbler.fch.old (32699)
+worlds/Seasons.db (1779669)
+worlds/Seasons2.fwl (49)
+worlds/Seasons2_backup_auto-20250306183154.fwl (49)
+worlds/Seasons2.db (1043102)
+characters/bear_backup_auto-20250306192330.fch (109497)
+characters/falcon_backup_auto-20250308180659.fch (81708)
+characters/falcon_backup_auto-20250309030010.fch (81954)
+worlds/TheNest_backup_auto-20250317220607.fwl (159)
+worlds/TheNest_backup_auto-20250317220607.db (2525472)
+characters/fledge_backup_auto-20250318195356.fch (20592)
+worlds/TheNest_backup_auto-20250318195357.fwl (159)
+worlds/TheNest_backup_auto-20250318195357.db (2715515)
+characters/falcon_backup_auto-20250323172238.fch (82614)
+worlds/Creative.fwl (197)
+worlds/Creative_backup_auto-20250323181032.fwl (49)
+worlds/Creative.db (8684978)
+characters/leif_backup_20250615-141027.fch (218935)
+characters/leif_backup_auto-20250711233900.fch (311446)
+characters/leif_backup_auto-20250712203144.fch (313753)
+characters/leif_backup_auto-20250713123133.fch (320785)
+characters/leif_backup_auto-20250718203142.fch (326491)
+characters/warbler_backup_20251115-184932.fch (21712)
+characters/kinglet_backup_20251116-103305.fch (20426)
+characters/warbler_backup_auto-20251115191932.fch (31258)
+worlds/Habitat_backup_20251116-103306.fwl (48)
+worlds/Habitat_backup_20251116-103306.db (27791801)
+worlds/Bearpaw.fwl (163)
+worlds/Bearpaw.db (20915030)
+characters/warbler_backup_auto-20251116150722.fch (32699)
+worlds/Bearpaw_backup_auto-20260215141341.db (20048089)
+worlds/Bearpaw_backup_auto-20260214212429.db (17948800)
+worlds/Bearpaw_backup_auto-20260214212429.fwl (163)
+characters/kinglet_backup_auto-20260214212429.fch (53706)
+worlds/Bearpaw_backup_auto-20260215141341.fwl (163)
+characters/kinglet_backup_auto-20260215141341.fch (54884)
+characters/owl.fch (18875)
+worlds/Roost.fwl (52)
+characters/owl.fch.old (18980)
+worlds/Roost.db (6626081)
+characters/owl_backup_auto-20260206205335.fch (16650)
+worlds/Roost_backup_auto-20260206205335.fwl (52)
+worlds/Roost_backup_auto-20260206205335.db (3851332)
+characters/owl_backup_auto-20260207113940.fch (18150)
+worlds/Roost_backup_auto-20260207113940.fwl (52)
+worlds/Roost_backup_auto-20260207113940.db (5589510)
+characters/owl_backup_auto-20260207185209.fch (19429)
+worlds/Roost_backup_auto-20260207185210.fwl (52)
+worlds/Roost_backup_auto-20260207185210.db (6594081)
+characters/owl_backup_auto-20260210201331.fch (18875)
+worlds/Roost_backup_auto-20260210201331.fwl (52)
+worlds/Roost_backup_auto-20260210201331.db (6626081)
+worlds/Bearpaw_backup_auto-20260215004852.db (19847936)
+worlds/Bearpaw_backup_auto-20260215004852.fwl (163)
+characters/kinglet_backup_20260211-173029.fch (52201)
+worlds/Bearpaw_backup_20260211-173029.fwl (163)
+worlds/Bearpaw_backup_20260211-173029.db (16698788)
+characters/kinglet_backup_auto-20260215004851.fch (54439)
+worlds/Reborn.fwl (282)
+characters/dove.fch (89695)
+characters/kinglet_backup_auto-20260213220739.fch (53158)
+worlds/Bearpaw_backup_auto-20260213220740.fwl (163)
+worlds/Bearpaw_backup_auto-20260213220740.db (17839529)
+characters/dove.fch.old (89695)
+worlds/Reborn.db (2941144)
+worlds/Hawkthorne_backup_20260221-184905.db (66336997)
+worlds/Hawkthorne_backup_20260221-184905.fwl (51)
+characters/dove_backup_auto-20260217113535.fch (26292)
+worlds/Reborn_backup_auto-20260221181839.fwl (282)
+worlds/Reborn_backup_auto-20260221181839.db (2901555)
+characters/falcon_backup_20260221-190045.fch (93972)
+characters/dove_backup_auto-20260223180529.fch (84345)
+worlds/Reborn_backup_auto-20260223180529.fwl (282)
+worlds/Reborn_backup_auto-20260223180529.db (2923972)
+characters/dove_backup_auto-20260223202342.fch (87030)
+worlds/Reborn_backup_auto-20260223202342.fwl (282)
+worlds/Reborn_backup_auto-20260223202342.db (2920737)
+characters/dove_backup_auto-20260301124451.fch (88790)
+worlds/Reborn_backup_auto-20260301124451.fwl (282)
+worlds/Reborn_backup_auto-20260301124451.db (2938540)
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Initializing preferences provider...
+
+[Info   : Unity Log] 03/07/2026 20:58:40: No preference provider available for this platform!
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Set background loading budget to Low
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Loading first scene!
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Preferences initialized! Activating first scene!
+
+[Info   : Unity Log] 03/07/2026 20:58:40:
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Starting to load scene:start.unity (169d7618616154c03be07e9ad3af5893)
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Set background loading budget to Normal
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Loaded localization file #0 - 'localization' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Loaded localization file #1 - 'localization_extra' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Loaded localization file #2 - 'heightmap_message' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Loaded localization file #3 - 'localization_witch' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Loaded localization file #4 - 'localization_ashlands' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Loaded localization file #5 - 'localization_captions' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Loaded localization file #6 - 'localization_combatupdate' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Loaded localization file #7 - 'localization_celebrationupdate' language: 'English'
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Language has not been set explicitly yet
+
+[Info   : Unity Log] 03/07/2026 20:58:40: Setting language from locale
+
+[Info   : Unity Log] 03/07/2026 20:58:40: User had no locale, don't set language
+
+[Info   : Unity Log] 03/07/2026 20:58:44: Set background loading budget to High
+
+[Info   : Unity Log] 03/07/2026 20:58:44: GPU Device: 10DE:28A0 (NVIDIA)
+
+[Info   : Unity Log] 03/07/2026 20:58:45: Set background loading budget to Low
+
+[Warning: Unity Log] Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Amb_MainMenu).
+[Warning: Unity Log] 03/07/2026 20:58:45: Missing audio clip in music respawn
+
+[Info   : Unity Log] 03/07/2026 20:58:45: Steam initialized, persona:Hawk
+
+[Info   : Unity Log] 03/07/2026 20:58:45: Valheim version: 0.221.12 (network version 36)
+
+[Info   : Unity Log] 03/07/2026 20:58:45: Worldgenerator version setup:2
+
+[Info   : Unity Log] 03/07/2026 20:58:45: Render threading mode:LegacyJobified
+
+[Info   : Unity Log] 03/07/2026 20:58:45: Checking for installed DLCs
+
+[Info   : Unity Log] 03/07/2026 20:58:45: DLC:beta installed:False
+
+[Info   : Unity Log] 03/07/2026 20:58:46: Sending PlayFab login request (attempt 1)
+
+[Info   : Unity Log] 03/07/2026 20:58:46: Starting music menu
+
+[Info   : Unity Log] 03/07/2026 20:58:46: Session auth respons callback
+
+[Info   : Unity Log] 03/07/2026 20:58:47: Logged in PlayFab user via Steam auth session ticket
+
+[Info   : Unity Log] 03/07/2026 20:58:47: PlayFab local entity ID is 639CE0F50C354EC4
+
+[Info   : Unity Log] 03/07/2026 20:58:47: Released session ticket
+
+[Info   : Unity Log] 03/07/2026 20:58:51: show character selection
+
+[Info   : Unity Log] 03/07/2026 20:58:54: OnCharacterStart
+
+[Info   : Unity Log] 03/07/2026 20:58:57: Loading main scene
+
+[Info   : Unity Log] 03/07/2026 20:58:57: Audioman already exist, destroying self
+
+[Info   : Unity Log] 03/07/2026 20:58:57: Steam initialized, persona:Hawk
+
+[Info   : Unity Log] 03/07/2026 20:58:57: Loading player profile dove
+
+[Info   : Unity Log] 03/07/2026 20:58:57: isModded: True
+
+[Info   : Unity Log] 03/07/2026 20:58:57: Zonesystem Awake 934
+
+[Info   : Unity Log] 03/07/2026 20:58:57: DungeonDB Awake 934
+
+[Info   : Unity Log] 03/07/2026 20:58:57: Steam initialized, persona:Hawk
+
+[Info   : Unity Log] 03/07/2026 20:58:57: Worldgenerator version setup:2
+
+[Info   : Unity Log] Registered 'southsil.SouthsilArmor ConfigSync' RPC - waiting for incoming connections
+[Info   : Unity Log] Registered 'southsil.SouthsilArmor ItemManager ConfigSync' RPC - waiting for incoming connections
+[Info   : Unity Log] 03/07/2026 20:59:00: Checking for installed DLCs
+
+[Info   : Unity Log] 03/07/2026 20:59:00: DLC:beta installed:False
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Zonesystem Start 934
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Added 3 locations, 0 vegetations, 0 environments, 0 biome env-setups, 0 clutter  from main
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Added 1 locations, 0 vegetations, 2 environments, 0 biome env-setups, 0 clutter  from main
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Added 27 locations, 25 vegetations, 5 environments, 1 biome env-setups, 3 clutter  from main
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Added 4 locations, 0 vegetations, 1 environments, 0 biome env-setups, 0 clutter  from main
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Added 25 locations, 33 vegetations, 8 environments, 2 biome env-setups, 2 clutter  from main
+
+[Info   : Unity Log] 03/07/2026 20:59:00: DungeonDB Start 934
+
+[Info   : Unity Log] 03/07/2026 20:59:00: ZRpc timeout set to 30s
+
+[Info   : Unity Log] 03/07/2026 20:59:00: ZNET START
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Load world: Reborn (Reborn)
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Loading 60362 zdos, my sessionID: 189342153, data version: 37
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Loading in ZDOs
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Adding to Dictionary
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Adding to Sectors
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Connecting Portals, Spawners & ZSyncTransforms
+
+[Info   : Unity Log] ConnectPortals => Connected 1 portals.
+[Info   : Unity Log] ConnectSpawners => Connected 28 spawners and 23 'done' spawners.
+[Info   : Unity Log] 03/07/2026 20:59:00: Loaded 11331 locations
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Unloading unused assets
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Starting respawn
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Loading minimap textures done [309ms]
+
+[Info   : Unity Log] 03/07/2026 20:59:00: Minimap: unpacking compressed mapData 8848 => 8388760 bytes
+
+[Info   : Unity Log] 03/07/2026 20:59:00: tip:$loadscreen_tip17
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Baked Oak1: 2 parts, 2 materials
+[Info   :Ashlands Reborn] [Ashlands Reborn] Baked Beech1: 2 parts, 2 materials
+[Info   :Ashlands Reborn] [Ashlands Reborn] Tree replacement: 3 Ashlands tree types, 4 Meadows prefabs cached
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree3 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree3 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree3 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override: lava restore for 1729 vertices at (128, -9792)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree1 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree3 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree3 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Transformed tree: AshlandsTree3 -> Oak1
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override: lava restore for 2534 vertices at (0, -9792)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override: lava restore for 286 vertices at (0, -9856)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override: lava restore for 2601 vertices at (0, -9728)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override: lava restore for 74 vertices at (64, -9792)
+[Info   : Unity Log] 03/07/2026 20:59:03: Failed to find item prefab norahlegs
+
+[Info   : Unity Log] 03/07/2026 20:59:03: Failed to find item prefab norahhelm
+
+[Info   : Unity Log] 03/07/2026 20:59:03: Failed to find item prefab norahchest
+
+[Info   : Unity Log] 03/07/2026 20:59:03: Failed to find item prefab norahhelmalt
+
+[Info   : Unity Log] 03/07/2026 20:59:03: Failed to find item prefab ss_ashcape
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Loading dungeon
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Dungeon loaded with 19 rooms in 3.3433 ms.
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Loading room prefabs asynchronously
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Spawning dungeon
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   :Ashlands Reborn] === CHARRED WARRIOR DUMP ===
+Prefab name: 'Charred_Melee'
+Position: (91.15, 46.93, -9772.59)
+
+--- m_defaultItems (always equipped) ---
+  Charred_HipCloth
+  charred_greatsword_swing
+  charred_greatsword_thrust
+  charred_greatsword_feint
+  charred_greatsword_thrustfeint
+--- m_randomWeapon (one chosen randomly) ---
+  (empty)
+--- m_randomArmor (one chosen randomly) ---
+  null
+--- m_randomShield (one chosen randomly) ---
+  (empty)
+--- m_randomItems (each has a chance) ---
+  Charred_Helmet (50%)
+  Charred_Breastplate (50%)
+--- m_randomSets ---
+
+--- VisEquipment Slots (at Awake time) ---
+  m_rightItem: ''
+  m_leftItem: ''
+  m_chestItem: ''
+  m_legItem: ''
+  m_helmetItem: ''
+  m_shoulderItem: ''
+  m_utilityItem: ''
+
+--- Hierarchy (depth ≤ 6) ---
+Charred_Melee(Clone)
+  EyePos
+  Visual
+    TheCharred
+      Armature
+        Root
+          Hips
+            LeftUpLeg
+            RightUpLeg
+            Spine
+      Body
+      Eyes
+      Sinew
+      Skull
+
+--- SkinnedMeshRenderers ---
+  SMR: 'Body'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.01, 0.00)  size=(0.03, 0.03, 0.01)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+  SMR: 'Eyes'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.02, 0.00)  size=(0.00, 0.00, 0.00)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+  SMR: 'Sinew'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.01, 0.00)  size=(0.01, 0.02, 0.00)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+  SMR: 'Skull'  bones=56  rootBone=Root
+    localBounds center=(0.00, 0.02, 0.00)  size=(0.00, 0.00, 0.00)
+    [0] Root
+    [1] Hips
+    [2] Spine
+    [3] Spine1
+    [4] Spine2
+    [5] Neck
+    [6] Head
+    [7] Jaw
+    [8] LeftShoulder
+    [9] LeftArm
+    [10] LeftForeArm
+    [11] LeftHand
+    [12] LeftHandThumb1
+    [13] LeftHandThumb2
+    [14] LeftHandThumb3
+    [15] LeftHandIndex1
+    [16] LeftHandIndex2
+    [17] LeftHandIndex3
+    [18] LeftHandMiddle1
+    [19] LeftHandMiddle2
+    [20] LeftHandMiddle3
+    [21] LeftHandRing1
+    [22] LeftHandRing2
+    [23] LeftHandRing3
+    [24] LeftHandPinky1
+    [25] LeftHandPinky2
+    [26] LeftHandPinky3
+    [27] Attach.l
+    [28] RightShoulder
+    [29] RightArm
+    [30] RightForeArm
+    [31] RightHand
+    [32] RightHandThumb1
+    [33] RightHandThumb2
+    [34] RightHandThumb3
+    [35] RightHandIndex1
+    [36] RightHandIndex2
+    [37] RightHandIndex3
+    [38] RightHandMiddle1
+    [39] RightHandMiddle2
+    [40] RightHandMiddle3
+    [41] RightHandRing1
+    [42] RightHandRing2
+    [43] RightHandRing3
+    [44] RightHandPinky1
+    [45] RightHandPinky2
+    [46] RightHandPinky3
+    [47] Attach.r
+    [48] LeftUpLeg
+    [49] LeftLeg
+    [50] LeftFoot
+    [51] LeftToeBase
+    [52] RightUpLeg
+    [53] RightLeg
+    [54] RightFoot
+    [55] RightToeBase
+
+--- Renderers & Materials ---
+  ParticleSystemRenderer: 'EyeGlow'
+    Material: 'flame'  Shader: 'Legacy Shaders/Particles/Additive'
+  ParticleSystemRenderer: 'EyeGlow (1)'
+    Material: 'flame'  Shader: 'Legacy Shaders/Particles/Additive'
+  ParticleSystemRenderer: 'fx_charred_chestglow'
+    Material: 'glow'  Shader: 'Legacy Shaders/Particles/Alpha Blended'
+  ParticleSystemRenderer: '1-Star FX'
+    Material: 'fireworks_poof'  Shader: 'Particles/Standard Unlit2'
+  ParticleSystemRenderer: '2-Star FX'
+    Material: 'fireworks_poof'  Shader: 'Particles/Standard Unlit2'
+  ParticleSystemRenderer: '1-Star FX'
+    Material: 'fireworks_poof'  Shader: 'Particles/Standard Unlit2'
+  SkinnedMeshRenderer: 'Body'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+  SkinnedMeshRenderer: 'Eyes'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+  SkinnedMeshRenderer: 'Sinew'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+  SkinnedMeshRenderer: 'Skull'
+    Material: 'Charred_mat'  Shader: 'Custom/Creature'
+
+=== END CHARRED WARRIOR DUMP ===
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Setting saddle:False
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item 2142426049
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -1526935671
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: -1365570176  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item 268706591
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -1427680465
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 480068772  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item -304578058
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -830838852
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: -1637408023  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item 141325361
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -1549970319
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 325289950  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item -626886589
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item 308028187
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 758366762  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item -1160702911
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item 45523169
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 139631620  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item -1408331860
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -1510984278
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 1621183739  ob:Charred_Melee(Clone)  joint:Head
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing shoulder item 250838217
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item 965850491
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item 1813719643
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: -417770732  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item -1876476347
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item 365524269
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 627646178  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item 517467776
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item 1081459630
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 1343581527  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item 859163948
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -602316950
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: -1765116229  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item -1588661565
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -360138813
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: -198773306  ob:Player Pose  joint:Helmet_attach
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item -1408331860
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -1510984278
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 1621183739  ob:Charred_Melee(Clone)  joint:Head
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing shoulder item 250838217
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item -1408331860
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -1510984278
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 1621183739  ob:Charred_Melee(Clone)  joint:Head
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing shoulder item 250838217
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item -1408331860
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -1510984278
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 1621183739  ob:Charred_Melee(Clone)  joint:Head
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing shoulder item 250838217
+
+[Warning:Ashlands Reborn] [Ashlands Reborn] Configured helmet 'knighthelm' not found. Falling back to 'HelmetDrake'.
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'HelmetDrake'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee sword: 'charred_greatsword_swing' → 'THSwordKrom'
+[Warning:Ashlands Reborn] [Ashlands Reborn] Configured helmet 'knighthelm' not found. Falling back to 'HelmetDrake'.
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'HelmetDrake'
+[Warning:Ashlands Reborn] [Ashlands Reborn] Configured helmet 'knighthelm' not found. Falling back to 'HelmetDrake'.
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'HelmetDrake'
+[Warning:Ashlands Reborn] [Ashlands Reborn] Configured helmet 'knighthelm' not found. Falling back to 'HelmetDrake'.
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'HelmetDrake'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'HelmetDrake'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'HelmetDrake'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'HelmetDrake'
+[Info   :Ashlands Reborn] [Ashlands Reborn] Charred_Melee helmet: '' → 'HelmetDrake'
+[Info   : Unity Log] 03/07/2026 20:59:04: Setting saddle:False
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing chest item -1408331860
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing legs item -1510984278
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Missing attach item: 1621183739  ob:Charred_Melee(Clone)  joint:Head
+
+[Info   : Unity Log] 03/07/2026 20:59:04: Setting saddle:False
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Krom sword adjusted: scale=1.16
+[Info   :Ashlands Reborn] [Ashlands Reborn] Krom sword adjusted: scale=1.16
+[Info   :Ashlands Reborn] [Ashlands Reborn] Krom sword adjusted: scale=1.16
+[Info   :Ashlands Reborn] [Ashlands Reborn] Krom sword adjusted: scale=1.16
+[Info   :Ashlands Reborn] [Ashlands Reborn] Krom sword adjusted: scale=1.16
+[Info   :Ashlands Reborn] [Ashlands Reborn] Drake Helmet adjusted and shown: rootForward=(0.00, 0.00, 1.00), faceForward=(0.00, 0.00, 1.00), yOff=0.05, zOff=0.05
+[Info   :Ashlands Reborn] [Ashlands Reborn] Drake Helmet adjusted and shown: rootForward=(0.00, 0.00, 1.00), faceForward=(0.00, 0.00, 1.00), yOff=0.05, zOff=0.05
+[Info   :Ashlands Reborn] [Ashlands Reborn] Drake Helmet adjusted and shown: rootForward=(0.00, 0.00, 1.00), faceForward=(0.00, 0.00, 1.00), yOff=0.05, zOff=0.05
+[Info   :Ashlands Reborn] [Ashlands Reborn] Drake Helmet adjusted and shown: rootForward=(0.00, 0.00, 1.00), faceForward=(0.00, 0.00, 1.00), yOff=0.05, zOff=0.05
+[Info   :Ashlands Reborn] [Ashlands Reborn] Drake Helmet adjusted and shown: rootForward=(0.00, 0.00, 1.00), faceForward=(0.00, 0.00, 1.00), yOff=0.05, zOff=0.05
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Info   : Unity Log] 03/07/2026 20:59:05: Setting saddle:False
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Warning:Ashlands Reborn] [Ashlands Reborn] Could not read bone info from armor prefab 'knightchest'. Armor remap skipped.
+[Warning:Ashlands Reborn] [Ashlands Reborn] Could not read bone info from armor prefab 'knightlegs'. Armor remap skipped.
+[Info   :Ashlands Reborn] [Ashlands Reborn] Assigned Head bone as m_helmet for Charred_Melee(Clone)
+[Warning:Ashlands Reborn] [Ashlands Reborn] Could not read bone info from armor prefab 'knightchest'. Armor remap skipped.
+[Warning:Ashlands Reborn] [Ashlands Reborn] Could not read bone info from armor prefab 'knightlegs'. Armor remap skipped.
+[Warning:Ashlands Reborn] [Ashlands Reborn] Could not read bone info from armor prefab 'knightchest'. Armor remap skipped.
+[Warning:Ashlands Reborn] [Ashlands Reborn] Could not read bone info from armor prefab 'knightlegs'. Armor remap skipped.
+[Warning:Ashlands Reborn] [Ashlands Reborn] Drake Helmet GO not found after 20 frames on Charred_Melee(Clone). m_helmet=Head
+[Warning:Ashlands Reborn] [Ashlands Reborn] Drake Helmet GO not found after 20 frames on Charred_Melee(Clone). m_helmet=Head
+[Warning:Ashlands Reborn] [Ashlands Reborn] Drake Helmet GO not found after 20 frames on Charred_Melee(Clone). m_helmet=Head
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab loxhuntchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab loxhuntlegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab loxhunthelm
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab svenchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab svenlegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab sven
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab ss_korokchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab ss_koroklegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab ss_korokhelm
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab valkchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab valklegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab valkhelm
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab trueskogchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab trueskoglegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab trueskoghelm
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab bearchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab bearlegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab bearhelm
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab bpchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab bplegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab bphelm
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab skogchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab skoglegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab skoghelm
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab runeknightchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab runeknightlegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab runeknighthelm
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab ss_storrchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab ss_storrlegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab ss_storrhelm
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab ancientchest
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab ancientlegs
+
+[Warning: Unity Log] 03/07/2026 20:59:05: Missing item prefab ancienthelm
+
+[Info   : Unity Log] 03/07/2026 20:59:09: Spawned after 8.019993
+
+[Warning: Unity Log] 03/07/2026 20:59:09: Character ID for player ([Dove, 0:0], [Hawk, 0:0], Hawk) was 0:0. Skipping.
+
+[Info   : Unity Log] 03/07/2026 20:59:09: Skipping unloading unused assets
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Ran devcommands, god in 1s
+[Info   : Unity Log] 03/07/2026 20:59:09: Minimap: Adding unique location (-129.19, 35.16, -3.38)
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Terrain override applied: regenerating 25 heightmaps, resetting grass
+[Info   : Unity Log] 03/07/2026 20:59:09: Setting forced environment Clear
+
+[Info   :Ashlands Reborn] [Ashlands Reborn] Ran god
+[Info   : Unity Log] 03/07/2026 20:59:11: Starting music ashlands
+
+[Info   : Unity Log] 03/07/2026 20:59:11: Resumed music ashlands at 0
+
+[Info   : Unity Log] 03/07/2026 20:59:14: Activating default element Continue
+

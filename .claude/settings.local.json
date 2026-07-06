@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build)",
+      "Bash(uvx --version)",
+      "Bash(uv --version)",
+      "Bash(pip show:*)",
+      "Bash(\"/c/Users/Dev/AppData/Local/Microsoft/WindowsApps/python.exe\" --version)",
+      "Read(//c/Users/Dev/AppData/Local/Programs//**)",
+      "Bash(\"/c/Users/Dev/AppData/Local/claude-cli-nodejs/node\" --version)",
+      "Bash(cat \"/c/Users/Dev/AppData/Local/claude-cli-nodejs/Cache/c--DEV-ashlands-reborn/mcp-logs-blender/\"*)",
+      "Bash(powershell.exe -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\")",
+      "Bash(uvx pip:*)",
+      "mcp__blender__get_object_info",
+      "mcp__blender__get_scene_info",
+      "mcp__blender__get_viewport_screenshot",
+      "mcp__blender__execute_blender_code"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "date +%s > /tmp/claude_ashlands_timer.txt",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "start=$(cat /tmp/claude_ashlands_timer.txt 2>/dev/null) && end=$(date +%s) && elapsed=$((end - start)) && mins=$((elapsed/60)) && secs=$((elapsed%60)) && if [ $mins -gt 0 ]; then echo \"{\\\"systemMessage\\\": \\\"Time: ${mins}m ${secs}s\\\"}\"; else echo \"{\\\"systemMessage\\\": \\\"Time: ${secs}s\\\"}\"; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
