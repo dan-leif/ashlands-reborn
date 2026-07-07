@@ -19,8 +19,9 @@ namespace AshlandsReborn.Patches;
 /// failed: the player body mesh NEVER leaves the skeleton it was authored for. We instantiate
 /// a stripped, visual-only Player prefab as a child of the warrior, hide the Charred's own
 /// renderers, scale the puppet to Charred size, and every LateUpdate copy the Charred bones'
-/// rotations onto the matching puppet bones (both rigs use Mixamo names) using a world-delta
-/// retarget that absorbs the ~177 degree rest-pose arm/leg orientation mismatch by construction.
+/// orientations directly onto the matching puppet bones. The two rigs share Mixamo bone names
+/// AND bone-local axes, so a direct orientation copy makes the puppet reproduce the Charred's
+/// exact pose on a human-proportioned body (see Drive()).
 ///
 /// M2 scope: puppet BODY only (naked player body), no equipment. M3 adds the equipment clone,
 /// Charred attach suppression, and the Krom sword.
@@ -34,12 +35,6 @@ internal static class FableWarriorPatches
     // height by ~30% (it misses the head). Calibrated so a standard warrior's puppet matches
     // the Charred's visible silhouette (~2.97m) rather than the capsule height (~2.29m).
     private const float CapsuleToBodyHeight = 1.3f;
-
-    // Per-bone rest-pose offsets, computed once from the two prefabs, keyed by Mixamo bone name.
-    // c0Inv = inverse of the Charred bone's rest rotation (relative to the Charred Visual node).
-    // p0    = the Player bone's rest rotation (relative to the Player Visual node).
-    private static Dictionary<string, (Quaternion c0Inv, Quaternion p0)>? _offsets;
-    private static bool _offsetsFailed;
 
     private static readonly List<AshlandsRebornFableWarrior> Registry = new();
 
@@ -96,12 +91,6 @@ internal static class FableWarriorPatches
 
     private static void BuildPuppet(Humanoid humanoid, VisEquipment charredVis, AshlandsRebornFableWarrior marker)
     {
-        if (!EnsureOffsets())
-        {
-            Plugin.Log?.LogError("[Fable Warrior] Bone offsets unavailable - cannot build puppet.");
-            return;
-        }
-
         var charredVisual = charredVis.transform.Find("Visual") ?? charredVis.transform;
         marker.CharredVisual = charredVisual;
 
@@ -273,43 +262,6 @@ internal static class FableWarriorPatches
 
     // ---- bone retarget -----------------------------------------------------------------
 
-    private static bool EnsureOffsets()
-    {
-        if (_offsets != null) return true;
-        if (_offsetsFailed) return false;
-
-        var charredPrefab = ZNetScene.instance?.GetPrefab(CharredMeleePrefab);
-        var playerPrefab = Game.instance != null ? Game.instance.m_playerPrefab : ZNetScene.instance?.GetPrefab("Player");
-        if (charredPrefab == null || playerPrefab == null)
-        {
-            _offsetsFailed = true;
-            return false;
-        }
-
-        var charredVisual = charredPrefab.transform.Find("Visual") ?? charredPrefab.transform;
-        var playerVisual = playerPrefab.transform.Find("Visual") ?? playerPrefab.transform;
-
-        var charredBones = CollectBones(charredVisual);
-        var playerBones = CollectBones(playerVisual);
-
-        var cInv = Quaternion.Inverse(charredVisual.rotation);
-        var pInv = Quaternion.Inverse(playerVisual.rotation);
-
-        var dict = new Dictionary<string, (Quaternion, Quaternion)>(StringComparer.OrdinalIgnoreCase);
-        foreach (var kv in charredBones)
-        {
-            if (!playerBones.TryGetValue(kv.Key, out var pBone)) continue;
-            var c0 = cInv * kv.Value.rotation;      // Charred rest rot in Charred-Visual frame
-            var p0 = pInv * pBone.rotation;         // Player  rest rot in Player-Visual  frame
-            dict[kv.Key] = (Quaternion.Inverse(c0), p0);
-        }
-
-        _offsets = dict;
-        Plugin.Log?.LogInfo($"[Fable Warrior] Bone offsets built: {dict.Count} shared bones " +
-                            $"(charred={charredBones.Count}, player={playerBones.Count}).");
-        return true;
-    }
-
     private static Dictionary<string, Transform> CollectBones(Transform root)
     {
         var map = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
@@ -336,24 +288,17 @@ internal static class FableWarriorPatches
         foreach (var kv in CollectBones(marker.PuppetVisual!))
             if (!puppetMap.ContainsKey(kv.Key)) puppetMap[kv.Key] = kv.Value;
 
+        // Pair every bone present in BOTH rigs (shared Mixamo names).
         var pairs = new List<BonePair>();
-        foreach (var kv in _offsets!)
+        foreach (var kv in charredMap)
         {
-            if (!charredMap.TryGetValue(kv.Key, out var c)) continue;
             if (!puppetMap.TryGetValue(kv.Key, out var p)) continue;
             pairs.Add(new BonePair
             {
-                C = c,
+                C = kv.Value,
                 P = p,
-                C0Inv = kv.Value.c0Inv,
-                P0 = kv.Value.p0,
-                Depth = Depth(p, marker.PuppetVisual),
+                Depth = Depth(p, marker.PuppetVisual!),
             });
-            if (kv.Key.Equals("Hips", StringComparison.OrdinalIgnoreCase))
-            {
-                marker.CharredHips = c;
-                marker.PuppetHips = p;
-            }
         }
         // Parents before children so world-rotation writes aren't disturbed by later parent writes.
         pairs.Sort((a, b) => a.Depth.CompareTo(b.Depth));
@@ -369,10 +314,12 @@ internal static class FableWarriorPatches
     }
 
     /// <summary>
-    /// World-delta rotation retarget. For each bone: measure how far the Charred bone has
-    /// rotated from its rest pose (in the Charred Visual frame), then apply that same delta to
-    /// the puppet bone relative to ITS rest pose (in the puppet Visual frame). Because the delta
-    /// is relative to each skeleton's own rest, the ~177 degree rest-orientation mismatch cancels.
+    /// Direct-copy rotation retarget: each puppet bone is given the Charred bone's orientation
+    /// relative to the Charred Visual node, re-expressed relative to the puppet Visual node. The
+    /// two rigs share Mixamo bone names AND bone-local axes, so copying orientations directly
+    /// makes the puppet reproduce the Charred's exact pose (verified: arm-segment directions
+    /// match within ~0.1 deg). Rotation-only preserves the human mesh proportions; the puppet
+    /// keeps its own bone lengths, so a human body performs the Charred's animation 1:1.
     /// </summary>
     private static void Drive(AshlandsRebornFableWarrior marker)
     {
@@ -386,9 +333,7 @@ internal static class FableWarriorPatches
         {
             var bp = pairs[i];
             if (bp.C == null || bp.P == null) continue;
-            var cLive = crInv * bp.C.rotation;        // Charred bone rot in Charred-Visual frame
-            var delta = cLive * bp.C0Inv;             // delta from Charred rest
-            bp.P.rotation = pr * delta * bp.P0;       // apply to puppet from its own rest
+            bp.P.rotation = pr * (crInv * bp.C.rotation);
         }
     }
 
@@ -459,8 +404,6 @@ internal static class FableWarriorPatches
     {
         public Transform C;
         public Transform P;
-        public Quaternion C0Inv;
-        public Quaternion P0;
         public int Depth;
     }
 }
@@ -473,8 +416,6 @@ internal class AshlandsRebornFableWarrior : MonoBehaviour
     public Transform? CharredVisual;
     public Transform? PuppetVisual;
     public FableWarriorPatches.BonePair[]? Pairs;
-    public Transform? CharredHips;
-    public Transform? PuppetHips;
     public float BuiltAutoScale;
     public Animator? CharredAnimator;
     public AnimatorCullingMode OriginalCulling;

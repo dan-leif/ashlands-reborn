@@ -83,7 +83,6 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> EnableFableWarrior { get; private set; } = null!;
     public static ConfigEntry<bool> ClonePlayerToWarrior { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorScale { get; private set; } = null!;
-    public static ConfigEntry<string> FableWarriorRetargetSource { get; private set; } = null!;
 
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
@@ -479,17 +478,6 @@ public class Plugin : BaseUnityPlugin
                 "Multiplier on the auto-computed height-match scale for the Fable Warrior puppet. 1.0 = auto scale.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
 
-        FableWarriorRetargetSource = Config.Bind(
-            "Fable Warrior",
-            "FableWarriorRetargetSource",
-            "Prefab",
-            new ConfigDescription(
-                "Dev knob: source of per-bone rest rotations for the puppet bone retarget offsets. " +
-                "'Prefab' derives rest poses from the Charred_Melee and Player prefab hierarchies. " +
-                "'BindPose' derives them from skinned mesh bind poses instead (fallback if Prefab causes a " +
-                "constant per-bone angle offset).",
-                new AcceptableValueList<string>("Prefab", "BindPose")));
-
         DevAutoLoad = Config.Bind(
             "Dev Automation",
             "DevAutoLoad",
@@ -679,6 +667,11 @@ public class Plugin : BaseUnityPlugin
                 var def = new ConfigDefinition("Warrior Vanilla Armor", dead);
                 if (Config.ContainsKey(def)) Config.Remove(def);
             }
+
+            // Removed: the Fable Warrior retarget now always copies Charred bone orientations
+            // directly (no rest-pose "source" choice), so this dev knob is obsolete.
+            var defRetarget = new ConfigDefinition("Fable Warrior", "FableWarriorRetargetSource");
+            if (Config.ContainsKey(defRetarget)) Config.Remove(defRetarget);
         }
         catch
         {
