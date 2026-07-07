@@ -94,6 +94,28 @@ internal static class PhotoModePatches
                 yield break;
             }
 
+            // Teleport to the test island (flat ocean platform, clutter-free backgrounds).
+            // Force-killed dev sessions skip the world save, so the player's logout point can
+            // regress to world spawn between runs - never rely on where the player happens
+            // to be standing.
+            var islandPos = ParseIslandPos(Plugin.PhotoModeIslandPos?.Value);
+            if (islandPos != null && Vector3.Distance(player.transform.position, islandPos.Value) > 15f)
+            {
+                Plugin.Log?.LogInfo($"[AR PhotoMode] Teleporting player to test island {islandPos.Value}");
+                // TeleportTo refuses during its ~2s post-load cooldown - retry until accepted.
+                var accepted = false;
+                for (var attempt = 0; attempt < 20 && !accepted; attempt++)
+                {
+                    accepted = player.TeleportTo(islandPos.Value, player.transform.rotation, distantTeleport: true);
+                    if (!accepted) yield return new WaitForSeconds(0.5f);
+                }
+                var timeout = Time.time + 30f;
+                while (player.IsTeleporting() && Time.time < timeout) yield return null;
+                if (!accepted || player.IsTeleporting())
+                    Plugin.Log?.LogWarning("[AR PhotoMode] Island teleport incomplete - capturing at current position");
+                yield return new WaitForSeconds(3f); // let terrain/objects around the island settle
+            }
+
             var dist = Plugin.PhotoModeSpawnDistance?.Value ?? 5f;
             var spawnPos = player.transform.position + player.transform.forward * dist + Vector3.up * 0.3f;
             var toPlayer = player.transform.position - spawnPos;
@@ -206,6 +228,17 @@ internal static class PhotoModePatches
             _cameraOverrideActive = false;
             _running = false;
         }
+    }
+
+    private static Vector3? ParseIslandPos(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var parts = raw!.Split(',');
+        if (parts.Length != 3) return null;
+        if (!float.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var x)) return null;
+        if (!float.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var y)) return null;
+        if (!float.TryParse(parts[2].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var z)) return null;
+        return new Vector3(x, y, z);
     }
 
     /// <summary>

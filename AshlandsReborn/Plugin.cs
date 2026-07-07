@@ -91,6 +91,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<KeyCode> PhotoModeKey { get; private set; } = null!;
     public static ConfigEntry<bool> PhotoModeAuto { get; private set; } = null!;
     public static ConfigEntry<float> PhotoModeSpawnDistance { get; private set; } = null!;
+    public static ConfigEntry<string> PhotoModeIslandPos { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
@@ -517,6 +518,15 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Distance in front of the player to spawn the photo-mode Charred_Melee.",
                 new AcceptableValueRange<float>(2f, 15f)));
+
+        PhotoModeIslandPos = Config.Bind(
+            "Dev Automation",
+            "PhotoModeIslandPos",
+            "2736,40,2580",
+            "Test island 'x,y,z': flat player-built ocean platform with clutter-free backgrounds. " +
+            "The photo harness teleports the player here before each session (force-killed dev runs " +
+            "don't save the logout point, so the player can regress to world spawn between runs). " +
+            "Empty string disables the teleport.");
 
         // Migrate renamed/moved config keys
         try
