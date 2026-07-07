@@ -138,6 +138,8 @@ internal static class FableWarriorPatches
 
     // ---- registry ----------------------------------------------------------------------
 
+    internal static int RegistryCount => Registry.Count;
+
     internal static void Register(AshlandsRebornFableWarrior m)
     {
         if (!Registry.Contains(m)) Registry.Add(m);
@@ -203,9 +205,14 @@ internal static class FableWarriorPatches
         var charredRenderers = charredVis.GetComponentsInChildren<Renderer>(true)
             .Where(r => r is SkinnedMeshRenderer || r is MeshRenderer)
             .ToList();
+        // Star levels scale only the LevelEffects visual node, not the root/capsule, so the
+        // capsule-based target must fold the star scale in explicitly. (The puppet-height
+        // measurement below self-corrects if the star scale sits on an ancestor of the puppet,
+        // because the measurement inherits it; the star factor here covers both hierarchies.)
+        var starScale = GetStarScale(humanoid);
         var capsule = humanoid.GetComponent<CapsuleCollider>();
         var targetHeight = capsule != null
-            ? Mathf.Max(capsule.height, capsule.radius * 2f) * Mathf.Abs(humanoid.transform.lossyScale.y) * CapsuleToBodyHeight
+            ? Mathf.Max(capsule.height, capsule.radius * 2f) * Mathf.Abs(humanoid.transform.lossyScale.y) * CapsuleToBodyHeight * starScale
             : UnionHeight(charredVis.GetComponentsInChildren<SkinnedMeshRenderer>(true)
                 .Where(r => r.enabled && r.gameObject.activeInHierarchy).Cast<Renderer>());
 
@@ -282,6 +289,11 @@ internal static class FableWarriorPatches
         marker.BuiltAutoScale = autoScale;
         var finalScale = autoScale * (Plugin.FableWarriorScale?.Value ?? 1f);
         puppet.transform.localScale = Vector3.one * finalScale;
+
+        // Baselines for the periodic scale-drift absorber (late 2-3 star LevelEffects rescale).
+        marker.BuiltFinalScale = finalScale;
+        marker.BuildStarScale = starScale;
+        marker.BuildParentLossyY = Mathf.Max(1e-5f, Mathf.Abs(charredVisual.lossyScale.y));
 
         // Build bone pairs and drive one frame so the puppet is posed (no T-pose flash).
         BuildBonePairs(charredVis, puppetVis, marker);
@@ -751,9 +763,23 @@ internal static class FableWarriorPatches
     {
         RevertAll();
         if (!Plugin.IsFablePuppetActive) return;
+        Plugin.Instance.StartCoroutine(RebuildAfterRevert());
+    }
+
+    /// <summary>
+    /// The rebuild scan must wait one frame: RevertAll destroys the old markers via
+    /// Object.Destroy, which is deferred to end of frame - a same-frame scan still sees them
+    /// on every warrior and skips the rebuild entirely (F10-while-built did nothing; caught
+    /// by the M4 self-test).
+    /// </summary>
+    private static IEnumerator RebuildAfterRevert()
+    {
+        yield return null;
+        if (!Plugin.IsFablePuppetActive) yield break;
 
         foreach (var humanoid in UObject.FindObjectsByType<Humanoid>(FindObjectsSortMode.None))
         {
+            if (humanoid == null) continue;
             if (GetPrefabName(humanoid.gameObject) != CharredMeleePrefab) continue;
             if (humanoid.GetComponent<AshlandsRebornFableWarrior>() != null) continue;
             var vis = humanoid.GetComponent<VisEquipment>();
@@ -793,10 +819,50 @@ internal static class FableWarriorPatches
             if (m == null || !m.Built) continue;
             if (m.EquipPending || m.AppliedEquipSignature != signature)
                 ApplyAppearance(m, player, signature);
+            AbsorbScaleDrift(m);
         }
     }
 
+    /// <summary>
+    /// Late star/level rescale absorber: if the warrior's star scale or the puppet parent's
+    /// lossy scale changed after build (LevelEffects can fire after our settle window), adjust
+    /// the puppet's localScale so its world size tracks the warrior. The parent-growth divisor
+    /// cancels the correction when the star scale landed on an ancestor of the puppet (already
+    /// inherited); when it landed on a sibling (charred body only), the full factor applies.
+    /// </summary>
+    private static void AbsorbScaleDrift(AshlandsRebornFableWarrior m)
+    {
+        if (m.Puppet == null || m.CharredVisual == null || m.BuildStarScale <= 0f || m.BuildParentLossyY <= 0f) return;
+        var humanoid = m.GetComponent<Humanoid>();
+        if (humanoid == null) return;
+
+        var starGrowth = GetStarScale(humanoid) / m.BuildStarScale;
+        var parentGrowth = Mathf.Abs(m.CharredVisual.lossyScale.y) / m.BuildParentLossyY;
+        if (parentGrowth <= 1e-5f) return;
+        var desired = m.BuiltFinalScale * starGrowth / parentGrowth;
+        var current = m.Puppet.transform.localScale.y;
+        if (current <= 1e-5f || Mathf.Abs(desired - current) / current <= 0.02f) return;
+
+        m.Puppet.transform.localScale = Vector3.one * desired;
+        Plugin.Log?.LogInfo($"[Fable Warrior] Scale drift absorbed on {m.gameObject.name}: {current:F3} -> {desired:F3} " +
+                            $"(starGrowth={starGrowth:F3}, parentGrowth={parentGrowth:F3})");
+    }
+
     // ---- helpers -----------------------------------------------------------------------
+
+    /// <summary>
+    /// The creature's star-level visual scale factor (1 for 0-1 star). Read from the
+    /// LevelEffects setup table rather than the hierarchy so it works regardless of which
+    /// node LevelEffects scales.
+    /// </summary>
+    private static float GetStarScale(Humanoid humanoid)
+    {
+        var level = humanoid.GetLevel();
+        if (level <= 1) return 1f;
+        var fx = humanoid.GetComponentInChildren<LevelEffects>(true);
+        if (fx == null || fx.m_levelSetups == null || fx.m_levelSetups.Count < level - 1) return 1f;
+        return Mathf.Max(0.01f, fx.m_levelSetups[level - 2].m_scale);
+    }
 
     private static float UnionHeight(IEnumerable<Renderer> renderers)
     {
@@ -837,6 +903,9 @@ internal class AshlandsRebornFableWarrior : MonoBehaviour
     public Transform? PuppetVisual;
     public FableWarriorPatches.BonePair[]? Pairs;
     public float BuiltAutoScale;
+    public float BuiltFinalScale;
+    public float BuildStarScale = 1f;
+    public float BuildParentLossyY = 1f;
     public Animator? CharredAnimator;
     public AnimatorCullingMode OriginalCulling;
     public readonly List<Renderer> HiddenRenderers = new();

@@ -98,6 +98,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> DevAutoLoadWorld { get; private set; } = null!;
     public static ConfigEntry<KeyCode> PhotoModeKey { get; private set; } = null!;
     public static ConfigEntry<bool> PhotoModeAuto { get; private set; } = null!;
+    public static ConfigEntry<bool> PhotoModeM4Test { get; private set; } = null!;
     public static ConfigEntry<float> PhotoModeSpawnDistance { get; private set; } = null!;
     public static ConfigEntry<string> PhotoModeIslandPos { get; private set; } = null!;
 
@@ -589,6 +590,15 @@ public class Plugin : BaseUnityPlugin
             false,
             "Automatically run the photo-mode verification harness once, ~10s after entering the world.");
 
+        PhotoModeM4Test = Config.Bind(
+            "Dev Automation",
+            "PhotoModeM4Test",
+            false,
+            "Run the M4 lifecycle self-test once ~10s after world load: spawns 3 warriors (one 2-star, " +
+            "one leveled up post-build), asserts puppet builds, master-switch toggle cleanliness x3, " +
+            "F10 rebuild, <=2.5s armor sync, and star scaling, then despawns them and writes " +
+            "M4_RESULTS.txt + screenshots to AR_PhotoMode. Suppresses the PhotoModeAuto shoot.");
+
         PhotoModeSpawnDistance = Config.Bind(
             "Dev Automation",
             "PhotoModeSpawnDistance",
@@ -933,6 +943,7 @@ public class Plugin : BaseUnityPlugin
     {
         Patches.DevAutoLoadPatches.Tick();
         Patches.PhotoModePatches.Tick();
+        Patches.LifecycleTestPatches.Tick();
 
         var inWorld = Player.m_localPlayer != null;
         if (inWorld)
@@ -940,26 +951,7 @@ public class Plugin : BaseUnityPlugin
             if (Input.GetKeyDown(MasterSwitchKey?.Value ?? KeyCode.F6) && Time.time - _lastMasterSwitchToggleTime >= 1f)
             {
                 _lastMasterSwitchToggleTime = Time.time;
-                MasterSwitch.Value = !MasterSwitch.Value;
-                if (MasterSwitch.Value)
-                {
-                    Patches.EnvManPatches.ForceTerrainRefresh(force: true);
-                    Patches.TreePatches.RefreshTrees();
-                    Patches.ValkyriePatches.RefreshValkyries();
-                    Patches.CharredWarriorPatches.RefreshCharredWarriors();
-                    Patches.FableWarriorPatches.RefreshAll();
-                    Log.LogInfo("[Ashlands Reborn] Master switch ON - all overrides applied");
-                }
-                else
-                {
-                    Patches.EnvManPatches.ClearForceEnvironment();
-                    Patches.EnvManPatches.ForceTerrainRefresh(force: true);
-                    Patches.TreePatches.RevertAllTrees();
-                    Patches.ValkyriePatches.RevertAllValkyries();
-                    Patches.CharredWarriorPatches.RevertAllCharredWarriors();
-                    Patches.FableWarriorPatches.RevertAll();
-                    Log.LogInfo("[Ashlands Reborn] Master switch OFF - all overrides reverted");
-                }
+                ApplyMasterSwitch(!MasterSwitch.Value);
             }
             if ((Plugin.EnableTreeReplacement?.Value ?? false) && Input.GetKeyDown(TreeRefreshKey?.Value ?? KeyCode.F8) && Time.time - _lastTreeRefreshTime >= 1f)
             {
@@ -1023,6 +1015,34 @@ public class Plugin : BaseUnityPlugin
             Console.instance.TryRunCommand("devcommands");
             Invoke(nameof(RunGodCommand), 1f);
             Log.LogInfo("[Ashlands Reborn] Ran devcommands, god in 1s");
+        }
+    }
+
+    /// <summary>
+    /// The master-switch toggle body, shared by the hotkey handler and the M4 lifecycle
+    /// self-test so the test exercises exactly the shipping code path.
+    /// </summary>
+    internal void ApplyMasterSwitch(bool on)
+    {
+        MasterSwitch.Value = on;
+        if (on)
+        {
+            Patches.EnvManPatches.ForceTerrainRefresh(force: true);
+            Patches.TreePatches.RefreshTrees();
+            Patches.ValkyriePatches.RefreshValkyries();
+            Patches.CharredWarriorPatches.RefreshCharredWarriors();
+            Patches.FableWarriorPatches.RefreshAll();
+            Log.LogInfo("[Ashlands Reborn] Master switch ON - all overrides applied");
+        }
+        else
+        {
+            Patches.EnvManPatches.ClearForceEnvironment();
+            Patches.EnvManPatches.ForceTerrainRefresh(force: true);
+            Patches.TreePatches.RevertAllTrees();
+            Patches.ValkyriePatches.RevertAllValkyries();
+            Patches.CharredWarriorPatches.RevertAllCharredWarriors();
+            Patches.FableWarriorPatches.RevertAll();
+            Log.LogInfo("[Ashlands Reborn] Master switch OFF - all overrides reverted");
         }
     }
 

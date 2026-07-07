@@ -56,7 +56,10 @@ internal static class PhotoModePatches
             TryStart("hotkey");
         }
 
-        if (!_autoFired && (Plugin.PhotoModeAuto?.Value ?? false) && Time.time - _worldLoadedAt >= 10f)
+        // The M4 lifecycle self-test owns the session when enabled - don't also run the
+        // photo shoot (both teleport the player and spawn warriors on the same island).
+        if (!_autoFired && (Plugin.PhotoModeAuto?.Value ?? false) && !(Plugin.PhotoModeM4Test?.Value ?? false)
+            && Time.time - _worldLoadedAt >= 10f)
         {
             _autoFired = true;
             TryStart("auto");
@@ -95,27 +98,7 @@ internal static class PhotoModePatches
                 yield break;
             }
 
-            // Teleport to the test island (flat ocean platform, clutter-free backgrounds).
-            // Force-killed dev sessions skip the world save, so the player's logout point can
-            // regress to world spawn between runs - never rely on where the player happens
-            // to be standing.
-            var islandPos = ParseIslandPos(Plugin.PhotoModeIslandPos?.Value);
-            if (islandPos != null && Vector3.Distance(player.transform.position, islandPos.Value) > 15f)
-            {
-                Plugin.Log?.LogInfo($"[AR PhotoMode] Teleporting player to test island {islandPos.Value}");
-                // TeleportTo refuses during its ~2s post-load cooldown - retry until accepted.
-                var accepted = false;
-                for (var attempt = 0; attempt < 20 && !accepted; attempt++)
-                {
-                    accepted = player.TeleportTo(islandPos.Value, player.transform.rotation, distantTeleport: true);
-                    if (!accepted) yield return new WaitForSeconds(0.5f);
-                }
-                var timeout = Time.time + 30f;
-                while (player.IsTeleporting() && Time.time < timeout) yield return null;
-                if (!accepted || player.IsTeleporting())
-                    Plugin.Log?.LogWarning("[AR PhotoMode] Island teleport incomplete - capturing at current position");
-                yield return new WaitForSeconds(3f); // let terrain/objects around the island settle
-            }
+            yield return TeleportToIslandRoutine(player);
 
             var dist = Plugin.PhotoModeSpawnDistance?.Value ?? 5f;
             var spawnPos = player.transform.position + player.transform.forward * dist + Vector3.up * 0.3f;
@@ -244,6 +227,46 @@ internal static class PhotoModePatches
         }
     }
 
+    /// <summary>
+    /// Teleport to the test island (flat ocean platform, clutter-free backgrounds).
+    /// Force-killed dev sessions skip the world save, so the player's logout point can
+    /// regress to world spawn between runs - never rely on where the player happens
+    /// to be standing. Shared by the photo shoot and the M4 lifecycle self-test.
+    /// </summary>
+    internal static IEnumerator TeleportToIslandRoutine(Player player)
+    {
+        var islandPos = ParseIslandPos(Plugin.PhotoModeIslandPos?.Value);
+        if (islandPos == null || Vector3.Distance(player.transform.position, islandPos.Value) <= 15f)
+            yield break;
+
+        Plugin.Log?.LogInfo($"[AR PhotoMode] Teleporting player to test island {islandPos.Value}");
+        // TeleportTo refuses during its ~2s post-load cooldown - retry until accepted.
+        var accepted = false;
+        for (var attempt = 0; attempt < 20 && !accepted; attempt++)
+        {
+            accepted = player.TeleportTo(islandPos.Value, player.transform.rotation, distantTeleport: true);
+            if (!accepted) yield return new WaitForSeconds(0.5f);
+        }
+        var timeout = Time.time + 30f;
+        while (player.IsTeleporting() && Time.time < timeout) yield return null;
+        if (!accepted || player.IsTeleporting())
+            Plugin.Log?.LogWarning("[AR PhotoMode] Island teleport incomplete - capturing at current position");
+        yield return new WaitForSeconds(3f); // let terrain/objects around the island settle
+    }
+
+    // Camera-override access for the M4 lifecycle self-test (reuses this class's
+    // GameCamera.LateUpdate prefix).
+    internal static void SetCameraOverride(Vector3 pos, Quaternion rot)
+    {
+        _desiredCamPos = pos;
+        _desiredCamRot = rot;
+        _cameraOverrideActive = true;
+    }
+
+    internal static void EnableCameraOverride() => _cameraOverrideActive = true;
+
+    internal static void ClearCameraOverride() => _cameraOverrideActive = false;
+
     private static Vector3? ParseIslandPos(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
@@ -263,7 +286,7 @@ internal static class PhotoModePatches
     /// (the union bounds include the raised sword and over-read the head height), else the
     /// top quarter of the bounds.
     /// </summary>
-    private static void AimCameraAt(GameObject go, int yaw, bool closeUp = false)
+    internal static void AimCameraAt(GameObject go, int yaw, bool closeUp = false)
     {
         Bounds? bounds = null;
         foreach (var r in go.GetComponentsInChildren<Renderer>())
