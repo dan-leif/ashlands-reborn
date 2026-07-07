@@ -83,6 +83,14 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> EnableFableWarrior { get; private set; } = null!;
     public static ConfigEntry<bool> ClonePlayerToWarrior { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorScale { get; private set; } = null!;
+    public static ConfigEntry<float> FableHelmetScale { get; private set; } = null!;
+    public static ConfigEntry<float> FableHelmetYOffset { get; private set; } = null!;
+    public static ConfigEntry<float> FableKromGripRotX { get; private set; } = null!;
+    public static ConfigEntry<float> FableKromGripRotY { get; private set; } = null!;
+    public static ConfigEntry<float> FableKromGripRotZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableKromGripOffX { get; private set; } = null!;
+    public static ConfigEntry<float> FableKromGripOffY { get; private set; } = null!;
+    public static ConfigEntry<float> FableKromGripOffZ { get; private set; } = null!;
 
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
@@ -478,6 +486,76 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Multiplier on the auto-computed height-match scale for the Fable Warrior puppet. 1.0 = auto scale.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        FableHelmetScale = Config.Bind(
+            "Fable Warrior",
+            "FableHelmetScale",
+            1.0f,
+            new ConfigDescription(
+                "Fine-tune multiplier on the puppet's helmet size. Rigid-attach helmets are first " +
+                "normalized to scale with the puppet rig (vanilla attach cancels the rig scale, which " +
+                "left player-sized helmets perched on the oversized head); this multiplies on top. " +
+                "1.0 = exact player fit at puppet scale.",
+                new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        FableHelmetYOffset = Config.Bind(
+            "Fable Warrior",
+            "FableHelmetYOffset",
+            0.0f,
+            new ConfigDescription(
+                "Vertical offset (meters, helmet-joint local - scales with the rig) applied to the " +
+                "puppet's helmet instance after the scale normalization.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableKromGripRotX = Config.Bind(
+            "Fable Warrior",
+            "FableKromGripRotX",
+            12.0f,
+            new ConfigDescription(
+                "Rotation (degrees) of the puppet's Krom sword around the hand-attach local X axis. " +
+                "Tunes the idle sword-on-shoulder rest so the blade lies beside the trapezius instead " +
+                "of through it (12 = calibrated M3.1 value). Applied on top of the vanilla attach orientation.",
+                new AcceptableValueRange<float>(-180f, 180f)));
+
+        FableKromGripRotY = Config.Bind(
+            "Fable Warrior",
+            "FableKromGripRotY",
+            0.0f,
+            new ConfigDescription(
+                "Rotation (degrees) of the puppet's Krom sword around the hand-attach local Y axis.",
+                new AcceptableValueRange<float>(-180f, 180f)));
+
+        FableKromGripRotZ = Config.Bind(
+            "Fable Warrior",
+            "FableKromGripRotZ",
+            0.0f,
+            new ConfigDescription(
+                "Rotation (degrees) of the puppet's Krom sword around the hand-attach local Z axis.",
+                new AcceptableValueRange<float>(-180f, 180f)));
+
+        FableKromGripOffX = Config.Bind(
+            "Fable Warrior",
+            "FableKromGripOffX",
+            0.0f,
+            new ConfigDescription(
+                "Position offset (meters, hand-attach local) of the puppet's Krom sword grip, X axis.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableKromGripOffY = Config.Bind(
+            "Fable Warrior",
+            "FableKromGripOffY",
+            0.0f,
+            new ConfigDescription(
+                "Position offset (meters, hand-attach local) of the puppet's Krom sword grip, Y axis.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableKromGripOffZ = Config.Bind(
+            "Fable Warrior",
+            "FableKromGripOffZ",
+            0.0f,
+            new ConfigDescription(
+                "Position offset (meters, hand-attach local) of the puppet's Krom sword grip, Z axis.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
 
         DevAutoLoad = Config.Bind(
             "Dev Automation",

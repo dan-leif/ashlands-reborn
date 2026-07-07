@@ -434,7 +434,7 @@ internal static class FableWarriorPatches
             marker.PuppetVis.CustomUpdate(0f, 0f); // attach now (no one-frame naked flash)
             marker.EquipPending = false;
             marker.AppliedEquipSignature = signature;
-            marker.StartCoroutine(ScalePuppetKrom(marker));
+            marker.StartCoroutine(FixupPuppetAttaches(marker));
         }
         catch (Exception ex)
         {
@@ -443,20 +443,76 @@ internal static class FableWarriorPatches
     }
 
     /// <summary>
-    /// Apply WarriorKromScale to the puppet's sword instance once it exists. The instance is
-    /// parented under the puppet's hand bone, so it already inherits the puppet's body scale;
-    /// the config value is a multiplier on top. Re-equips create fresh instances at scale 1,
-    /// tracked per-marker so each new instance is scaled exactly once.
+    /// Post-attach fixups for the puppet's rigid attach instances (Krom sword + helmet),
+    /// applied once per fresh instance (re-equips create new instances in vanilla state,
+    /// tracked per marker via reference comparison).
+    ///
+    /// Scale gotcha (M3.1 helmet root cause): vanilla AttachItem parents rigid attaches with
+    /// worldPositionStays=true, which back-compensates localScale by the joint's lossyScale.
+    /// On the ~1.4x-scaled puppet rig this cancels the rig scale, so helmets rendered at
+    /// normal-player world size - too small, perched on the crown with the face exposed.
+    /// Skinned attaches (attach_skin armor) are immune because bones + bind poses drive their
+    /// vertices. The helmet is therefore re-scaled by the puppet-vs-prefab helmet-joint
+    /// lossyScale ratio so it fits the scaled head exactly as it fits the player.
+    ///
+    /// The Krom keeps the legacy WarriorKromScale sizing (user-approved look), plus a
+    /// config-tunable grip rotation/offset in the hand-attach frame so the idle
+    /// sword-on-shoulder rest lays the blade beside the trapezius instead of through it
+    /// (M3.1 sword defect).
     /// </summary>
-    private static IEnumerator ScalePuppetKrom(AshlandsRebornFableWarrior marker)
+    private static IEnumerator FixupPuppetAttaches(AshlandsRebornFableWarrior marker)
     {
         for (var i = 0; i < 10; i++) yield return null;
         if (marker == null || marker.PuppetVis == null) yield break;
-        var weaponGo = FRightItemInstance?.GetValue(marker.PuppetVis) as GameObject;
-        if (weaponGo == null || ReferenceEquals(weaponGo, marker.LastScaledKrom)) yield break;
-        weaponGo.transform.localScale *= Plugin.WarriorKromScale?.Value ?? 1.16f;
-        marker.LastScaledKrom = weaponGo;
-        Plugin.Log?.LogInfo($"[Fable Warrior] Krom attached+scaled on {marker.gameObject.name}");
+
+        if (FRightItemInstance?.GetValue(marker.PuppetVis) is GameObject weaponGo && weaponGo != null
+            && !ReferenceEquals(weaponGo, marker.LastScaledKrom))
+        {
+            var t = weaponGo.transform;
+            t.localScale *= Plugin.WarriorKromScale?.Value ?? 1.16f;
+            t.localRotation *= Quaternion.Euler(
+                Plugin.FableKromGripRotX?.Value ?? 0f,
+                Plugin.FableKromGripRotY?.Value ?? 0f,
+                Plugin.FableKromGripRotZ?.Value ?? 0f);
+            t.localPosition += new Vector3(
+                Plugin.FableKromGripOffX?.Value ?? 0f,
+                Plugin.FableKromGripOffY?.Value ?? 0f,
+                Plugin.FableKromGripOffZ?.Value ?? 0f);
+            marker.LastScaledKrom = weaponGo;
+
+            // Grip-tuning geometry dump: the weapon's local axes in world space plus the
+            // blade direction estimate and the shoulder/head landmarks, so the needed grip
+            // rotation can be computed from the log instead of blind trial and error.
+            var rend = weaponGo.GetComponentInChildren<Renderer>();
+            var bladeDir = rend != null ? (rend.bounds.center - t.position).normalized : Vector3.zero;
+            var shoulder = FindChildRecursive(marker.PuppetVisual ?? t, "RightShoulder");
+            var head = FindChildRecursive(marker.PuppetVisual ?? t, "Head");
+            Plugin.Log?.LogInfo(
+                $"[Fable Warrior] Krom fixed on {marker.gameObject.name}: hand={t.position:F2} " +
+                $"axesWorld X={t.right:F2} Y={t.up:F2} Z={t.forward:F2} bladeDir={bladeDir:F2} " +
+                $"rShoulder={(shoulder != null ? shoulder.position.ToString("F2") : "?")} " +
+                $"head={(head != null ? head.position.ToString("F2") : "?")}");
+        }
+
+        if (FHelmetItemInstance?.GetValue(marker.PuppetVis) is GameObject helmetGo && helmetGo != null
+            && !ReferenceEquals(helmetGo, marker.LastFixedHelmet))
+        {
+            var joint = marker.PuppetVis.m_helmet;
+            var prefabVis = (Game.instance != null ? Game.instance.m_playerPrefab : ZNetScene.instance?.GetPrefab("Player"))
+                ?.GetComponent<VisEquipment>();
+            var prefabJoint = prefabVis != null ? prefabVis.m_helmet : null;
+            var ratio = joint != null && prefabJoint != null && prefabJoint.lossyScale.y > 1e-5f
+                ? joint.lossyScale.y / prefabJoint.lossyScale.y
+                : 1f;
+            var t = helmetGo.transform;
+            var before = t.localScale;
+            t.localScale = before * ratio * (Plugin.FableHelmetScale?.Value ?? 1f);
+            t.localPosition += new Vector3(0f, Plugin.FableHelmetYOffset?.Value ?? 0f, 0f);
+            marker.LastFixedHelmet = helmetGo;
+            Plugin.Log?.LogInfo(
+                $"[Fable Warrior] Helmet fixed on {marker.gameObject.name}: jointLossyRatio={ratio:F3}, " +
+                $"localScale {before:F3} -> {t.localScale:F3}, yOffset={Plugin.FableHelmetYOffset?.Value ?? 0f:F3}");
+        }
     }
 
     private static string ComputeEquipSignature(Player player)
@@ -789,6 +845,7 @@ internal class AshlandsRebornFableWarrior : MonoBehaviour
     public bool EquipPending;
     public string? AppliedEquipSignature;
     public GameObject? LastScaledKrom;
+    public GameObject? LastFixedHelmet;
     public bool Built;
 
     private void OnEnable() => FableWarriorPatches.Register(this);

@@ -26,6 +26,7 @@ internal static class PhotoModePatches
 {
     private const string CharredMeleePrefab = "Charred_Melee";
     private static readonly int[] Yaws = { 0, 90, 180, 270 };
+    private static readonly int[] CloseYaws = { 0, 45, 90, 180, 270 };
 
     private static bool _running;
     private static bool _cameraOverrideActive;
@@ -154,6 +155,19 @@ internal static class PhotoModePatches
                 for (var f = 0; f < 5; f++) yield return null; // let the async capture finish writing
             }
 
+            // Head/shoulder close-ups: helmet fit + idle sword-on-shoulder rest are invisible
+            // at full-body framing (the M3 "helmet sane" false pass came from exactly that).
+            foreach (var yaw in CloseYaws)
+            {
+                if (go == null) break;
+                AimCameraAt(go, yaw, closeUp: true);
+                yield return new WaitForSeconds(0.3f);
+                var path = Path.Combine(dir, $"close_{yaw}.png");
+                ScreenCapture.CaptureScreenshot(path);
+                shotPaths.Add(path);
+                for (var f = 0; f < 5; f++) yield return null;
+            }
+
             // Animation-proof pair: same angle, 1s apart. Screenshots alone are a weak signal
             // here (a held guard/idle stance can look identical to a truly frozen T-pose to
             // the eye) - so we also read the Animator directly for an objective signal that
@@ -244,9 +258,12 @@ internal static class PhotoModePatches
     /// <summary>
     /// Computes a scale-agnostic framing (renderer-bounds based) so the same code frames
     /// both the current oversized hodgepodge warrior and the eventual Fable puppet correctly
-    /// regardless of their differing heights.
+    /// regardless of their differing heights. With closeUp=true, frames the head/shoulder
+    /// region instead: focus on the puppet's helmet joint when a Fable marker is present
+    /// (the union bounds include the raised sword and over-read the head height), else the
+    /// top quarter of the bounds.
     /// </summary>
-    private static void AimCameraAt(GameObject go, int yaw)
+    private static void AimCameraAt(GameObject go, int yaw, bool closeUp = false)
     {
         Bounds? bounds = null;
         foreach (var r in go.GetComponentsInChildren<Renderer>())
@@ -263,9 +280,26 @@ internal static class PhotoModePatches
         var center = bounds?.center ?? go.transform.position + Vector3.up;
         var size = bounds?.size ?? Vector3.one * 2f;
 
-        var camDistance = Mathf.Clamp(size.magnitude * 1.3f, 3f, 20f);
+        float camDistance;
+        if (closeUp)
+        {
+            var marker = go.GetComponent<AshlandsRebornFableWarrior>();
+            var helmJoint = marker != null && marker.PuppetVis != null ? marker.PuppetVis.m_helmet : null;
+            if (helmJoint != null)
+                center = helmJoint.position - Vector3.up * 0.1f * Mathf.Max(1f, helmJoint.position.y - go.transform.position.y);
+            else
+                center = center + Vector3.up * (size.y * 0.25f);
+            var headHeight = Mathf.Max(center.y - go.transform.position.y, 1f);
+            camDistance = Mathf.Clamp(headHeight * 0.6f, 1.2f, 5f);
+        }
+        else
+        {
+            camDistance = Mathf.Clamp(size.magnitude * 1.3f, 3f, 20f);
+        }
+
         var rot = Quaternion.Euler(0f, yaw, 0f);
-        var camPos = center + rot * new Vector3(0f, 0f, -camDistance) + Vector3.up * (size.y * 0.15f);
+        var camPos = center + rot * new Vector3(0f, 0f, -camDistance)
+                     + (closeUp ? Vector3.zero : Vector3.up * (size.y * 0.15f));
 
         _desiredCamPos = camPos;
         _desiredCamRot = Quaternion.LookRotation((center - camPos).normalized, Vector3.up);
