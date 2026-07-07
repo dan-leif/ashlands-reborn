@@ -27,8 +27,12 @@ namespace AshlandsReborn.Patches;
 /// The arm chain is the exception: its rest poses differ by a large constant (~48/59.5 deg),
 /// so those bones get a computed rest-pose alignment baked into their offsets (EnsureOffsets).
 ///
-/// M2 scope: puppet BODY only (naked player body), no equipment. M3 adds the equipment clone,
-/// Charred attach suppression, and the Krom sword.
+/// M3 adds the full appearance: the local player's equipment is cloned onto the puppet via
+/// Humanoid.SetupVisEquipment (native attach logic, zero bind-pose math), the Krom sword
+/// replaces the player's hand items, the Charred's own attach machinery is suppressed with
+/// pure-skip prefixes on the private Set*Equipped methods, and the Charred glow FX
+/// (EyeGlow/chestglow) are disabled for a fully human look. Player armor changes re-sync to
+/// all puppets within ~2s via an equip signature diff in PeriodicUpdate.
 /// </summary>
 [HarmonyPatch]
 internal static class FableWarriorPatches
@@ -36,9 +40,12 @@ internal static class FableWarriorPatches
     private const string CharredMeleePrefab = "Charred_Melee";
 
     // The Charred's capsule collider spans ~ground-to-neck and under-reads the visible body
-    // height by ~30% (it misses the head). Calibrated so a standard warrior's puppet matches
-    // the Charred's visible silhouette (~2.97m) rather than the capsule height (~2.29m).
-    private const float CapsuleToBodyHeight = 1.3f;
+    // height (it misses the head). 1.3 matched the Charred's max silhouette but read ~a head
+    // too tall next to the original (user M2 review); 1.17 targets the Charred's actual
+    // standing height.
+    private const float CapsuleToBodyHeight = 1.17f;
+
+    private const string KromPrefabName = "THSwordKrom";
 
     // Per-bone rest-pose offsets, computed once from the two prefabs, keyed by Mixamo bone name.
     // c0Inv = inverse of the Charred bone's rest rotation (relative to the Charred Visual node).
@@ -71,6 +78,63 @@ internal static class FableWarriorPatches
 
     // Session-static dummy ZNetView so the puppet's VisEquipment runs in local (no-ZDO) mode.
     private static ZNetView? _dummyNView;
+
+    // ---- reflection accessors (VisEquipment privates) ------------------------------------
+
+    // Humanoid.SetupVisEquipment(visEq, isRagdoll) - the vanilla ragdoll pattern: one call
+    // copies ALL slots + beard/hair (+ model index & skin/hair color via Player's override,
+    // which reflection Invoke dispatches to virtually).
+    private static readonly MethodInfo? MSetupVisEquipment =
+        AccessTools.Method(typeof(Humanoid), "SetupVisEquipment");
+
+    private static readonly FieldInfo? FRightItemInstance =
+        AccessTools.Field(typeof(VisEquipment), "m_rightItemInstance");
+    private static readonly FieldInfo? FLeftItemInstance =
+        AccessTools.Field(typeof(VisEquipment), "m_leftItemInstance");
+    private static readonly FieldInfo? FHelmetItemInstance =
+        AccessTools.Field(typeof(VisEquipment), "m_helmetItemInstance");
+
+    // List<GameObject>-typed attach instance fields on VisEquipment.
+    private static readonly FieldInfo?[] InstanceListFields =
+    {
+        AccessTools.Field(typeof(VisEquipment), "m_chestItemInstances"),
+        AccessTools.Field(typeof(VisEquipment), "m_legItemInstances"),
+        AccessTools.Field(typeof(VisEquipment), "m_shoulderItemInstances"),
+        AccessTools.Field(typeof(VisEquipment), "m_utilityItemInstances"),
+    };
+
+    // m_current*ItemHash fields. While the puppet is active these stay untouched (the charred's
+    // Set*Equipped calls are skipped wholesale); on revert they must be reset to 0 or vanilla's
+    // "hash already matches" early-out never recreates the destroyed instances (documented
+    // MasterSwitch gotcha from the legacy path).
+    private static readonly FieldInfo?[] CurrentHashFields =
+    {
+        AccessTools.Field(typeof(VisEquipment), "m_currentRightItemHash"),
+        AccessTools.Field(typeof(VisEquipment), "m_currentLeftItemHash"),
+        AccessTools.Field(typeof(VisEquipment), "m_currentChestItemHash"),
+        AccessTools.Field(typeof(VisEquipment), "m_currentLegItemHash"),
+        AccessTools.Field(typeof(VisEquipment), "m_currentHelmetItemHash"),
+        AccessTools.Field(typeof(VisEquipment), "m_currentShoulderItemHash"),
+        AccessTools.Field(typeof(VisEquipment), "m_currentUtilityItemHash"),
+    };
+
+    // Fields hashed into the player-equipment signature for the ~2s live sync. Hand/back items
+    // are deliberately excluded: the puppet always carries the Krom regardless of what the
+    // player draws or sheathes, so weapon switches must not trigger pointless re-applies.
+    private static readonly FieldInfo?[] SignatureFields =
+    {
+        AccessTools.Field(typeof(VisEquipment), "m_chestItem"),
+        AccessTools.Field(typeof(VisEquipment), "m_legItem"),
+        AccessTools.Field(typeof(VisEquipment), "m_helmetItem"),
+        AccessTools.Field(typeof(VisEquipment), "m_shoulderItem"),
+        AccessTools.Field(typeof(VisEquipment), "m_shoulderItemVariant"),
+        AccessTools.Field(typeof(VisEquipment), "m_utilityItem"),
+        AccessTools.Field(typeof(VisEquipment), "m_beardItem"),
+        AccessTools.Field(typeof(VisEquipment), "m_hairItem"),
+        AccessTools.Field(typeof(VisEquipment), "m_modelIndex"),
+        AccessTools.Field(typeof(VisEquipment), "m_skinColor"),
+        AccessTools.Field(typeof(VisEquipment), "m_hairColor"),
+    };
 
     // ---- registry ----------------------------------------------------------------------
 
@@ -223,6 +287,10 @@ internal static class FableWarriorPatches
         BuildBonePairs(charredVis, puppetVis, marker);
         Drive(marker);
 
+        // M3: silence the charred's own attach machinery + glow FX, then dress the puppet.
+        SuppressCharredExtras(humanoid, charredVis, marker);
+        TryApplyAppearance(marker);
+
         marker.Built = true;
         Plugin.Log?.LogInfo(
             $"[Fable Warrior] Puppet built on {humanoid.gameObject.name}: " +
@@ -295,6 +363,175 @@ internal static class FableWarriorPatches
         UObject.DontDestroyOnLoad(go);
         _dummyNView = go.AddComponent<ZNetView>();
         return _dummyNView;
+    }
+
+    // ---- appearance (M3) -----------------------------------------------------------------
+
+    /// <summary>
+    /// Disable the Charred's glow FX (fully human face/chest) and destroy its existing attach
+    /// instances (sword etc.). The m_current*ItemHash values are deliberately left non-zero so
+    /// vanilla's "already equipped" early-out keeps the slots dead; revert resets them to 0 to
+    /// force recreation from the ZDO.
+    /// </summary>
+    private static void SuppressCharredExtras(Humanoid humanoid, VisEquipment charredVis, AshlandsRebornFableWarrior marker)
+    {
+        foreach (var fxName in new[] { "EyeGlow", "EyeGlow (1)", "fx_charred_chestglow" })
+        {
+            var t = FindChildRecursive(humanoid.transform, fxName);
+            if (t != null && t.gameObject.activeSelf)
+            {
+                marker.DisabledFx.Add(t.gameObject);
+                t.gameObject.SetActive(false);
+            }
+        }
+
+        var destroyed = 0;
+        foreach (var f in new[] { FRightItemInstance, FLeftItemInstance, FHelmetItemInstance })
+        {
+            if (f?.GetValue(charredVis) is GameObject go && go != null)
+            {
+                UObject.Destroy(go);
+                f.SetValue(charredVis, null);
+                destroyed++;
+            }
+        }
+        foreach (var f in InstanceListFields)
+        {
+            if (f?.GetValue(charredVis) is not List<GameObject> list) continue;
+            foreach (var go in list)
+                if (go != null) { UObject.Destroy(go); destroyed++; }
+            list.Clear();
+        }
+        Plugin.Log?.LogInfo($"[Fable Warrior] Charred extras suppressed: fx={marker.DisabledFx.Count}, attachInstances={destroyed}");
+    }
+
+    /// <summary>
+    /// Clone the local player's full appearance onto the puppet (armor, beard/hair, model,
+    /// skin/hair color) via vanilla SetupVisEquipment, then override the hands: Krom sword
+    /// right, nothing left/back. Defers via EquipPending when no local player exists yet.
+    /// </summary>
+    internal static void TryApplyAppearance(AshlandsRebornFableWarrior marker)
+    {
+        var player = Player.m_localPlayer;
+        if (player == null)
+        {
+            marker.EquipPending = true;
+            return;
+        }
+        ApplyAppearance(marker, player, ComputeEquipSignature(player));
+    }
+
+    private static void ApplyAppearance(AshlandsRebornFableWarrior marker, Player player, string signature)
+    {
+        if (marker.PuppetVis == null) return;
+        try
+        {
+            MSetupVisEquipment?.Invoke(player, new object[] { marker.PuppetVis, false });
+            marker.PuppetVis.SetRightItem(KromPrefabName);
+            marker.PuppetVis.SetLeftItem("", 0);
+            marker.PuppetVis.SetLeftBackItem("", 0);
+            marker.PuppetVis.SetRightBackItem("");
+            marker.PuppetVis.CustomUpdate(0f, 0f); // attach now (no one-frame naked flash)
+            marker.EquipPending = false;
+            marker.AppliedEquipSignature = signature;
+            marker.StartCoroutine(ScalePuppetKrom(marker));
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log?.LogWarning($"[Fable Warrior] ApplyAppearance failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Apply WarriorKromScale to the puppet's sword instance once it exists. The instance is
+    /// parented under the puppet's hand bone, so it already inherits the puppet's body scale;
+    /// the config value is a multiplier on top. Re-equips create fresh instances at scale 1,
+    /// tracked per-marker so each new instance is scaled exactly once.
+    /// </summary>
+    private static IEnumerator ScalePuppetKrom(AshlandsRebornFableWarrior marker)
+    {
+        for (var i = 0; i < 10; i++) yield return null;
+        if (marker == null || marker.PuppetVis == null) yield break;
+        var weaponGo = FRightItemInstance?.GetValue(marker.PuppetVis) as GameObject;
+        if (weaponGo == null || ReferenceEquals(weaponGo, marker.LastScaledKrom)) yield break;
+        weaponGo.transform.localScale *= Plugin.WarriorKromScale?.Value ?? 1.16f;
+        marker.LastScaledKrom = weaponGo;
+        Plugin.Log?.LogInfo($"[Fable Warrior] Krom attached+scaled on {marker.gameObject.name}");
+    }
+
+    private static string ComputeEquipSignature(Player player)
+    {
+        var vis = player.GetComponent<VisEquipment>();
+        if (vis == null) return "";
+        var sb = new System.Text.StringBuilder(128);
+        foreach (var f in SignatureFields)
+            sb.Append(f?.GetValue(vis)).Append('|');
+        return sb.ToString();
+    }
+
+    private static Transform? FindChildRecursive(Transform root, string name)
+    {
+        if (root.name == name) return root;
+        for (var i = 0; i < root.childCount; i++)
+        {
+            var hit = FindChildRecursive(root.GetChild(i), name);
+            if (hit != null) return hit;
+        }
+        return null;
+    }
+
+    // ---- charred attach suppression (M3) --------------------------------------------------
+    // Pure-skip prefixes on VisEquipment's private Set*Equipped methods, gated on the fable
+    // marker sitting on the same GameObject as the charred's VisEquipment. The puppet's own
+    // VisEquipment (on AR_FablePuppet, no marker) runs vanilla logic untouched.
+
+    private static bool SuppressCharredAttach(VisEquipment __instance, ref bool __result)
+    {
+        if (!Plugin.IsFablePuppetActive) return true;
+        if (__instance.GetComponent<AshlandsRebornFableWarrior>() == null) return true;
+        __result = false;
+        return false;
+    }
+
+    [HarmonyPatch(typeof(VisEquipment), "SetRightHandEquipped")]
+    [HarmonyPrefix]
+    private static bool SetRightHandEquipped_Prefix(VisEquipment __instance, ref bool __result)
+        => SuppressCharredAttach(__instance, ref __result);
+
+    [HarmonyPatch(typeof(VisEquipment), "SetLeftHandEquipped")]
+    [HarmonyPrefix]
+    private static bool SetLeftHandEquipped_Prefix(VisEquipment __instance, ref bool __result)
+        => SuppressCharredAttach(__instance, ref __result);
+
+    [HarmonyPatch(typeof(VisEquipment), "SetHelmetEquipped")]
+    [HarmonyPrefix]
+    private static bool SetHelmetEquipped_Prefix(VisEquipment __instance, ref bool __result)
+        => SuppressCharredAttach(__instance, ref __result);
+
+    [HarmonyPatch(typeof(VisEquipment), "SetChestEquipped")]
+    [HarmonyPrefix]
+    private static bool SetChestEquipped_Prefix(VisEquipment __instance, ref bool __result)
+        => SuppressCharredAttach(__instance, ref __result);
+
+    [HarmonyPatch(typeof(VisEquipment), "SetLegEquipped")]
+    [HarmonyPrefix]
+    private static bool SetLegEquipped_Prefix(VisEquipment __instance, ref bool __result)
+        => SuppressCharredAttach(__instance, ref __result);
+
+    [HarmonyPatch(typeof(VisEquipment), "SetShoulderEquipped")]
+    [HarmonyPrefix]
+    private static bool SetShoulderEquipped_Prefix(VisEquipment __instance, ref bool __result)
+        => SuppressCharredAttach(__instance, ref __result);
+
+    [HarmonyPatch(typeof(VisEquipment), "SetUtilityEquipped")]
+    [HarmonyPrefix]
+    private static bool SetUtilityEquipped_Prefix(VisEquipment __instance, ref bool __result)
+        => SuppressCharredAttach(__instance, ref __result);
+
+    internal static void ResetCharredEquipHashes(VisEquipment vis)
+    {
+        foreach (var f in CurrentHashFields)
+            f?.SetValue(vis, 0);
     }
 
     // ---- bone retarget -----------------------------------------------------------------
@@ -476,9 +713,31 @@ internal static class FableWarriorPatches
             m.RevertAndDestroy();
     }
 
+    private static float _syncTimer;
+
+    /// <summary>
+    /// Called from Plugin's 0.2s block. Every ~2s: apply any pending equips (local player was
+    /// null at build time) and re-clone the appearance onto all puppets when the player's
+    /// armor/beard/hair/model signature changed.
+    /// </summary>
     internal static void PeriodicUpdate()
     {
-        // M2: nothing yet. M3 adds pending-equip apply + live armor-change resync here.
+        if (!Plugin.IsFablePuppetActive) return;
+        _syncTimer += 0.2f;
+        if (_syncTimer < 2f) return;
+        _syncTimer = 0f;
+
+        var player = Player.m_localPlayer;
+        if (player == null || Registry.Count == 0) return;
+
+        var signature = ComputeEquipSignature(player);
+        for (var i = 0; i < Registry.Count; i++)
+        {
+            var m = Registry[i];
+            if (m == null || !m.Built) continue;
+            if (m.EquipPending || m.AppliedEquipSignature != signature)
+                ApplyAppearance(m, player, signature);
+        }
     }
 
     // ---- helpers -----------------------------------------------------------------------
@@ -526,6 +785,10 @@ internal class AshlandsRebornFableWarrior : MonoBehaviour
     public AnimatorCullingMode OriginalCulling;
     public readonly List<Renderer> HiddenRenderers = new();
     public readonly List<bool> HiddenRendererStates = new();
+    public readonly List<GameObject> DisabledFx = new();
+    public bool EquipPending;
+    public string? AppliedEquipSignature;
+    public GameObject? LastScaledKrom;
     public bool Built;
 
     private void OnEnable() => FableWarriorPatches.Register(this);
@@ -543,6 +806,16 @@ internal class AshlandsRebornFableWarrior : MonoBehaviour
                 var r = HiddenRenderers[i];
                 if (r != null) r.enabled = i < HiddenRendererStates.Count ? HiddenRendererStates[i] : true;
             }
+
+            foreach (var fx in DisabledFx)
+                if (fx != null) fx.SetActive(true);
+
+            // Force vanilla to recreate the destroyed attach instances from the ZDO: the
+            // Set*Equipped early-out skips slots whose current hash already matches, so the
+            // hashes must be zeroed. (This marker is destroyed at end of frame, after which
+            // the suppression prefixes no longer gate this VisEquipment.)
+            var vis = GetComponent<VisEquipment>();
+            if (vis != null) FableWarriorPatches.ResetCharredEquipHashes(vis);
 
             if (CharredAnimator != null)
                 CharredAnimator.cullingMode = OriginalCulling;
