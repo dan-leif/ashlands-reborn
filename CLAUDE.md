@@ -161,7 +161,10 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `TreePatches.cs` | `ClutterSystem`, zone generation | Replaces Ashlands tree spawns with Beech/Oak at configurable density and ratio |
 | `ClutterSystemPatches.cs` | `ClutterSystem.Awake` | Minor grass clutter patch |
 | `ValkyriePatches.cs` | Creature spawn | Swaps Fallen Valkyrie prefab with Valkyrie mesh/animations |
-| `CharredWarriorPatches.cs` | Creature spawn | Equips armor/sword on Charred Melee; computes bind-pose transforms for skeletal rigging |
+| `CharredWarriorPatches.cs` | Creature spawn | LEGACY (bypassed when `EnableFableWarrior=true`): equips armor/sword on Charred Melee via bind-pose math |
+| `FableWarriorPatches.cs` | `Humanoid.Awake`, `MonoUpdaters.LateUpdate`, `VisEquipment.Set*Equipped` | CURRENT Charred Warrior system: scaled Player-rig puppet dressed via native VisEquipment, driven by the Charred's animation (see below) |
+| `PhotoModePatches.cs` | `GameCamera.LateUpdate` (prefix) | Dev verification harness: spawns a warrior, orbits the camera, captures full-body + close-up screenshots autonomously |
+| `LifecycleTestPatches.cs` | None (no Harmony patches) | Dev M4 self-test: spawns 3 warriors (incl. 2★), asserts toggle/refresh/sync/scale lifecycle invariants |
 | `DevAutoLoadPatches.cs` | None (no Harmony patches) | State machine called from `Plugin.Update()` that auto-navigates FejdStartup menus on startup |
 
 **Note on `DevAutoLoadPatches.cs`:** This file has no `[HarmonyPatch]` attributes. Harmony-patching `FejdStartup.Start()` (a coroutine) and `FejdStartup.Update()` (not defined as an override) fails silently. Instead it exposes a `Tick()` method called from `Plugin.Update()` each frame, checking `FejdStartup.instance` directly.
@@ -175,7 +178,55 @@ public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && Ena
 
 All `ConfigEntry` properties are `public static` so patch classes read them directly from `Plugin.*` without needing an instance.
 
-### Charred Warrior armor (most complex)
+### Fable Warrior puppet (CURRENT Charred Warrior system)
+
+`FableWarriorPatches.cs` replaces the legacy hodgepodge below. Core idea: player-authored
+meshes never leave the skeleton they were authored for. A stripped, visual-only Player
+prefab ("puppet") is instantiated as a child of each `Charred_Melee`'s `Visual` node, the
+Charred's own renderers are hidden, and every `MonoUpdaters.LateUpdate` the Charred bones'
+rotations are retargeted onto the matching puppet bones (shared Mixamo names) via
+deviation-from-rest transfer, with a computed rest-pose alignment baked in for the 6
+arm-chain bones (their rest poses differ by a ~28/48/59.5° constant). Active when
+`MasterSwitch && EnableFableWarrior && ClonePlayerToWarrior` (`Plugin.IsFablePuppetActive`);
+the entire legacy `CharredWarriorPatches` path is bypassed via its `ShouldSwap()` guard.
+
+Key mechanics (details in the file's doc comments):
+- **Inactive strip**: the puppet is instantiated under an inactive holder so no gameplay
+  `Awake` runs; all MonoBehaviours except `VisEquipment` are destroyed (multi-pass for
+  RequireComponent chains), plus Rigidbody/Colliders; the Animator is kept but disabled.
+- **No-ZDO VisEquipment**: `m_nViewOverride` is set to a session-static ZNetView on an
+  inactive GameObject (its `GetZDO()` stays null), so all `Set*Item` calls run in local mode.
+- **Appearance**: `Humanoid.SetupVisEquipment` (reflection) clones the local player's full
+  gear/beard/hair/skin onto the puppet; Krom sword forced into the right hand; a ~2s
+  signature diff in `PeriodicUpdate` re-clones on real player equip changes.
+- **Rigid-attach scale gotcha**: vanilla `AttachItem` parents rigid attaches (helmet, sword)
+  with `worldPositionStays=true`, which back-compensates `localScale` by the joint's
+  `lossyScale` — on the ~1.4× scaled puppet rig, helmets rendered player-sized ("too small,
+  perched on the crown"). `FixupPuppetAttaches` re-scales the helmet instance by the
+  puppet-vs-prefab helmet-joint lossy ratio (`FableHelmetScale`/`FableHelmetYOffset` on
+  top); the Krom keeps `WarriorKromScale` sizing plus `FableKromGripRot*/Off*` grip tuning
+  (RotX=12 calibrated so the resting blade lies on the shoulder, not through the trapezius).
+  Skinned attaches (`attach_skin` armor) are immune — bones + bind poses drive them.
+- **Charred suppression**: pure-skip prefixes on the 7 private `VisEquipment.Set*Equipped`
+  methods, gated on the `AshlandsRebornFableWarrior` marker; glow FX (EyeGlow ×2,
+  chestglow) disabled; charred Animator set to `AlwaysAnimate` so the hidden source keeps
+  animating.
+- **Scale**: height target = capsule height × root lossyScale × 1.17 (`CapsuleToBodyHeight`)
+  × star scale (from `LevelEffects.m_levelSetups`); late star-ups are absorbed by
+  `AbsorbScaleDrift` in `PeriodicUpdate`.
+- **Refresh gotcha**: `RefreshAll()` must wait one frame after `RevertAll()` before
+  rescanning (marker `Destroy` is deferred; a same-frame scan sees stale markers and skips
+  every warrior).
+
+**Autonomous verification**: `PhotoModePatches` (config `PhotoModeAuto` or F6) teleports the
+player to the test island (`PhotoModeIslandPos`), spawns a warrior, captures 4 full-body +
+5 close-up angles + a t0/t1 animation-proof pair (plus an objective
+`Animator.GetCurrentAnimatorStateInfo` log line), writes `AR_PhotoMode\DONE.txt`.
+`LifecycleTestPatches` (config `PhotoModeM4Test`) asserts the M4 lifecycle DoD and writes
+`M4_RESULTS.txt`. Outer loop: kill valheim → `dev.ps1` → poll the BepInEx log for
+`[AR PhotoMode] DONE` / `[AR M4] DONE` → read the PNGs/results → iterate.
+
+### Charred Warrior armor (LEGACY — active only when `EnableFableWarrior=false`)
 
 `CharredWarriorPatches.cs` (~1500 lines) is the most involved file. It:
 1. Clones armor item prefabs from `ObjectDB`
@@ -227,6 +278,22 @@ The final design combines two layers to work around the ~177° arm bone orientat
 | `DevAutoLoad` | false | Auto-navigate menus and load into world on startup |
 | `DevAutoLoadCharacter` | "Dove" | Character name to select |
 | `DevAutoLoadWorld` | "Reborn" | World name to select |
+| `PhotoModeKey` | F6 | Run the photo harness on demand |
+| `PhotoModeAuto` | false | Run the photo harness once, ~10s after world load |
+| `PhotoModeM4Test` | false | Run the M4 lifecycle self-test once after world load (suppresses the auto photo shoot) |
+| `PhotoModeSpawnDistance` | 5 | Distance in front of the player to spawn the test warrior |
+| `PhotoModeIslandPos` | "2736,40,2580" | Test island teleport target; empty disables |
+
+### Fable Warrior config (section "Fable Warrior")
+
+| Config key | Default | Effect |
+|---|---|---|
+| `EnableFableWarrior` | true | Bypass ALL legacy warrior mods in favor of the puppet system |
+| `ClonePlayerToWarrior` | true | Build the player puppet on every Charred_Melee |
+| `FableWarriorScale` | 1.0 | Multiplier on the auto-computed height-match scale |
+| `FableHelmetScale` / `FableHelmetYOffset` | 1.0 / 0 | Fine-tune the (already scale-normalized) puppet helmet |
+| `FableKromGripRotX/Y/Z` | 12 / 0 / 0 | Krom grip rotation (deg, hand-attach frame); RotX=12 calibrates the shoulder rest |
+| `FableKromGripOffX/Y/Z` | 0 | Krom grip position offset (m, hand-attach frame) |
 
 ## Asset Extraction Scripts
 

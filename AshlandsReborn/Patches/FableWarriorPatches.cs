@@ -308,9 +308,6 @@ internal static class FableWarriorPatches
             $"[Fable Warrior] Puppet built on {humanoid.gameObject.name}: " +
             $"pairs={marker.Pairs?.Length ?? 0}, targetH={targetHeight:F2}, puppetH={puppetHeight:F2}, " +
             $"autoScale={autoScale:F3}, finalScale={finalScale:F3}");
-        Plugin.Log?.LogInfo(
-            $"[Fable Warrior] Frame ref: charredVisualLocalRot={charredVisual.localRotation.eulerAngles}, " +
-            $"puppetVisualLocalRot={marker.PuppetVisual.localRotation.eulerAngles}");
     }
 
     /// <summary>
@@ -491,19 +488,7 @@ internal static class FableWarriorPatches
                 Plugin.FableKromGripOffY?.Value ?? 0f,
                 Plugin.FableKromGripOffZ?.Value ?? 0f);
             marker.LastScaledKrom = weaponGo;
-
-            // Grip-tuning geometry dump: the weapon's local axes in world space plus the
-            // blade direction estimate and the shoulder/head landmarks, so the needed grip
-            // rotation can be computed from the log instead of blind trial and error.
-            var rend = weaponGo.GetComponentInChildren<Renderer>();
-            var bladeDir = rend != null ? (rend.bounds.center - t.position).normalized : Vector3.zero;
-            var shoulder = FindChildRecursive(marker.PuppetVisual ?? t, "RightShoulder");
-            var head = FindChildRecursive(marker.PuppetVisual ?? t, "Head");
-            Plugin.Log?.LogInfo(
-                $"[Fable Warrior] Krom fixed on {marker.gameObject.name}: hand={t.position:F2} " +
-                $"axesWorld X={t.right:F2} Y={t.up:F2} Z={t.forward:F2} bladeDir={bladeDir:F2} " +
-                $"rShoulder={(shoulder != null ? shoulder.position.ToString("F2") : "?")} " +
-                $"head={(head != null ? head.position.ToString("F2") : "?")}");
+            Plugin.Log?.LogInfo($"[Fable Warrior] Krom fixed on {marker.gameObject.name}");
         }
 
         if (FHelmetItemInstance?.GetValue(marker.PuppetVis) is GameObject helmetGo && helmetGo != null
@@ -627,6 +612,7 @@ internal static class FableWarriorPatches
         var pInv = Quaternion.Inverse(playerVisual.rotation);
 
         var dict = new Dictionary<string, (Quaternion, Quaternion)>(StringComparer.OrdinalIgnoreCase);
+        var alignLog = new List<string>();
         foreach (var kv in charredBones)
         {
             if (!playerBones.TryGetValue(kv.Key, out var pBone)) continue;
@@ -648,9 +634,7 @@ internal static class FableWarriorPatches
                     var angle = Vector3.Angle(pDir, cDir);
                     if (angle >= AlignSkipDegrees)
                         p0Eff = Quaternion.FromToRotation(pDir.normalized, cDir.normalized) * p0;
-                    Plugin.Log?.LogInfo(
-                        $"[Fable Warrior] Rest-align {kv.Key}: {angle:F1} deg" +
-                        (angle >= AlignSkipDegrees ? "" : " (below threshold, skipped)"));
+                    alignLog.Add($"{kv.Key} {angle:F1}deg{(angle >= AlignSkipDegrees ? "" : " (skipped)")}");
                 }
             }
 
@@ -659,7 +643,8 @@ internal static class FableWarriorPatches
 
         _offsets = dict;
         Plugin.Log?.LogInfo($"[Fable Warrior] Bone offsets built: {dict.Count} shared bones " +
-                            $"(charred={charredBones.Count}, player={playerBones.Count}).");
+                            $"(charred={charredBones.Count}, player={playerBones.Count}); " +
+                            $"arm rest-align: {string.Join(", ", alignLog)}");
         return true;
     }
 
