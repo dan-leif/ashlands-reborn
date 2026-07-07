@@ -18,10 +18,14 @@ namespace AshlandsReborn.Patches;
 /// The core idea that makes this work where 10+ prior mesh-on-Charred-skeleton attempts
 /// failed: the player body mesh NEVER leaves the skeleton it was authored for. We instantiate
 /// a stripped, visual-only Player prefab as a child of the warrior, hide the Charred's own
-/// renderers, scale the puppet to Charred size, and every LateUpdate copy the Charred bones'
-/// orientations directly onto the matching puppet bones. The two rigs share Mixamo bone names
-/// AND bone-local axes, so a direct orientation copy makes the puppet reproduce the Charred's
-/// exact pose on a human-proportioned body (see Drive()).
+/// renderers, scale the puppet to Charred size, and every LateUpdate retarget the Charred
+/// bones' rotations onto the matching puppet bones (both rigs use Mixamo names) via a
+/// deviation-from-rest transfer: measure each Charred bone's rotation delta from its own rest
+/// pose and apply that delta to the puppet bone relative to ITS rest pose. This preserves the
+/// human rest posture (a direct orientation copy was tried and distorts the whole body,
+/// because the rigs' rest orientations/roll only coincide approximately outside the arms).
+/// The arm chain is the exception: its rest poses differ by a large constant (~48/59.5 deg),
+/// so those bones get a computed rest-pose alignment baked into their offsets (EnsureOffsets).
 ///
 /// M2 scope: puppet BODY only (naked player body), no equipment. M3 adds the equipment clone,
 /// Charred attach suppression, and the Krom sword.
@@ -35,6 +39,33 @@ internal static class FableWarriorPatches
     // height by ~30% (it misses the head). Calibrated so a standard warrior's puppet matches
     // the Charred's visible silhouette (~2.97m) rather than the capsule height (~2.29m).
     private const float CapsuleToBodyHeight = 1.3f;
+
+    // Per-bone rest-pose offsets, computed once from the two prefabs, keyed by Mixamo bone name.
+    // c0Inv = inverse of the Charred bone's rest rotation (relative to the Charred Visual node).
+    // p0Eff = the Player bone's rest rotation (relative to the Player Visual node); for the arm
+    //         chain it is pre-multiplied by a constant swing that aligns the player's rest arm
+    //         segment direction with the Charred's (see AlignedBoneChild in EnsureOffsets).
+    private static Dictionary<string, (Quaternion c0Inv, Quaternion p0Eff)>? _offsets;
+    private static bool _offsetsFailed;
+
+    // Arm-chain bones whose rest segment direction differs between the two rigs by a large
+    // constant (measured live: upper arm ~48.0 deg, forearm ~59.5 deg — the inherent
+    // human-vs-Charred rest arm pose difference). Value = the single child bone that defines
+    // each bone's segment direction. All other bones' rests already agree closely enough that
+    // the plain deviation transfer passes the body rubric.
+    private static readonly Dictionary<string, string> AlignedBoneChild = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["LeftShoulder"] = "LeftArm",
+        ["RightShoulder"] = "RightArm",
+        ["LeftArm"] = "LeftForeArm",
+        ["RightArm"] = "RightForeArm",
+        ["LeftForeArm"] = "LeftHand",
+        ["RightForeArm"] = "RightHand",
+    };
+
+    // Rest-direction mismatches below this are noise (and the deviation transfer already
+    // handles them fine) - skip alignment to avoid perturbing bones that don't need it.
+    private const float AlignSkipDegrees = 5f;
 
     private static readonly List<AshlandsRebornFableWarrior> Registry = new();
 
@@ -91,6 +122,12 @@ internal static class FableWarriorPatches
 
     private static void BuildPuppet(Humanoid humanoid, VisEquipment charredVis, AshlandsRebornFableWarrior marker)
     {
+        if (!EnsureOffsets())
+        {
+            Plugin.Log?.LogError("[Fable Warrior] Bone offsets unavailable - cannot build puppet.");
+            return;
+        }
+
         var charredVisual = charredVis.transform.Find("Visual") ?? charredVis.transform;
         marker.CharredVisual = charredVisual;
 
@@ -262,6 +299,65 @@ internal static class FableWarriorPatches
 
     // ---- bone retarget -----------------------------------------------------------------
 
+    private static bool EnsureOffsets()
+    {
+        if (_offsets != null) return true;
+        if (_offsetsFailed) return false;
+
+        var charredPrefab = ZNetScene.instance?.GetPrefab(CharredMeleePrefab);
+        var playerPrefab = Game.instance != null ? Game.instance.m_playerPrefab : ZNetScene.instance?.GetPrefab("Player");
+        if (charredPrefab == null || playerPrefab == null)
+        {
+            _offsetsFailed = true;
+            return false;
+        }
+
+        var charredVisual = charredPrefab.transform.Find("Visual") ?? charredPrefab.transform;
+        var playerVisual = playerPrefab.transform.Find("Visual") ?? playerPrefab.transform;
+
+        var charredBones = CollectBones(charredVisual);
+        var playerBones = CollectBones(playerVisual);
+
+        var cInv = Quaternion.Inverse(charredVisual.rotation);
+        var pInv = Quaternion.Inverse(playerVisual.rotation);
+
+        var dict = new Dictionary<string, (Quaternion, Quaternion)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in charredBones)
+        {
+            if (!playerBones.TryGetValue(kv.Key, out var pBone)) continue;
+            var c0 = cInv * kv.Value.rotation;      // Charred rest rot in Charred-Visual frame
+            var p0 = pInv * pBone.rotation;         // Player  rest rot in Player-Visual  frame
+
+            // Arm chain: pre-swing the player's rest so its arm segment points where the
+            // Charred's rest segment points; the per-frame deviation then tracks the Charred
+            // arm exactly instead of carrying the rest difference as a constant error.
+            var p0Eff = p0;
+            if (AlignedBoneChild.TryGetValue(kv.Key, out var childName)
+                && charredBones.TryGetValue(childName, out var cChild)
+                && playerBones.TryGetValue(childName, out var pChild))
+            {
+                var cDir = cInv * (cChild.position - kv.Value.position);
+                var pDir = pInv * (pChild.position - pBone.position);
+                if (cDir.sqrMagnitude > 1e-8f && pDir.sqrMagnitude > 1e-8f)
+                {
+                    var angle = Vector3.Angle(pDir, cDir);
+                    if (angle >= AlignSkipDegrees)
+                        p0Eff = Quaternion.FromToRotation(pDir.normalized, cDir.normalized) * p0;
+                    Plugin.Log?.LogInfo(
+                        $"[Fable Warrior] Rest-align {kv.Key}: {angle:F1} deg" +
+                        (angle >= AlignSkipDegrees ? "" : " (below threshold, skipped)"));
+                }
+            }
+
+            dict[kv.Key] = (Quaternion.Inverse(c0), p0Eff);
+        }
+
+        _offsets = dict;
+        Plugin.Log?.LogInfo($"[Fable Warrior] Bone offsets built: {dict.Count} shared bones " +
+                            $"(charred={charredBones.Count}, player={playerBones.Count}).");
+        return true;
+    }
+
     private static Dictionary<string, Transform> CollectBones(Transform root)
     {
         var map = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
@@ -288,15 +384,18 @@ internal static class FableWarriorPatches
         foreach (var kv in CollectBones(marker.PuppetVisual!))
             if (!puppetMap.ContainsKey(kv.Key)) puppetMap[kv.Key] = kv.Value;
 
-        // Pair every bone present in BOTH rigs (shared Mixamo names).
+        // Pair every bone with a prefab-derived rest offset that exists in BOTH live rigs.
         var pairs = new List<BonePair>();
-        foreach (var kv in charredMap)
+        foreach (var kv in _offsets!)
         {
+            if (!charredMap.TryGetValue(kv.Key, out var c)) continue;
             if (!puppetMap.TryGetValue(kv.Key, out var p)) continue;
             pairs.Add(new BonePair
             {
-                C = kv.Value,
+                C = c,
                 P = p,
+                C0Inv = kv.Value.c0Inv,
+                P0Eff = kv.Value.p0Eff,
                 Depth = Depth(p, marker.PuppetVisual!),
             });
         }
@@ -314,12 +413,14 @@ internal static class FableWarriorPatches
     }
 
     /// <summary>
-    /// Direct-copy rotation retarget: each puppet bone is given the Charred bone's orientation
-    /// relative to the Charred Visual node, re-expressed relative to the puppet Visual node. The
-    /// two rigs share Mixamo bone names AND bone-local axes, so copying orientations directly
-    /// makes the puppet reproduce the Charred's exact pose (verified: arm-segment directions
-    /// match within ~0.1 deg). Rotation-only preserves the human mesh proportions; the puppet
-    /// keeps its own bone lengths, so a human body performs the Charred's animation 1:1.
+    /// Deviation-from-rest rotation retarget. For each bone: measure how far the Charred bone
+    /// has rotated from its rest pose (in the Charred Visual frame), then apply that same delta
+    /// to the puppet bone relative to ITS rest pose (in the puppet Visual frame). Because the
+    /// delta is relative to each skeleton's own rest, rest-orientation mismatches cancel and
+    /// the human rest posture is preserved. The arm chain's rest poses differ by a large
+    /// constant, so their P0Eff carries a baked-in alignment swing (see EnsureOffsets) - which
+    /// makes this algebraically equivalent to a direct orientation copy with a per-bone basis
+    /// correction. Rotation-only: the puppet keeps its own bone lengths and proportions.
     /// </summary>
     private static void Drive(AshlandsRebornFableWarrior marker)
     {
@@ -333,7 +434,9 @@ internal static class FableWarriorPatches
         {
             var bp = pairs[i];
             if (bp.C == null || bp.P == null) continue;
-            bp.P.rotation = pr * (crInv * bp.C.rotation);
+            var cLive = crInv * bp.C.rotation;        // Charred bone rot in Charred-Visual frame
+            var delta = cLive * bp.C0Inv;             // delta from Charred rest
+            bp.P.rotation = pr * delta * bp.P0Eff;    // apply to puppet from its (aligned) rest
         }
     }
 
@@ -404,6 +507,8 @@ internal static class FableWarriorPatches
     {
         public Transform C;
         public Transform P;
+        public Quaternion C0Inv;
+        public Quaternion P0Eff;
         public int Depth;
     }
 }
