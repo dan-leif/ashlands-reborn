@@ -39,6 +39,73 @@ internal static class FableWarriorPatches
 {
     private const string CharredMeleePrefab = "Charred_Melee";
 
+    /// <summary>
+    /// Per-creature settings for the puppet system. All charred variants share the Mixamo
+    /// rig family, so the same build/strip/retarget machinery applies; what differs is the
+    /// enable toggle, the puppet's weapon loadout, and the tuning multipliers. Retarget
+    /// offsets are computed per charred PREFAB (rest poses differ between variants).
+    /// </summary>
+    internal sealed class CreatureProfile
+    {
+        public string Label = "";
+        public string[] Prefabs = Array.Empty<string>();
+        public Func<bool> Enabled = () => false;
+        public Func<string> RightItem = () => "";
+        public Func<string> LeftItem = () => "";
+        public Func<float> WeaponScale = () => 1f;
+        public Func<float> BodyScale = () => 1f;
+        /// <summary>Warrior only: legacy Krom sizing (no rig normalization) + grip rot/offset configs.</summary>
+        public bool KromGrip;
+    }
+
+    private static readonly CreatureProfile[] Profiles =
+    {
+        new()
+        {
+            Label = "Warrior",
+            Prefabs = new[] { CharredMeleePrefab },
+            Enabled = () => Plugin.ClonePlayerToWarrior?.Value == true,
+            RightItem = () => KromPrefabName,
+            WeaponScale = () => Plugin.WarriorKromScale?.Value ?? 1.16f,
+            BodyScale = () => Plugin.FableWarriorScale?.Value ?? 1f,
+            KromGrip = true,
+        },
+        new()
+        {
+            Label = "Archer",
+            Prefabs = new[] { "Charred_Archer" },
+            Enabled = () => Plugin.ClonePlayerToArcher?.Value == true,
+            LeftItem = () => Plugin.FableArcherBow?.Value ?? "BowAshlands",
+            WeaponScale = () => Plugin.FableArcherBowScale?.Value ?? 1f,
+            BodyScale = () => Plugin.FableArcherScale?.Value ?? 1f,
+        },
+        new()
+        {
+            Label = "Twitcher",
+            Prefabs = new[] { "Charred_Twitcher", "Charred_Twitcher_Summoned" },
+            Enabled = () => Plugin.ClonePlayerToTwitcher?.Value == true,
+            BodyScale = () => Plugin.FableTwitcherScale?.Value ?? 1f,
+        },
+        new()
+        {
+            Label = "Mage",
+            Prefabs = new[] { "Charred_Mage" },
+            Enabled = () => Plugin.ClonePlayerToMage?.Value == true,
+            RightItem = () => Plugin.FableMageStaff?.Value ?? "StaffFireball",
+            WeaponScale = () => Plugin.FableMageStaffScale?.Value ?? 1f,
+            BodyScale = () => Plugin.FableMageScale?.Value ?? 1f,
+        },
+    };
+
+    internal static CreatureProfile? FindProfile(string prefabName)
+    {
+        foreach (var p in Profiles)
+            foreach (var n in p.Prefabs)
+                if (string.Equals(n, prefabName, StringComparison.OrdinalIgnoreCase))
+                    return p;
+        return null;
+    }
+
     // The Charred's capsule collider spans ~ground-to-neck and under-reads the visible body
     // height (it misses the head). 1.3 matched the Charred's max silhouette but read ~a head
     // too tall next to the original (user M2 review); 1.17 targets the Charred's actual
@@ -47,13 +114,15 @@ internal static class FableWarriorPatches
 
     private const string KromPrefabName = "THSwordKrom";
 
-    // Per-bone rest-pose offsets, computed once from the two prefabs, keyed by Mixamo bone name.
+    // Per-bone rest-pose offsets, computed once per charred PREFAB against the player prefab,
+    // keyed by Mixamo bone name (the charred variants share bone names but not rest poses).
     // c0Inv = inverse of the Charred bone's rest rotation (relative to the Charred Visual node).
     // p0Eff = the Player bone's rest rotation (relative to the Player Visual node); for the arm
     //         chain it is pre-multiplied by a constant swing that aligns the player's rest arm
-    //         segment direction with the Charred's (see AlignedBoneChild in EnsureOffsets).
-    private static Dictionary<string, (Quaternion c0Inv, Quaternion p0Eff)>? _offsets;
-    private static bool _offsetsFailed;
+    //         segment direction with the Charred's (see AlignedBoneChild in GetOffsets).
+    // A null cache entry records a failed computation (missing prefab) so it isn't retried.
+    private static readonly Dictionary<string, Dictionary<string, (Quaternion c0Inv, Quaternion p0Eff)>?>
+        OffsetsCache = new(StringComparer.OrdinalIgnoreCase);
 
     // Arm-chain bones whose rest segment direction differs between the two rigs by a large
     // constant (measured live: upper arm ~48.0 deg, forearm ~59.5 deg — the inherent
@@ -157,10 +226,14 @@ internal static class FableWarriorPatches
     private static void Humanoid_Awake_Postfix(Humanoid __instance)
     {
         if (!Plugin.IsFablePuppetActive) return;
-        if (GetPrefabName(__instance.gameObject) != CharredMeleePrefab) return;
+        var prefabName = GetPrefabName(__instance.gameObject);
+        var profile = FindProfile(prefabName);
+        if (profile == null || !profile.Enabled()) return;
         if (__instance.GetComponent<AshlandsRebornFableWarrior>() != null) return;
 
         var marker = __instance.gameObject.AddComponent<AshlandsRebornFableWarrior>();
+        marker.Profile = profile;
+        marker.PrefabName = prefabName;
         __instance.StartCoroutine(BuildAfterSettle(__instance, marker));
     }
 
@@ -188,9 +261,10 @@ internal static class FableWarriorPatches
 
     private static void BuildPuppet(Humanoid humanoid, VisEquipment charredVis, AshlandsRebornFableWarrior marker)
     {
-        if (!EnsureOffsets())
+        var offsets = GetOffsets(marker.PrefabName);
+        if (offsets == null)
         {
-            Plugin.Log?.LogError("[Fable Warrior] Bone offsets unavailable - cannot build puppet.");
+            Plugin.Log?.LogError($"[Fable Warrior] Bone offsets unavailable for {marker.PrefabName} - cannot build puppet.");
             return;
         }
 
@@ -287,7 +361,7 @@ internal static class FableWarriorPatches
         if (puppetHeight > 0.001f && targetHeight > 0.001f)
             autoScale = targetHeight / puppetHeight;
         marker.BuiltAutoScale = autoScale;
-        var finalScale = autoScale * (Plugin.FableWarriorScale?.Value ?? 1f);
+        var finalScale = autoScale * (marker.Profile?.BodyScale() ?? 1f);
         puppet.transform.localScale = Vector3.one * finalScale;
 
         // Baselines for the periodic scale-drift absorber (late 2-3 star LevelEffects rescale).
@@ -296,7 +370,7 @@ internal static class FableWarriorPatches
         marker.BuildParentLossyY = Mathf.Max(1e-5f, Mathf.Abs(charredVisual.lossyScale.y));
 
         // Build bone pairs and drive one frame so the puppet is posed (no T-pose flash).
-        BuildBonePairs(charredVis, puppetVis, marker);
+        BuildBonePairs(charredVis, puppetVis, marker, offsets);
         Drive(marker);
 
         // M3: silence the charred's own attach machinery + glow FX, then dress the puppet.
@@ -380,19 +454,15 @@ internal static class FableWarriorPatches
     /// Disable the Charred's glow FX (fully human face/chest) and destroy its existing attach
     /// instances (sword etc.). The m_current*ItemHash values are deliberately left non-zero so
     /// vanilla's "already equipped" early-out keeps the slots dead; revert resets them to 0 to
-    /// force recreation from the ZDO.
+    /// force recreation from the ZDO. Glow FX are matched by name substring ("glow") so the
+    /// same code covers all charred variants (EyeGlow x2 + fx_charred_chestglow on the
+    /// warrior; whatever the archer/twitcher/mage carry).
     /// </summary>
     private static void SuppressCharredExtras(Humanoid humanoid, VisEquipment charredVis, AshlandsRebornFableWarrior marker)
     {
-        foreach (var fxName in new[] { "EyeGlow", "EyeGlow (1)", "fx_charred_chestglow" })
-        {
-            var t = FindChildRecursive(humanoid.transform, fxName);
-            if (t != null && t.gameObject.activeSelf)
-            {
-                marker.DisabledFx.Add(t.gameObject);
-                t.gameObject.SetActive(false);
-            }
-        }
+        CollectGlowFx(humanoid.transform, marker.DisabledFx);
+        foreach (var fx in marker.DisabledFx)
+            fx.SetActive(false);
 
         var destroyed = 0;
         foreach (var f in new[] { FRightItemInstance, FLeftItemInstance, FHelmetItemInstance })
@@ -416,8 +486,10 @@ internal static class FableWarriorPatches
 
     /// <summary>
     /// Clone the local player's full appearance onto the puppet (armor, beard/hair, model,
-    /// skin/hair color) via vanilla SetupVisEquipment, then override the hands: Krom sword
-    /// right, nothing left/back. Defers via EquipPending when no local player exists yet.
+    /// skin/hair color) via vanilla SetupVisEquipment, then override the hands with the
+    /// profile's loadout (Krom for the warrior, bow for the archer, staff for the mage,
+    /// nothing for the twitcher), clearing back slots. Defers via EquipPending when no local
+    /// player exists yet.
     /// </summary>
     internal static void TryApplyAppearance(AshlandsRebornFableWarrior marker)
     {
@@ -436,8 +508,8 @@ internal static class FableWarriorPatches
         try
         {
             MSetupVisEquipment?.Invoke(player, new object[] { marker.PuppetVis, false });
-            marker.PuppetVis.SetRightItem(KromPrefabName);
-            marker.PuppetVis.SetLeftItem("", 0);
+            marker.PuppetVis.SetRightItem(marker.Profile?.RightItem() ?? "");
+            marker.PuppetVis.SetLeftItem(marker.Profile?.LeftItem() ?? "", 0);
             marker.PuppetVis.SetLeftBackItem("", 0);
             marker.PuppetVis.SetRightBackItem("");
             marker.PuppetVis.CustomUpdate(0f, 0f); // attach now (no one-frame naked flash)
@@ -452,7 +524,7 @@ internal static class FableWarriorPatches
     }
 
     /// <summary>
-    /// Post-attach fixups for the puppet's rigid attach instances (Krom sword + helmet),
+    /// Post-attach fixups for the puppet's rigid attach instances (weapons + helmet),
     /// applied once per fresh instance (re-equips create new instances in vanilla state,
     /// tracked per marker via reference comparison).
     ///
@@ -461,11 +533,12 @@ internal static class FableWarriorPatches
     /// On the ~1.4x-scaled puppet rig this cancels the rig scale, so helmets rendered at
     /// normal-player world size - too small, perched on the crown with the face exposed.
     /// Skinned attaches (attach_skin armor) are immune because bones + bind poses drive their
-    /// vertices. The helmet is therefore re-scaled by the puppet-vs-prefab helmet-joint
-    /// lossyScale ratio so it fits the scaled head exactly as it fits the player.
+    /// vertices. Helmet and non-warrior weapons (archer bow, mage staff) are therefore
+    /// re-scaled by the puppet-vs-prefab joint lossyScale ratio so they fit the scaled rig
+    /// exactly as they fit the player, x their config multiplier.
     ///
-    /// The Krom keeps the legacy WarriorKromScale sizing (user-approved look), plus a
-    /// config-tunable grip rotation/offset in the hand-attach frame so the idle
+    /// The warrior's Krom instead keeps the legacy WarriorKromScale sizing (user-approved
+    /// look), plus a config-tunable grip rotation/offset in the hand-attach frame so the idle
     /// sword-on-shoulder rest lays the blade beside the trapezius instead of through it
     /// (M3.1 sword defect).
     /// </summary>
@@ -474,33 +547,50 @@ internal static class FableWarriorPatches
         for (var i = 0; i < 10; i++) yield return null;
         if (marker == null || marker.PuppetVis == null) yield break;
 
-        if (FRightItemInstance?.GetValue(marker.PuppetVis) is GameObject weaponGo && weaponGo != null
-            && !ReferenceEquals(weaponGo, marker.LastScaledKrom))
+        var prefabVis = (Game.instance != null ? Game.instance.m_playerPrefab : ZNetScene.instance?.GetPrefab("Player"))
+            ?.GetComponent<VisEquipment>();
+        var profile = marker.Profile;
+
+        if (FRightItemInstance?.GetValue(marker.PuppetVis) is GameObject rightGo && rightGo != null
+            && !ReferenceEquals(rightGo, marker.LastFixedRightItem))
         {
-            var t = weaponGo.transform;
-            t.localScale *= Plugin.WarriorKromScale?.Value ?? 1.16f;
-            t.localRotation *= Quaternion.Euler(
-                Plugin.FableKromGripRotX?.Value ?? 0f,
-                Plugin.FableKromGripRotY?.Value ?? 0f,
-                Plugin.FableKromGripRotZ?.Value ?? 0f);
-            t.localPosition += new Vector3(
-                Plugin.FableKromGripOffX?.Value ?? 0f,
-                Plugin.FableKromGripOffY?.Value ?? 0f,
-                Plugin.FableKromGripOffZ?.Value ?? 0f);
-            marker.LastScaledKrom = weaponGo;
-            Plugin.Log?.LogInfo($"[Fable Warrior] Krom fixed on {marker.gameObject.name}");
+            var t = rightGo.transform;
+            if (profile?.KromGrip == true)
+            {
+                t.localScale *= profile.WeaponScale();
+                t.localRotation *= Quaternion.Euler(
+                    Plugin.FableKromGripRotX?.Value ?? 0f,
+                    Plugin.FableKromGripRotY?.Value ?? 0f,
+                    Plugin.FableKromGripRotZ?.Value ?? 0f);
+                t.localPosition += new Vector3(
+                    Plugin.FableKromGripOffX?.Value ?? 0f,
+                    Plugin.FableKromGripOffY?.Value ?? 0f,
+                    Plugin.FableKromGripOffZ?.Value ?? 0f);
+            }
+            else
+            {
+                var ratio = JointLossyRatio(marker.PuppetVis.m_rightHand, prefabVis != null ? prefabVis.m_rightHand : null);
+                t.localScale = t.localScale * ratio * (profile?.WeaponScale() ?? 1f);
+            }
+            marker.LastFixedRightItem = rightGo;
+            Plugin.Log?.LogInfo($"[Fable Warrior] Right-hand item fixed on {marker.gameObject.name} ({profile?.Label})");
+        }
+
+        if (FLeftItemInstance?.GetValue(marker.PuppetVis) is GameObject leftGo && leftGo != null
+            && !ReferenceEquals(leftGo, marker.LastFixedLeftItem))
+        {
+            var t = leftGo.transform;
+            var ratio = JointLossyRatio(marker.PuppetVis.m_leftHand, prefabVis != null ? prefabVis.m_leftHand : null);
+            t.localScale = t.localScale * ratio * (profile?.WeaponScale() ?? 1f);
+            marker.LastFixedLeftItem = leftGo;
+            Plugin.Log?.LogInfo($"[Fable Warrior] Left-hand item fixed on {marker.gameObject.name} ({profile?.Label}): " +
+                                $"jointLossyRatio={ratio:F3}");
         }
 
         if (FHelmetItemInstance?.GetValue(marker.PuppetVis) is GameObject helmetGo && helmetGo != null
             && !ReferenceEquals(helmetGo, marker.LastFixedHelmet))
         {
-            var joint = marker.PuppetVis.m_helmet;
-            var prefabVis = (Game.instance != null ? Game.instance.m_playerPrefab : ZNetScene.instance?.GetPrefab("Player"))
-                ?.GetComponent<VisEquipment>();
-            var prefabJoint = prefabVis != null ? prefabVis.m_helmet : null;
-            var ratio = joint != null && prefabJoint != null && prefabJoint.lossyScale.y > 1e-5f
-                ? joint.lossyScale.y / prefabJoint.lossyScale.y
-                : 1f;
+            var ratio = JointLossyRatio(marker.PuppetVis.m_helmet, prefabVis != null ? prefabVis.m_helmet : null);
             var t = helmetGo.transform;
             var before = t.localScale;
             t.localScale = before * ratio * (Plugin.FableHelmetScale?.Value ?? 1f);
@@ -510,6 +600,18 @@ internal static class FableWarriorPatches
                 $"[Fable Warrior] Helmet fixed on {marker.gameObject.name}: jointLossyRatio={ratio:F3}, " +
                 $"localScale {before:F3} -> {t.localScale:F3}, yOffset={Plugin.FableHelmetYOffset?.Value ?? 0f:F3}");
         }
+    }
+
+    /// <summary>
+    /// Ratio of a live puppet joint's lossyScale to the same joint's lossyScale on the Player
+    /// prefab - i.e., the uniform scale-up the puppet rig carries relative to a normal player.
+    /// Used to undo AttachItem's worldPositionStays localScale compensation.
+    /// </summary>
+    private static float JointLossyRatio(Transform? liveJoint, Transform? prefabJoint)
+    {
+        if (liveJoint == null || prefabJoint == null) return 1f;
+        var prefabY = Mathf.Abs(prefabJoint.lossyScale.y);
+        return prefabY > 1e-5f ? Mathf.Abs(liveJoint.lossyScale.y) / prefabY : 1f;
     }
 
     private static string ComputeEquipSignature(Player player)
@@ -531,6 +633,16 @@ internal static class FableWarriorPatches
             if (hit != null) return hit;
         }
         return null;
+    }
+
+    /// <summary>Collect every active descendant GameObject with "glow" in its name (the
+    /// puppet subtree is excluded by construction - it doesn't exist yet at suppress time).</summary>
+    private static void CollectGlowFx(Transform root, List<GameObject> into)
+    {
+        if (root.name.IndexOf("glow", StringComparison.OrdinalIgnoreCase) >= 0 && root.gameObject.activeSelf)
+            into.Add(root.gameObject);
+        for (var i = 0; i < root.childCount; i++)
+            CollectGlowFx(root.GetChild(i), into);
     }
 
     // ---- charred attach suppression (M3) --------------------------------------------------
@@ -589,17 +701,17 @@ internal static class FableWarriorPatches
 
     // ---- bone retarget -----------------------------------------------------------------
 
-    private static bool EnsureOffsets()
+    private static Dictionary<string, (Quaternion c0Inv, Quaternion p0Eff)>? GetOffsets(string charredPrefabName)
     {
-        if (_offsets != null) return true;
-        if (_offsetsFailed) return false;
+        if (OffsetsCache.TryGetValue(charredPrefabName, out var cached)) return cached;
 
-        var charredPrefab = ZNetScene.instance?.GetPrefab(CharredMeleePrefab);
+        var charredPrefab = ZNetScene.instance?.GetPrefab(charredPrefabName);
         var playerPrefab = Game.instance != null ? Game.instance.m_playerPrefab : ZNetScene.instance?.GetPrefab("Player");
         if (charredPrefab == null || playerPrefab == null)
         {
-            _offsetsFailed = true;
-            return false;
+            Plugin.Log?.LogError($"[Fable Warrior] Prefab lookup failed for offsets: {charredPrefabName}");
+            OffsetsCache[charredPrefabName] = null;
+            return null;
         }
 
         var charredVisual = charredPrefab.transform.Find("Visual") ?? charredPrefab.transform;
@@ -641,11 +753,11 @@ internal static class FableWarriorPatches
             dict[kv.Key] = (Quaternion.Inverse(c0), p0Eff);
         }
 
-        _offsets = dict;
-        Plugin.Log?.LogInfo($"[Fable Warrior] Bone offsets built: {dict.Count} shared bones " +
+        OffsetsCache[charredPrefabName] = dict;
+        Plugin.Log?.LogInfo($"[Fable Warrior] Bone offsets built for {charredPrefabName}: {dict.Count} shared bones " +
                             $"(charred={charredBones.Count}, player={playerBones.Count}); " +
                             $"arm rest-align: {string.Join(", ", alignLog)}");
-        return true;
+        return dict;
     }
 
     private static Dictionary<string, Transform> CollectBones(Transform root)
@@ -660,7 +772,8 @@ internal static class FableWarriorPatches
         return map;
     }
 
-    private static void BuildBonePairs(VisEquipment charredVis, VisEquipment puppetVis, AshlandsRebornFableWarrior marker)
+    private static void BuildBonePairs(VisEquipment charredVis, VisEquipment puppetVis, AshlandsRebornFableWarrior marker,
+        Dictionary<string, (Quaternion c0Inv, Quaternion p0Eff)> offsets)
     {
         var charredMap = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
         foreach (var b in charredVis.m_bodyModel.bones)
@@ -676,7 +789,7 @@ internal static class FableWarriorPatches
 
         // Pair every bone with a prefab-derived rest offset that exists in BOTH live rigs.
         var pairs = new List<BonePair>();
-        foreach (var kv in _offsets!)
+        foreach (var kv in offsets)
         {
             if (!charredMap.TryGetValue(kv.Key, out var c)) continue;
             if (!puppetMap.TryGetValue(kv.Key, out var p)) continue;
@@ -765,11 +878,15 @@ internal static class FableWarriorPatches
         foreach (var humanoid in UObject.FindObjectsByType<Humanoid>(FindObjectsSortMode.None))
         {
             if (humanoid == null) continue;
-            if (GetPrefabName(humanoid.gameObject) != CharredMeleePrefab) continue;
+            var prefabName = GetPrefabName(humanoid.gameObject);
+            var profile = FindProfile(prefabName);
+            if (profile == null || !profile.Enabled()) continue;
             if (humanoid.GetComponent<AshlandsRebornFableWarrior>() != null) continue;
             var vis = humanoid.GetComponent<VisEquipment>();
             if (vis == null || vis.m_bodyModel == null) continue;
             var marker = humanoid.gameObject.AddComponent<AshlandsRebornFableWarrior>();
+            marker.Profile = profile;
+            marker.PrefabName = prefabName;
             humanoid.StartCoroutine(BuildAfterSettle(humanoid, marker));
         }
     }
@@ -896,9 +1013,12 @@ internal class AshlandsRebornFableWarrior : MonoBehaviour
     public readonly List<Renderer> HiddenRenderers = new();
     public readonly List<bool> HiddenRendererStates = new();
     public readonly List<GameObject> DisabledFx = new();
+    public FableWarriorPatches.CreatureProfile? Profile;
+    public string PrefabName = "";
     public bool EquipPending;
     public string? AppliedEquipSignature;
-    public GameObject? LastScaledKrom;
+    public GameObject? LastFixedRightItem;
+    public GameObject? LastFixedLeftItem;
     public GameObject? LastFixedHelmet;
     public bool Built;
 

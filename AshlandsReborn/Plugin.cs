@@ -91,6 +91,16 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableKromGripOffX { get; private set; } = null!;
     public static ConfigEntry<float> FableKromGripOffY { get; private set; } = null!;
     public static ConfigEntry<float> FableKromGripOffZ { get; private set; } = null!;
+    public static ConfigEntry<bool> ClonePlayerToArcher { get; private set; } = null!;
+    public static ConfigEntry<float> FableArcherScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableArcherBow { get; private set; } = null!;
+    public static ConfigEntry<float> FableArcherBowScale { get; private set; } = null!;
+    public static ConfigEntry<bool> ClonePlayerToTwitcher { get; private set; } = null!;
+    public static ConfigEntry<float> FableTwitcherScale { get; private set; } = null!;
+    public static ConfigEntry<bool> ClonePlayerToMage { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableMageStaff { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageStaffScale { get; private set; } = null!;
 
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
@@ -99,14 +109,18 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<KeyCode> PhotoModeKey { get; private set; } = null!;
     public static ConfigEntry<bool> PhotoModeAuto { get; private set; } = null!;
     public static ConfigEntry<bool> PhotoModeM4Test { get; private set; } = null!;
+    public static ConfigEntry<string> PhotoModePrefabs { get; private set; } = null!;
     public static ConfigEntry<float> PhotoModeSpawnDistance { get; private set; } = null!;
     public static ConfigEntry<string> PhotoModeIslandPos { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
+    // Global gate for the Fable puppet system (matches CharredWarriorPatches.ShouldSwap's
+    // legacy bypass). Per-creature enablement lives in FableWarriorPatches' profile table
+    // (ClonePlayerToWarrior/Archer/Twitcher/Mage).
     public static bool IsFablePuppetActive =>
-        MasterSwitch?.Value == true && EnableFableWarrior?.Value == true && ClonePlayerToWarrior?.Value == true;
+        MasterSwitch?.Value == true && EnableFableWarrior?.Value == true;
 
     private static readonly Harmony Harmony = new(PluginInfo.PLUGIN_GUID);
 
@@ -558,6 +572,84 @@ public class Plugin : BaseUnityPlugin
                 "Position offset (meters, hand-attach local) of the puppet's Krom sword grip, Z axis.",
                 new AcceptableValueRange<float>(-0.5f, 0.5f)));
 
+        // --- Fable Archer ---
+        ClonePlayerToArcher = Config.Bind(
+            "Fable Archer",
+            "ClonePlayerToArcher",
+            true,
+            "Build a player-rig puppet on every Charred_Archer, driven by the archer's own animation, " +
+            "carrying FableArcherBow in its left hand. Requires EnableFableWarrior (Fable Warrior section).");
+
+        FableArcherScale = Config.Bind(
+            "Fable Archer",
+            "FableArcherScale",
+            1.0f,
+            new ConfigDescription(
+                "Multiplier on the auto-computed height-match scale for the Fable Archer puppet. 1.0 = auto scale.",
+                new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        FableArcherBow = Config.Bind(
+            "Fable Archer",
+            "FableArcherBow",
+            "BowAshlands",
+            "Item prefab name of the bow the Fable Archer carries (left hand). Must exist in ObjectDB.");
+
+        FableArcherBowScale = Config.Bind(
+            "Fable Archer",
+            "FableArcherBowScale",
+            1.0f,
+            new ConfigDescription(
+                "Multiplier on the archer's bow size, applied after the bow is normalized to scale with " +
+                "the puppet rig (1.0 = the bow fits the puppet's hands/draw exactly like it fits the player).",
+                new AcceptableValueRange<float>(0.25f, 4.0f)));
+
+        // --- Fable Twitcher ---
+        ClonePlayerToTwitcher = Config.Bind(
+            "Fable Twitcher",
+            "ClonePlayerToTwitcher",
+            true,
+            "Build a player-rig puppet on every Charred_Twitcher (and Charred_Twitcher_Summoned), driven " +
+            "by the twitcher's own animation. Bare hands - no weapon. Requires EnableFableWarrior.");
+
+        FableTwitcherScale = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherScale",
+            1.0f,
+            new ConfigDescription(
+                "Multiplier on the auto-computed height-match scale for the Fable Twitcher puppet. 1.0 = auto scale.",
+                new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        // --- Fable Mage ---
+        ClonePlayerToMage = Config.Bind(
+            "Fable Mage",
+            "ClonePlayerToMage",
+            true,
+            "Build a player-rig puppet on every Charred_Mage, driven by the mage's own animation, " +
+            "carrying FableMageStaff in its right hand. Requires EnableFableWarrior.");
+
+        FableMageScale = Config.Bind(
+            "Fable Mage",
+            "FableMageScale",
+            1.0f,
+            new ConfigDescription(
+                "Multiplier on the auto-computed height-match scale for the Fable Mage puppet. 1.0 = auto scale.",
+                new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        FableMageStaff = Config.Bind(
+            "Fable Mage",
+            "FableMageStaff",
+            "StaffFireball",
+            "Item prefab name of the staff the Fable Mage carries (right hand). Must exist in ObjectDB.");
+
+        FableMageStaffScale = Config.Bind(
+            "Fable Mage",
+            "FableMageStaffScale",
+            1.0f,
+            new ConfigDescription(
+                "Multiplier on the mage's staff size, applied after the staff is normalized to scale with " +
+                "the puppet rig.",
+                new AcceptableValueRange<float>(0.25f, 4.0f)));
+
         DevAutoLoad = Config.Bind(
             "Dev Automation",
             "DevAutoLoad",
@@ -598,6 +690,14 @@ public class Plugin : BaseUnityPlugin
             "one leveled up post-build), asserts puppet builds, master-switch toggle cleanliness x3, " +
             "F10 rebuild, <=2.5s armor sync, and star scaling, then despawns them and writes " +
             "M4_RESULTS.txt + screenshots to AR_PhotoMode. Suppresses the PhotoModeAuto shoot.");
+
+        PhotoModePrefabs = Config.Bind(
+            "Dev Automation",
+            "PhotoModePrefabs",
+            "Charred_Melee",
+            "Comma-separated creature prefab names the photo harness shoots per session " +
+            "(e.g. \"Charred_Melee,Charred_Archer,Charred_Twitcher,Charred_Mage\"). Each gets its own " +
+            "spawn/orbit/close-up/animation-pair pass with filenames prefixed by the prefab name.");
 
         PhotoModeSpawnDistance = Config.Bind(
             "Dev Automation",
@@ -781,6 +881,9 @@ public class Plugin : BaseUnityPlugin
 
         EnableFableWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        ClonePlayerToArcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        ClonePlayerToTwitcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        ClonePlayerToMage.SettingChanged += (_, _) => OnFableWarriorModeChanged();
 
         try
         {

@@ -178,17 +178,26 @@ public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && Ena
 
 All `ConfigEntry` properties are `public static` so patch classes read them directly from `Plugin.*` without needing an instance.
 
-### Fable Warrior puppet (CURRENT Charred Warrior system)
+### Fable Warrior puppet (CURRENT Charred Warrior system — covers all four charred creatures)
 
 `FableWarriorPatches.cs` replaces the legacy hodgepodge below. Core idea: player-authored
 meshes never leave the skeleton they were authored for. A stripped, visual-only Player
-prefab ("puppet") is instantiated as a child of each `Charred_Melee`'s `Visual` node, the
+prefab ("puppet") is instantiated as a child of the creature's `Visual` node, the
 Charred's own renderers are hidden, and every `MonoUpdaters.LateUpdate` the Charred bones'
 rotations are retargeted onto the matching puppet bones (shared Mixamo names) via
 deviation-from-rest transfer, with a computed rest-pose alignment baked in for the 6
-arm-chain bones (their rest poses differ by a ~28/48/59.5° constant). Active when
-`MasterSwitch && EnableFableWarrior && ClonePlayerToWarrior` (`Plugin.IsFablePuppetActive`);
-the entire legacy `CharredWarriorPatches` path is bypassed via its `ShouldSwap()` guard.
+arm-chain bones (their rest poses differ by a ~28/48/59.5° constant). Globally active when
+`MasterSwitch && EnableFableWarrior` (`Plugin.IsFablePuppetActive`); the entire legacy
+`CharredWarriorPatches` path is bypassed via its `ShouldSwap()` guard.
+
+**Per-creature profile table** (`FableWarriorPatches.Profiles`): the same machinery covers
+`Charred_Melee` (Krom sword, right hand, legacy sizing + grip configs),
+`Charred_Archer` (`FableArcherBow` bow, left hand, rig-normalized sizing),
+`Charred_Twitcher`/`Charred_Twitcher_Summoned` (bare hands), and
+`Charred_Mage` (`FableMageStaff` staff, right hand, rig-normalized). Each profile has its
+own enable toggle (`ClonePlayerTo*`), body-scale multiplier, and weapon-scale config in its
+own config section. Retarget offsets are computed and cached PER charred prefab (the
+variants share bone names, and empirically the same rest poses, but this is not assumed).
 
 Key mechanics (details in the file's doc comments):
 - **Inactive strip**: the puppet is instantiated under an inactive holder so no gameplay
@@ -281,19 +290,25 @@ The final design combines two layers to work around the ~177° arm bone orientat
 | `PhotoModeKey` | F6 | Run the photo harness on demand |
 | `PhotoModeAuto` | false | Run the photo harness once, ~10s after world load |
 | `PhotoModeM4Test` | false | Run the M4 lifecycle self-test once after world load (suppresses the auto photo shoot) |
+| `PhotoModePrefabs` | "Charred_Melee" | CSV of creature prefabs the harness shoots per session (filenames prefixed per prefab) |
 | `PhotoModeSpawnDistance` | 5 | Distance in front of the player to spawn the test warrior |
 | `PhotoModeIslandPos` | "2736,40,2580" | Test island teleport target; empty disables |
 
-### Fable Warrior config (section "Fable Warrior")
+### Fable Warrior config (section "Fable Warrior" + per-creature sections)
 
 | Config key | Default | Effect |
 |---|---|---|
-| `EnableFableWarrior` | true | Bypass ALL legacy warrior mods in favor of the puppet system |
+| `EnableFableWarrior` | true | Global gate: bypass ALL legacy warrior mods in favor of the puppet system (all creatures) |
 | `ClonePlayerToWarrior` | true | Build the player puppet on every Charred_Melee |
 | `FableWarriorScale` | 1.0 | Multiplier on the auto-computed height-match scale |
-| `FableHelmetScale` / `FableHelmetYOffset` | 1.0 / 0 | Fine-tune the (already scale-normalized) puppet helmet |
+| `FableHelmetScale` / `FableHelmetYOffset` | 1.0 / 0 | Fine-tune the (already scale-normalized) puppet helmet (all creatures) |
 | `FableKromGripRotX/Y/Z` | 12 / 0 / 0 | Krom grip rotation (deg, hand-attach frame); RotX=12 calibrates the shoulder rest |
 | `FableKromGripOffX/Y/Z` | 0 | Krom grip position offset (m, hand-attach frame) |
+
+Sections "Fable Archer" (`ClonePlayerToArcher`, `FableArcherScale`, `FableArcherBow` =
+"BowAshlands", `FableArcherBowScale`), "Fable Twitcher" (`ClonePlayerToTwitcher`,
+`FableTwitcherScale` — no weapon), and "Fable Mage" (`ClonePlayerToMage`, `FableMageScale`,
+`FableMageStaff` = "StaffFireball", `FableMageStaffScale`) mirror the warrior keys.
 
 ## Asset Extraction Scripts
 

@@ -91,140 +91,163 @@ internal static class PhotoModePatches
                 yield break;
             }
 
-            var prefab = ZNetScene.instance?.GetPrefab(CharredMeleePrefab);
-            if (prefab == null)
-            {
-                Plugin.Log?.LogError("[AR PhotoMode] Charred_Melee prefab not found - aborting");
-                yield break;
-            }
+            var prefabNames = (Plugin.PhotoModePrefabs?.Value ?? CharredMeleePrefab)
+                .Split(',')
+                .Select(s => s.Trim())
+                .Where(s => s.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (prefabNames.Count == 0) prefabNames.Add(CharredMeleePrefab);
 
             yield return TeleportToIslandRoutine(player);
-
-            var dist = Plugin.PhotoModeSpawnDistance?.Value ?? 5f;
-            var spawnPos = player.transform.position + player.transform.forward * dist + Vector3.up * 0.3f;
-            var toPlayer = player.transform.position - spawnPos;
-            toPlayer.y = 0f;
-            var spawnRot = toPlayer.sqrMagnitude > 0.01f
-                ? Quaternion.LookRotation(toPlayer.normalized)
-                : Quaternion.identity;
-
-            var go = UObject.Instantiate(prefab, spawnPos, spawnRot);
-            Plugin.Log?.LogInfo($"[AR PhotoMode] Spawned {CharredMeleePrefab} at {spawnPos}");
-
-            // Let the creature settle: skeleton/animator init, and any existing Awake-hook
-            // coroutines (legacy sword/armor swap, or the Fable puppet build) to finish.
-            yield return new WaitForSeconds(3f);
-
-            if (go == null)
-            {
-                Plugin.Log?.LogError("[AR PhotoMode] Spawned warrior was destroyed before capture - aborting");
-                yield break;
-            }
 
             var dir = Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location) ?? ".", "AR_PhotoMode");
             Directory.CreateDirectory(dir);
 
-            _cameraOverrideActive = true;
             var shotPaths = new List<string>();
+            var animLines = new List<string>();
 
-            foreach (var yaw in Yaws)
-            {
-                if (go == null) break;
-                AimCameraAt(go, yaw);
-                yield return new WaitForSeconds(0.3f); // let the camera settle into place & render
-                var path = Path.Combine(dir, $"shot_{yaw}.png");
-                ScreenCapture.CaptureScreenshot(path);
-                shotPaths.Add(path);
-                for (var f = 0; f < 5; f++) yield return null; // let the async capture finish writing
-            }
-
-            // Head/shoulder close-ups: helmet fit + idle sword-on-shoulder rest are invisible
-            // at full-body framing (the M3 "helmet sane" false pass came from exactly that).
-            foreach (var yaw in CloseYaws)
-            {
-                if (go == null) break;
-                AimCameraAt(go, yaw, closeUp: true);
-                yield return new WaitForSeconds(0.3f);
-                var path = Path.Combine(dir, $"close_{yaw}.png");
-                ScreenCapture.CaptureScreenshot(path);
-                shotPaths.Add(path);
-                for (var f = 0; f < 5; f++) yield return null;
-            }
-
-            // Animation-proof pair: same angle, 1s apart. Screenshots alone are a weak signal
-            // here (a held guard/idle stance can look identical to a truly frozen T-pose to
-            // the eye) - so we also read the Animator directly for an objective signal that
-            // doesn't depend on visually comparing two images.
-            var animator = go != null ? go.GetComponentInChildren<Animator>() : null;
-            string animLine = "Animator check: unavailable (no Animator found or warrior destroyed early)";
-            AnimatorStateInfo s0 = default;
-            Vector3 pos0 = default;
-            var haveT0Sample = false;
-
-            if (go != null)
-            {
-                AimCameraAt(go, 0);
-                yield return new WaitForSeconds(0.3f);
-
-                if (animator != null)
-                {
-                    s0 = animator.GetCurrentAnimatorStateInfo(0);
-                    pos0 = go.transform.position;
-                    haveT0Sample = true;
-                }
-
-                var t0Path = Path.Combine(dir, "shot_t0.png");
-                ScreenCapture.CaptureScreenshot(t0Path);
-                shotPaths.Add(t0Path);
-                for (var f = 0; f < 5; f++) yield return null;
-
-                yield return new WaitForSeconds(1.0f);
-            }
-
-            if (go != null)
-            {
-                AimCameraAt(go, 0);
-                yield return new WaitForSeconds(0.3f);
-
-                if (animator != null && haveT0Sample)
-                {
-                    var s1 = animator.GetCurrentAnimatorStateInfo(0);
-                    var pos1 = go.transform.position;
-                    var sameState = s0.fullPathHash == s1.fullPathHash;
-                    var animAdvanced = sameState && Mathf.Abs(s1.normalizedTime - s0.normalizedTime) > 0.001f;
-                    var posDelta = Vector3.Distance(pos0, pos1);
-                    animLine = $"Animator check: stateHash t0={s0.fullPathHash} t1={s1.fullPathHash} " +
-                               $"normalizedTime t0={s0.normalizedTime:F4} t1={s1.normalizedTime:F4} " +
-                               $"posDelta={posDelta:F4} -> {(animAdvanced || !sameState ? "ANIMATING" : "STATIC")}";
-                }
-
-                var t1Path = Path.Combine(dir, "shot_t1.png");
-                ScreenCapture.CaptureScreenshot(t1Path);
-                shotPaths.Add(t1Path);
-                for (var f = 0; f < 5; f++) yield return null;
-            }
-
-            _cameraOverrideActive = false;
-
-            if (go != null)
-                ZNetScene.instance?.Destroy(go);
-
-            for (var f = 0; f < 10; f++) yield return null;
-
-            Plugin.Log?.LogInfo($"[AR PhotoMode] {animLine}");
+            foreach (var prefabName in prefabNames)
+                yield return CaptureCreature(player, prefabName, dir, shotPaths, animLines);
 
             var donePath = Path.Combine(dir, "DONE.txt");
             File.WriteAllLines(
                 donePath,
-                new[] { $"Completed {DateTime.Now:O}", animLine }.Concat(shotPaths).ToArray());
+                new[] { $"Completed {DateTime.Now:O}" }.Concat(animLines).Concat(shotPaths).ToArray());
 
-            Plugin.Log?.LogInfo($"[AR PhotoMode] DONE {shotPaths.Count} shots -> {dir}");
+            Plugin.Log?.LogInfo($"[AR PhotoMode] DONE {shotPaths.Count} shots ({prefabNames.Count} creatures) -> {dir}");
         }
         finally
         {
             _cameraOverrideActive = false;
             _running = false;
         }
+    }
+
+    /// <summary>One creature's full pass: spawn in front of the player, settle, 4 full-body
+    /// orbit shots + 5 head/shoulder close-ups + the t0/t1 animation-proof pair (with the
+    /// objective Animator check), then despawn. Filenames are prefixed with the prefab name.</summary>
+    private static IEnumerator CaptureCreature(Player player, string prefabName, string dir,
+        List<string> shotPaths, List<string> animLines)
+    {
+        var prefab = ZNetScene.instance?.GetPrefab(prefabName);
+        if (prefab == null)
+        {
+            Plugin.Log?.LogError($"[AR PhotoMode] Prefab not found: {prefabName} - skipping");
+            animLines.Add($"{prefabName}: PREFAB NOT FOUND");
+            yield break;
+        }
+
+        var dist = Plugin.PhotoModeSpawnDistance?.Value ?? 5f;
+        var spawnPos = player.transform.position + player.transform.forward * dist + Vector3.up * 0.3f;
+        var toPlayer = player.transform.position - spawnPos;
+        toPlayer.y = 0f;
+        var spawnRot = toPlayer.sqrMagnitude > 0.01f
+            ? Quaternion.LookRotation(toPlayer.normalized)
+            : Quaternion.identity;
+
+        var go = UObject.Instantiate(prefab, spawnPos, spawnRot);
+        Plugin.Log?.LogInfo($"[AR PhotoMode] Spawned {prefabName} at {spawnPos}");
+
+        // Let the creature settle: skeleton/animator init, and any existing Awake-hook
+        // coroutines (legacy sword/armor swap, or the Fable puppet build) to finish.
+        yield return new WaitForSeconds(3f);
+
+        if (go == null)
+        {
+            Plugin.Log?.LogError($"[AR PhotoMode] {prefabName} was destroyed before capture - skipping");
+            animLines.Add($"{prefabName}: destroyed before capture");
+            yield break;
+        }
+
+        _cameraOverrideActive = true;
+
+        foreach (var yaw in Yaws)
+        {
+            if (go == null) break;
+            AimCameraAt(go, yaw);
+            yield return new WaitForSeconds(0.3f); // let the camera settle into place & render
+            var path = Path.Combine(dir, $"{prefabName}_shot_{yaw}.png");
+            ScreenCapture.CaptureScreenshot(path);
+            shotPaths.Add(path);
+            for (var f = 0; f < 5; f++) yield return null; // let the async capture finish writing
+        }
+
+        // Head/shoulder close-ups: helmet fit + weapon-vs-body contact are invisible at
+        // full-body framing (the M3 "helmet sane" false pass came from exactly that).
+        foreach (var yaw in CloseYaws)
+        {
+            if (go == null) break;
+            AimCameraAt(go, yaw, closeUp: true);
+            yield return new WaitForSeconds(0.3f);
+            var path = Path.Combine(dir, $"{prefabName}_close_{yaw}.png");
+            ScreenCapture.CaptureScreenshot(path);
+            shotPaths.Add(path);
+            for (var f = 0; f < 5; f++) yield return null;
+        }
+
+        // Animation-proof pair: same angle, 1s apart. Screenshots alone are a weak signal
+        // here (a held guard/idle stance can look identical to a truly frozen T-pose to
+        // the eye) - so we also read the Animator directly for an objective signal that
+        // doesn't depend on visually comparing two images.
+        var animator = go != null ? go.GetComponentInChildren<Animator>() : null;
+        var animLine = $"{prefabName} Animator check: unavailable (no Animator found or creature destroyed early)";
+        AnimatorStateInfo s0 = default;
+        Vector3 pos0 = default;
+        var haveT0Sample = false;
+
+        if (go != null)
+        {
+            AimCameraAt(go, 0);
+            yield return new WaitForSeconds(0.3f);
+
+            if (animator != null)
+            {
+                s0 = animator.GetCurrentAnimatorStateInfo(0);
+                pos0 = go.transform.position;
+                haveT0Sample = true;
+            }
+
+            var t0Path = Path.Combine(dir, $"{prefabName}_shot_t0.png");
+            ScreenCapture.CaptureScreenshot(t0Path);
+            shotPaths.Add(t0Path);
+            for (var f = 0; f < 5; f++) yield return null;
+
+            yield return new WaitForSeconds(1.0f);
+        }
+
+        if (go != null)
+        {
+            AimCameraAt(go, 0);
+            yield return new WaitForSeconds(0.3f);
+
+            if (animator != null && haveT0Sample)
+            {
+                var s1 = animator.GetCurrentAnimatorStateInfo(0);
+                var pos1 = go.transform.position;
+                var sameState = s0.fullPathHash == s1.fullPathHash;
+                var animAdvanced = sameState && Mathf.Abs(s1.normalizedTime - s0.normalizedTime) > 0.001f;
+                var posDelta = Vector3.Distance(pos0, pos1);
+                animLine = $"{prefabName} Animator check: stateHash t0={s0.fullPathHash} t1={s1.fullPathHash} " +
+                           $"normalizedTime t0={s0.normalizedTime:F4} t1={s1.normalizedTime:F4} " +
+                           $"posDelta={posDelta:F4} -> {(animAdvanced || !sameState ? "ANIMATING" : "STATIC")}";
+            }
+
+            var t1Path = Path.Combine(dir, $"{prefabName}_shot_t1.png");
+            ScreenCapture.CaptureScreenshot(t1Path);
+            shotPaths.Add(t1Path);
+            for (var f = 0; f < 5; f++) yield return null;
+        }
+
+        _cameraOverrideActive = false;
+
+        if (go != null)
+            ZNetScene.instance?.Destroy(go);
+
+        for (var f = 0; f < 10; f++) yield return null;
+
+        Plugin.Log?.LogInfo($"[AR PhotoMode] {animLine}");
+        animLines.Add(animLine);
     }
 
     /// <summary>
