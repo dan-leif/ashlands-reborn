@@ -314,6 +314,9 @@ internal static class PhotoModePatches
         Bounds? bounds = null;
         foreach (var r in go.GetComponentsInChildren<Renderer>())
         {
+            // Disabled renderers still report bounds - and a hidden swap source (Fable Bunny
+            // Morgen) reports pose-inflated ones that wreck the framing. Frame what's visible.
+            if (!r.enabled) continue;
             if (bounds == null) bounds = r.bounds;
             else
             {

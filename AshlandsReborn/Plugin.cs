@@ -102,8 +102,21 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableMageStaff { get; private set; } = null!;
     public static ConfigEntry<float> FableMageStaffScale { get; private set; } = null!;
 
+    // --- Fable Bunny ---
+    public static ConfigEntry<bool> EnableFableBunny { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnyDonor { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnyHybridMode { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnyHeight { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnyScale { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnyLoxScale { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnyYOffset { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnyPounceAmplitude { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnyLoxAttackTrigger { get; private set; } = null!;
+    public static ConfigEntry<bool> FableBunnyHideRagdoll { get; private set; } = null!;
+
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
+    public static ConfigEntry<bool> FableBunnyReconDump { get; private set; } = null!;
     public static ConfigEntry<string> DevAutoLoadCharacter { get; private set; } = null!;
     public static ConfigEntry<string> DevAutoLoadWorld { get; private set; } = null!;
     public static ConfigEntry<KeyCode> PhotoModeKey { get; private set; } = null!;
@@ -121,6 +134,9 @@ public class Plugin : BaseUnityPlugin
     // (ClonePlayerToWarrior/Archer/Twitcher/Mage).
     public static bool IsFablePuppetActive =>
         MasterSwitch?.Value == true && EnableFableWarrior?.Value == true;
+    // Global gate for the Fable Bunny (Morgen -> donor creature) swap.
+    public static bool IsFableBunnyActive =>
+        MasterSwitch?.Value == true && EnableFableBunny?.Value == true;
 
     private static readonly Harmony Harmony = new(PluginInfo.PLUGIN_GUID);
 
@@ -650,6 +666,89 @@ public class Plugin : BaseUnityPlugin
                 "the puppet rig.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
 
+        // --- Fable Bunny ---
+        EnableFableBunny = Config.Bind(
+            "Fable Bunny",
+            "EnableFableBunny",
+            true,
+            "Replace the Morgen's bone-horror visuals with a giant, self-animating donor creature " +
+            "(FableBunnyDonor, default Hare). Gameplay (attacks, hitboxes, drops, AI) is untouched - " +
+            "only the look changes.");
+
+        FableBunnyDonor = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyDonor",
+            "Hare",
+            "Creature prefab whose visuals stand in for the Morgen. Quadruped/beast prefabs work best " +
+            "(Hare, Lox, Wolf, Deer). Changing this live rebuilds all swapped Morgens.");
+
+        FableBunnyHybridMode = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyHybridMode",
+            "BunnyOnly",
+            new ConfigDescription(
+                "BunnyOnly = the donor handles everything (attacks read as procedural pounces). " +
+                "LoxBiteRoll = a second Lox proxy is swapped in for the Morgen's bite and roll attacks " +
+                "(the Lox has a real bite animation, and its round body suits the roll).",
+                new AcceptableValueList<string>("BunnyOnly", "LoxBiteRoll")));
+
+        FableBunnyHeight = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyHeight",
+            4.0f,
+            new ConfigDescription(
+                "Target standing height (meters) for the donor visual, before star scaling. An absolute " +
+                "target is used because the Morgen's live render bounds are pose-inflated (recon measured " +
+                "9.4m mid-animation) and would produce an absurdly huge donor.",
+                new AcceptableValueRange<float>(1.5f, 10f)));
+
+        FableBunnyScale = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyScale",
+            1.0f,
+            new ConfigDescription(
+                "Multiplier on the FableBunnyHeight-derived scale for the primary donor. 1.0 = exact height match.",
+                new AcceptableValueRange<float>(0.25f, 3.0f)));
+
+        FableBunnyLoxScale = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyLoxScale",
+            1.0f,
+            new ConfigDescription(
+                "Multiplier on the auto-computed height-match scale for the hybrid-mode Lox proxy. 1.0 = auto.",
+                new AcceptableValueRange<float>(0.25f, 3.0f)));
+
+        FableBunnyYOffset = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyYOffset",
+            0.0f,
+            new ConfigDescription(
+                "Vertical offset (meters) for the donor visual after ground alignment.",
+                new AcceptableValueRange<float>(-2f, 2f)));
+
+        FableBunnyPounceAmplitude = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyPounceAmplitude",
+            1.0f,
+            new ConfigDescription(
+                "Strength of the procedural attack pounce (squash-stretch + lunge pitch). 0 disables it.",
+                new AcceptableValueRange<float>(0f, 3f)));
+
+        FableBunnyLoxAttackTrigger = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyLoxAttackTrigger",
+            "attack_bite",
+            "Animator trigger parameter fired on the Lox proxy when the Morgen bites (hybrid mode). " +
+            "Recon-confirmed: the lox_animator exposes 'attack_bite' and 'attack_stomp' triggers. " +
+            "Missing parameters are a safe no-op.");
+
+        FableBunnyHideRagdoll = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyHideRagdoll",
+            true,
+            "Hide the Morgen ragdoll's renderers on death so the bone corpse never shows. Vanilla death " +
+            "effects, despawn timing, and drops are untouched.");
+
         DevAutoLoad = Config.Bind(
             "Dev Automation",
             "DevAutoLoad",
@@ -706,6 +805,14 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Distance in front of the player to spawn the photo-mode Charred_Melee.",
                 new AcceptableValueRange<float>(2f, 15f)));
+
+        FableBunnyReconDump = Config.Bind(
+            "Dev Automation",
+            "FableBunnyReconDump",
+            false,
+            "Dev: dump rig/animator/attack recon for Morgen, Hare, and Lox instances to the log " +
+            "([AR BunnyRecon] lines), plus live Morgen behavior samples. Spawn the creatures via " +
+            "PhotoModePrefabs=\"Morgen,Hare,Lox\".");
 
         PhotoModeIslandPos = Config.Bind(
             "Dev Automation",
@@ -879,6 +986,10 @@ public class Plugin : BaseUnityPlugin
         Config.Save();
         Config.SaveOnConfigSet = true;
 
+        EnableFableBunny.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyDonor.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyHybridMode.SettingChanged += (_, _) => OnFableBunnyChanged();
+
         EnableFableWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToArcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
@@ -892,6 +1003,7 @@ public class Plugin : BaseUnityPlugin
             // Apply patches explicitly in case PatchAll missed them (assembly resolution)
             ApplyTerrainPatches();
             ApplyTreePatches();
+            Patches.FableBunnyPatches.ApplyBunnyPatches(Harmony);
 
             Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, WarriorSwap: {(EnableWarriorSwap.Value ? "ON" : "OFF")}");
         }
@@ -1047,6 +1159,7 @@ public class Plugin : BaseUnityPlugin
         Patches.DevAutoLoadPatches.Tick();
         Patches.PhotoModePatches.Tick();
         Patches.LifecycleTestPatches.Tick();
+        Patches.FableBunnyPatches.ReconTick();
 
         var inWorld = Player.m_localPlayer != null;
         if (inWorld)
@@ -1083,6 +1196,11 @@ public class Plugin : BaseUnityPlugin
                     Patches.CharredWarriorPatches.RefreshCharredWarriors();
                     Log.LogInfo("[Ashlands Reborn] Warrior matrix dump + refresh triggered");
                 }
+                if (IsFableBunnyActive)
+                {
+                    Patches.FableBunnyPatches.RefreshAll();
+                    Log.LogInfo("[Ashlands Reborn] Fable Bunny refresh triggered");
+                }
             }
             if (Input.GetKeyDown(WarriorVanillaDumpSubmeshesKey?.Value ?? KeyCode.F12))
             {
@@ -1100,6 +1218,7 @@ public class Plugin : BaseUnityPlugin
                     Patches.CharredWarriorPatches.UpdateVanillaBreastplateMods();
                 }
                 Patches.FableWarriorPatches.PeriodicUpdate();
+                Patches.FableBunnyPatches.PeriodicUpdate();
             }
         }
 
@@ -1135,6 +1254,7 @@ public class Plugin : BaseUnityPlugin
             Patches.ValkyriePatches.RefreshValkyries();
             Patches.CharredWarriorPatches.RefreshCharredWarriors();
             Patches.FableWarriorPatches.RefreshAll();
+            Patches.FableBunnyPatches.RefreshAll();
             Log.LogInfo("[Ashlands Reborn] Master switch ON - all overrides applied");
         }
         else
@@ -1145,6 +1265,7 @@ public class Plugin : BaseUnityPlugin
             Patches.ValkyriePatches.RevertAllValkyries();
             Patches.CharredWarriorPatches.RevertAllCharredWarriors();
             Patches.FableWarriorPatches.RevertAll();
+            Patches.FableBunnyPatches.RevertAll();
             Log.LogInfo("[Ashlands Reborn] Master switch OFF - all overrides reverted");
         }
     }
@@ -1156,6 +1277,14 @@ public class Plugin : BaseUnityPlugin
             Console.instance.TryRunCommand("god");
             Log.LogInfo("[Ashlands Reborn] Ran god");
         }
+    }
+
+    // Live config toggles for the Fable Bunny (enable, donor, hybrid mode) rebuild every
+    // swapped Morgen; RefreshAll itself reverts-only when the gate is off.
+    private void OnFableBunnyChanged()
+    {
+        if (!MasterSwitch.Value || Player.m_localPlayer == null) return;
+        Patches.FableBunnyPatches.RefreshAll();
     }
 
     // Mode transitions between the legacy Charred Warrior swap and the Fable Warrior puppet

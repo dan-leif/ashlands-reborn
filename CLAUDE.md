@@ -163,6 +163,7 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `ValkyriePatches.cs` | Creature spawn | Swaps Fallen Valkyrie prefab with Valkyrie mesh/animations |
 | `CharredWarriorPatches.cs` | Creature spawn | LEGACY (bypassed when `EnableFableWarrior=true`): equips armor/sword on Charred Melee via bind-pose math |
 | `FableWarriorPatches.cs` | `Humanoid.Awake`, `MonoUpdaters.LateUpdate`, `VisEquipment.Set*Equipped` | CURRENT Charred Warrior system: scaled Player-rig puppet dressed via native VisEquipment, driven by the Charred's animation (see below) |
+| `FableBunnyPatches.cs` | `Character.Awake`, `Humanoid.StartAttack`, `Ragdoll.Awake` (all manually applied with null-guards), `MonoUpdaters.LateUpdate` | Fable Bunny: replaces the Morgen's visuals with a giant self-animating Hare (+ optional hybrid Lox for bite/roll). See "Fable Bunny" below |
 | `PhotoModePatches.cs` | `GameCamera.LateUpdate` (prefix) | Dev verification harness: spawns a warrior, orbits the camera, captures full-body + close-up screenshots autonomously |
 | `LifecycleTestPatches.cs` | None (no Harmony patches) | Dev M4 self-test: spawns 3 warriors (incl. 2★), asserts toggle/refresh/sync/scale lifecycle invariants |
 | `DevAutoLoadPatches.cs` | None (no Harmony patches) | State machine called from `Plugin.Update()` that auto-navigates FejdStartup menus on startup |
@@ -234,6 +235,65 @@ player to the test island (`PhotoModeIslandPos`), spawns a warrior, captures 4 f
 `LifecycleTestPatches` (config `PhotoModeM4Test`) asserts the M4 lifecycle DoD and writes
 `M4_RESULTS.txt`. Outer loop: kill valheim → `dev.ps1` → poll the BepInEx log for
 `[AR PhotoMode] DONE` / `[AR M4] DONE` → read the PNGs/results → iterate.
+
+### Fable Bunny (Morgen → giant Hare)
+
+`FableBunnyPatches.cs` replaces the Morgen's bone-and-sinew visuals with a giant,
+self-animating donor creature (default Hare) without touching gameplay. The Morgen's rig
+shares no bone names with any pleasant donor, so unlike the Fable puppet (bone retarget)
+the donor keeps its OWN Animator and is state-synced to the Morgen instead:
+
+- **Swap**: `Character.Awake` postfix (Morgen IS a `Humanoid`, but the hook is
+  Character-level) → hide all Morgen renderers, force its Animator `AlwaysAnimate`
+  (animation events drive attack hitboxes — never disable it), build a stripped donor
+  clone (inactive-holder pattern; Animator kept ENABLED — the one difference from
+  `StripPuppet`) on an upright pivot under the Morgen root.
+- **Scale**: absolute `FableBunnyHeight` (default 4m) × star scale ÷ donor raw bounds
+  height. Do NOT use the Morgen's live render bounds — they are pose-inflated (measured
+  9.4m mid-animation vs its 2.2m capsule).
+- **Locomotion**: every `MonoUpdaters.LateUpdate`, Morgen planar velocity → donor's
+  `forward_speed`/`turn_speed` animator params (the same ones ZSyncAnimation writes; both
+  hare_animator and lox_animator have them). Pivot gets a yaw-only world rotation each
+  frame (the roll's tumble lives entirely in hidden bones — root/Visual stay upright,
+  recon-verified).
+- **Attacks**: `Humanoid.StartAttack` postfix classifies by attack anim name
+  (recon-verified names: `attack_bite`, `roll_left/right`, `attack_swipe_1..4`,
+  `attack_slam`) → procedural pounce (squash-stretch + lunge pitch on the pivot, composes
+  with the donor's Animator). Roll floors `forward_speed` (the bunny bounds at up to
+  19 m/s real roll velocity). Hybrid mode swaps in a second Lox proxy for bite/roll and
+  fires its real `attack_bite` trigger. **Swap-back gotcha**: `InAttack()` is false for a
+  few frames after `StartAttack` — the swap-back check needs its 0.6s grace period or the
+  Lox reverts before rendering a single frame.
+- **Death**: Morgen has NO ragdoll (recon: death effects are fx+sfx only), so the corpse
+  concern is moot; `Ragdoll.Awake` postfix still hides any morgen-named ragdoll as
+  insurance behind `FableBunnyHideRagdoll`.
+- **Lifecycle**: marker `AshlandsRebornFableBunny`, `RevertAll`/`RefreshAll` (one-frame
+  wait after revert, same as warrior), wired into `ApplyMasterSwitch`, F10, and
+  `SettingChanged` for `EnableFableBunny`/`FableBunnyDonor`/`FableBunnyHybridMode`
+  (donor/hybrid changes rebuild live via F1).
+
+**Autonomous verification**: `FableBunnyReconDump=true` (Dev Automation) dumps rig/
+animator/attack recon for Morgen/Hare/Lox instances (`[AR BunnyRecon]` lines), then ~90s
+after world load runs a full self-test: spawns a Morgen, forces all 8 attacks through
+`Humanoid.StartAttack` (the AI alerts but never commits to attacks on the player-built
+test platform, so forcing is required), captures camera-tracked screenshots per attack,
+kills it, and asserts the MasterSwitch/RefreshAll lifecycle — `[AR BunnyRecon]
+OBSERVATION DONE pass=X fail=Y` + PNGs in `AR_PhotoMode\`. Review gallery:
+`screenshots/fable-bunny/`.
+
+### Fable Bunny config (section "Fable Bunny")
+
+| Config key | Default | Effect |
+|---|---|---|
+| `EnableFableBunny` | true | Swap Morgen visuals for the donor creature |
+| `FableBunnyDonor` | "Hare" | Donor prefab (Hare, Lox, Wolf, Deer...); live-rebuilds on change |
+| `FableBunnyHybridMode` | "BunnyOnly" | "LoxBiteRoll" shows a Lox proxy during bite/roll attacks |
+| `FableBunnyHeight` | 4.0 | Target donor height in meters (× star scale) |
+| `FableBunnyScale` / `FableBunnyLoxScale` | 1.0 | Multipliers on the height-derived scale per donor |
+| `FableBunnyYOffset` | 0 | Vertical offset after ground alignment |
+| `FableBunnyPounceAmplitude` | 1.0 | Strength of the procedural attack pounce (0 = off) |
+| `FableBunnyLoxAttackTrigger` | "attack_bite" | Lox animator trigger fired on hybrid bites |
+| `FableBunnyHideRagdoll` | true | Hide any morgen-named ragdoll renderers (insurance) |
 
 ### Charred Warrior armor (LEGACY — active only when `EnableFableWarrior=false`)
 
