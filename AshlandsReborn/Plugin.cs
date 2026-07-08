@@ -105,14 +105,15 @@ public class Plugin : BaseUnityPlugin
     // --- Fable Bunny ---
     public static ConfigEntry<bool> EnableFableBunny { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyDonor { get; private set; } = null!;
-    public static ConfigEntry<string> FableBunnyHybridMode { get; private set; } = null!;
     public static ConfigEntry<float> FableBunnyHeight { get; private set; } = null!;
     public static ConfigEntry<float> FableBunnyScale { get; private set; } = null!;
-    public static ConfigEntry<float> FableBunnyLoxScale { get; private set; } = null!;
     public static ConfigEntry<float> FableBunnyYOffset { get; private set; } = null!;
     public static ConfigEntry<float> FableBunnyPounceAmplitude { get; private set; } = null!;
-    public static ConfigEntry<string> FableBunnyLoxAttackTrigger { get; private set; } = null!;
     public static ConfigEntry<bool> FableBunnyHideRagdoll { get; private set; } = null!;
+    public static ConfigEntry<int> FableBunnyStarLook { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnyMoveAnimSpeed { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnyLashStyle { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnyRollStyle { get; private set; } = null!;
 
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
@@ -682,16 +683,6 @@ public class Plugin : BaseUnityPlugin
             "Creature prefab whose visuals stand in for the Morgen. Quadruped/beast prefabs work best " +
             "(Hare, Lox, Wolf, Deer). Changing this live rebuilds all swapped Morgens.");
 
-        FableBunnyHybridMode = Config.Bind(
-            "Fable Bunny",
-            "FableBunnyHybridMode",
-            "BunnyOnly",
-            new ConfigDescription(
-                "BunnyOnly = the donor handles everything (attacks read as procedural pounces). " +
-                "LoxBiteRoll = a second Lox proxy is swapped in for the Morgen's bite and roll attacks " +
-                "(the Lox has a real bite animation, and its round body suits the roll).",
-                new AcceptableValueList<string>("BunnyOnly", "LoxBiteRoll")));
-
         FableBunnyHeight = Config.Bind(
             "Fable Bunny",
             "FableBunnyHeight",
@@ -710,14 +701,6 @@ public class Plugin : BaseUnityPlugin
                 "Multiplier on the FableBunnyHeight-derived scale for the primary donor. 1.0 = exact height match.",
                 new AcceptableValueRange<float>(0.25f, 3.0f)));
 
-        FableBunnyLoxScale = Config.Bind(
-            "Fable Bunny",
-            "FableBunnyLoxScale",
-            1.0f,
-            new ConfigDescription(
-                "Multiplier on the auto-computed height-match scale for the hybrid-mode Lox proxy. 1.0 = auto.",
-                new AcceptableValueRange<float>(0.25f, 3.0f)));
-
         FableBunnyYOffset = Config.Bind(
             "Fable Bunny",
             "FableBunnyYOffset",
@@ -734,20 +717,54 @@ public class Plugin : BaseUnityPlugin
                 "Strength of the procedural attack pounce (squash-stretch + lunge pitch). 0 disables it.",
                 new AcceptableValueRange<float>(0f, 3f)));
 
-        FableBunnyLoxAttackTrigger = Config.Bind(
-            "Fable Bunny",
-            "FableBunnyLoxAttackTrigger",
-            "attack_bite",
-            "Animator trigger parameter fired on the Lox proxy when the Morgen bites (hybrid mode). " +
-            "Recon-confirmed: the lox_animator exposes 'attack_bite' and 'attack_stomp' triggers. " +
-            "Missing parameters are a safe no-op.");
-
         FableBunnyHideRagdoll = Config.Bind(
             "Fable Bunny",
             "FableBunnyHideRagdoll",
             true,
             "Hide the Morgen ragdoll's renderers on death so the bone corpse never shows. Vanilla death " +
             "effects, despawn timing, and drops are untouched.");
+
+        FableBunnyStarLook = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyStarLook",
+            0,
+            new ConfigDescription(
+                "Apply the donor creature's star-level tint regardless of the Morgen's real level " +
+                "(0 = base look, 1 = 1-star, 2 = 2-star). Purely visual, for comparing looks - real " +
+                "star scaling stays independent. Changing this live rebuilds swapped Morgens.",
+                new AcceptableValueRange<int>(0, 2)));
+
+        FableBunnyMoveAnimSpeed = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyMoveAnimSpeed",
+            0.55f,
+            new ConfigDescription(
+                "Animator speed while the donor is moving (1 = authored speed). At giant scale the " +
+                "authored run cycle paddles faster than the ground actually covered ('moonwalking'); " +
+                "slowing the animation as locomotion speed rises fixes the read. Idle animations always " +
+                "play at full speed.",
+                new AcceptableValueRange<float>(0.2f, 1.5f)));
+
+        FableBunnyLashStyle = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyLashStyle",
+            "Wisps",
+            new ConfigDescription(
+                "How the Morgen's arm-swipe attacks read on the donor (they are invisible otherwise - " +
+                "the donor has no matching limbs). Wisps = two wisp orbs orbit the donor and lash along " +
+                "the hidden hand bones during swipes. EarWhip = the donor's ears whip at the targets " +
+                "(procedural bone layer). Both = wisps + ears. Off = v1 body-pounce only.",
+                new AcceptableValueList<string>("Wisps", "EarWhip", "Both", "Off")));
+
+        FableBunnyRollStyle = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyRollStyle",
+            "HopHigher",
+            new ConfigDescription(
+                "Roll-attack presentation. HopHigher = destructive bounding: the donor's real jump " +
+                "animation fires on every arc with an airborne bounce and landing squash. CurlAndRoll = " +
+                "curl up and tumble (procedural bone layer).",
+                new AcceptableValueList<string>("HopHigher", "CurlAndRoll")));
 
         DevAutoLoad = Config.Bind(
             "Dev Automation",
@@ -977,6 +994,14 @@ public class Plugin : BaseUnityPlugin
             // directly (no rest-pose "source" choice), so this dev knob is obsolete.
             var defRetarget = new ConfigDefinition("Fable Warrior", "FableWarriorRetargetSource");
             if (Config.ContainsKey(defRetarget)) Config.Remove(defRetarget);
+
+            // Removed: the Fable Bunny hybrid Lox mode was dropped after user review (the swap
+            // read as janky, and a giant lox is an established creature - too plain).
+            foreach (var dead in new[] { "FableBunnyHybridMode", "FableBunnyLoxScale", "FableBunnyLoxAttackTrigger" })
+            {
+                var def = new ConfigDefinition("Fable Bunny", dead);
+                if (Config.ContainsKey(def)) Config.Remove(def);
+            }
         }
         catch
         {
@@ -988,7 +1013,8 @@ public class Plugin : BaseUnityPlugin
 
         EnableFableBunny.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyDonor.SettingChanged += (_, _) => OnFableBunnyChanged();
-        FableBunnyHybridMode.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyStarLook.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyLashStyle.SettingChanged += (_, _) => OnFableBunnyChanged();
 
         EnableFableWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
@@ -1279,8 +1305,8 @@ public class Plugin : BaseUnityPlugin
         }
     }
 
-    // Live config toggles for the Fable Bunny (enable, donor, hybrid mode) rebuild every
-    // swapped Morgen; RefreshAll itself reverts-only when the gate is off.
+    // Live config toggles for the Fable Bunny (enable, donor, star look, lash style) rebuild
+    // every swapped Morgen; RefreshAll itself reverts-only when the gate is off.
     private void OnFableBunnyChanged()
     {
         if (!MasterSwitch.Value || Player.m_localPlayer == null) return;

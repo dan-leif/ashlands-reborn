@@ -316,7 +316,19 @@ internal static class PhotoModePatches
         {
             // Disabled renderers still report bounds - and a hidden swap source (Fable Bunny
             // Morgen) reports pose-inflated ones that wreck the framing. Frame what's visible.
-            if (!r.enabled) continue;
+            // (The bunny hides via forceRenderingOff, so check both.)
+            if (!r.enabled || r.forceRenderingOff) continue;
+            // Wisp lash orbs orbit far outside the body and their trails span the whole
+            // lash arc - both balloon the framing distance. Frame the creature itself.
+            if (r is TrailRenderer) continue;
+            var t = r.transform;
+            var isOrb = false;
+            while (t != null && t != go.transform)
+            {
+                if (t.name.StartsWith("AR_WispOrb", StringComparison.Ordinal)) { isOrb = true; break; }
+                t = t.parent;
+            }
+            if (isOrb) continue;
             if (bounds == null) bounds = r.bounds;
             else
             {
