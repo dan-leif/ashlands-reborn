@@ -283,17 +283,40 @@ OBSERVATION DONE pass=X fail=Y` + PNGs in `AR_PhotoMode\`. Review gallery:
 
 ### Fable Bunny config (section "Fable Bunny")
 
+v2 (commit `d126117`) dropped the hybrid Lox mode (user review: janky swap, too plain) and
+removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAttackTrigger`).
+
 | Config key | Default | Effect |
 |---|---|---|
 | `EnableFableBunny` | true | Swap Morgen visuals for the donor creature |
 | `FableBunnyDonor` | "Hare" | Donor prefab (Hare, Lox, Wolf, Deer...); live-rebuilds on change |
-| `FableBunnyHybridMode` | "BunnyOnly" | "LoxBiteRoll" shows a Lox proxy during bite/roll attacks |
 | `FableBunnyHeight` | 4.0 | Target donor height in meters (× star scale) |
-| `FableBunnyScale` / `FableBunnyLoxScale` | 1.0 | Multipliers on the height-derived scale per donor |
+| `FableBunnyScale` | 1.0 | Multiplier on the height-derived scale |
 | `FableBunnyYOffset` | 0 | Vertical offset after ground alignment |
 | `FableBunnyPounceAmplitude` | 1.0 | Strength of the procedural attack pounce (0 = off) |
-| `FableBunnyLoxAttackTrigger` | "attack_bite" | Lox animator trigger fired on hybrid bites |
+| `FableBunnyStarLook` | 0 | Apply donor's 1★/2★ LevelEffects tint regardless of real level (0=base; rebuilds live) |
+| `FableBunnyMoveAnimSpeed` | 0.55 | Animator speed while moving ("moonwalk" fix); idle always full rate |
+| `FableBunnyLashStyle` | "Wisps" | Swipe read: wisp orbs orbit + lash along hidden `Hand.l/r` (EarWhip/Both arrive with M5) |
+| `FableBunnyRollStyle` | "HopHigher" | Roll read: face travel dir + real jump trigger + bounce arcs (CurlAndRoll arrives with M5) |
 | `FableBunnyHideRagdoll` | true | Hide any morgen-named ragdoll renderers (insurance) |
+
+**v2 hide/fx machinery gotchas** (all recon-verified, expensive to re-derive):
+- The Morgen wake-up "rise" clip ANIMATES its renderers back on every frame; hiding uses
+  `forceRenderingOff` + an invisible-material swap (`InvisibleMaterials`), both
+  clip-proof. Plain `renderer.enabled=false` LOSES to the Animator.
+- Morgen bone-gore effects are separate spawned objects, suppressed by name in an
+  `EffectList.Create` postfix (`fx_morgen_roll`, `fx_morgen_death`, plus
+  `fx_Abomination_arise*` when near a swapped Morgen). `MonsterAI.m_wakeupEffects` =
+  `fx_Abomination_arise_end` (name shared with Swamp Abomination - proximity-gated).
+- Wisp orb visual = stripped `demister_ball` clone (probe list + procedural fallback);
+  orbs/trails are excluded from `PhotoModePatches.AimCameraAt` framing bounds.
+- Self-test additions: island teleport + solid-ground spawn probe + per-attack
+  re-anchoring (rolls carry the Morgen off the platform), star-look cycling captures,
+  `FreezeAI` for still tint shots, frustum-scan + EffectList-inventory recon dumps.
+- KNOWN OPEN BUG: the star-look gallery captures show no hare even though the capture-time
+  frustum scan reports the hare SMR in-frustum with `vis=True` and the Morgen properly
+  hidden; the same run's attack shots show the hare perfectly. Suspects and a decisive
+  next test are recorded in the plan file's status appendix.
 
 ### Charred Warrior armor (LEGACY — active only when `EnableFableWarrior=false`)
 
