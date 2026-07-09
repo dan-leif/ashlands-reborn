@@ -360,6 +360,24 @@ internal static class FableBunnyPatches
             clone.transform.localPosition += Vector3.up * (footError + (Plugin.FableBunnyYOffset?.Value ?? 0f));
         }
 
+        // M5 CurlAndRoll: insert a spin node at the donor's visual CENTER (tumbling about
+        // the feet would swing the body through the ground). Identity when unused, so the
+        // default HopHigher path is untouched.
+        if (isPrimary && groundedBounds.HasValue)
+        {
+            var spin = new GameObject("AR_RollSpin");
+            spin.transform.SetParent(marker.Pivot, worldPositionStays: false);
+            spin.transform.localPosition = marker.Pivot!.InverseTransformPoint(groundedBounds.Value.center);
+            clone.transform.SetParent(spin.transform, worldPositionStays: true);
+            marker.SpinNode = spin.transform;
+        }
+
+        // M5 EarWhip: cache the hare's ear bones (recon names). Post-Animator rotation
+        // writes in Drive turn them into a readable lash at giant scale.
+        foreach (var t in clone.GetComponentsInChildren<Transform>(true))
+            if (t.name is "Ear.l" or "Ear.r" or "ear1.l" or "ear1.r")
+                marker.EarBones.Add(t);
+
         marker.Proxies.Add(new BunnyProxy
         {
             DonorName = donorName,
@@ -531,7 +549,7 @@ internal static class FableBunnyPatches
                         marker.BeamEnd = Time.time + 0.8f;
                     }
                     break;
-                case AttackClass.Lash when marker.Orbs.Count > 0:
+                case AttackClass.Lash when marker.Orbs.Count > 0 || LashIncludesEars():
                     // The orbs carry the read; in Bunny mode tone the body pounce down so the
                     // lash is the visible event instead of an unrelated body bob.
                     if (!elemental) StartPounce(marker, duration: 0.45f, amplitude: 0.4f);
@@ -766,6 +784,26 @@ internal static class FableBunnyPatches
         marker.Pivot.localScale = new Vector3(scaleXZ, scaleY, scaleXZ);
         marker.Pivot.localPosition = Vector3.up * bounceY;
 
+        // M5 "CurlAndRoll": tumble the donor about its center while rolling, spin rate
+        // matched to ground speed over the body radius (a rolling ball, not a spinning
+        // sprite). The yaw stabilizer already faces travel, so local X is the tumble axis.
+        if (marker.SpinNode != null)
+        {
+            if (marker.Rolling && marker.Mode == BunnyMode.Bunny && !IsHopHigherRoll())
+            {
+                var spinSpeed = Mathf.Clamp(
+                    planarVel.magnitude / (0.35f * marker.TargetHeight) * Mathf.Rad2Deg, 180f, 720f);
+                marker.RollSpinAngle = (marker.RollSpinAngle + spinSpeed * dt) % 360f;
+                marker.SpinNode.localRotation = Quaternion.AngleAxis(marker.RollSpinAngle, Vector3.right);
+            }
+            else if (marker.RollSpinAngle != 0f || marker.SpinNode.localRotation != Quaternion.identity)
+            {
+                marker.RollSpinAngle = 0f;
+                marker.SpinNode.localRotation = Quaternion.Slerp(
+                    marker.SpinNode.localRotation, Quaternion.identity, 1f - Mathf.Exp(-10f * dt));
+            }
+        }
+
         UpdateOrbs(marker, source, dt);
         UpdateElemental(marker, source, dt);
 
@@ -788,6 +826,38 @@ internal static class FableBunnyPatches
         if (proxy.ParamHashes.Contains(OnGroundHash))
             anim.SetBool(OnGroundHash, true);
         marker.PrevYaw = marker.LastYaw;
+
+        // M5 "EarWhip": post-Animator ear-bone overrides (this postfix runs after the
+        // donor Animator wrote the frame's pose, so the writes stick for rendering - the
+        // same ordering trick FableWarriorPatches.Drive relies on). Giant ears = the lash.
+        ApplyEarWhip(marker);
+    }
+
+    /// <summary>Wind-up -> snap -> settle rotation layered onto the hare's ear bones during
+    /// lash attacks. Post-multiplies the Animator's live localRotation each frame (no
+    /// accumulation: the Animator rewrites the pose before we run). Axis is a calibrated
+    /// guess (local X pitch); if screenshots show sideways ears, this is the line to tune.</summary>
+    private static void ApplyEarWhip(AshlandsRebornFableBunny marker)
+    {
+        if (marker.EarBones.Count == 0 || !LashIncludesEars()) return;
+        float angle;
+        switch (marker.LashState)
+        {
+            case LashState.Flare: // wind-up: ears sweep back
+                angle = -45f * Mathf.Clamp01((Time.time - marker.LashPhaseStart) / 0.25f);
+                break;
+            case LashState.Track: // snap forward with a fast oscillating whip
+                var t = Time.time - marker.LashPhaseStart - 0.25f;
+                angle = 80f * Mathf.Clamp01(t * 8f) + 15f * Mathf.Sin(t * 18f);
+                break;
+            case LashState.Return: // settle back to the authored pose
+                angle = 80f * (1f - Mathf.Clamp01((Time.time - marker.LashPhaseStart) / 0.4f));
+                break;
+            default:
+                return; // idle: leave the authored ear animation alone
+        }
+        foreach (var e in marker.EarBones)
+            if (e != null) e.localRotation *= Quaternion.AngleAxis(angle, Vector3.right);
     }
 
     private static bool IsHopHigherRoll()
@@ -843,6 +913,13 @@ internal static class FableBunnyPatches
     {
         var s = Plugin.FableBunnyLashStyle?.Value;
         return string.Equals(s, "Wisps", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(s, "Both", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool LashIncludesEars()
+    {
+        var s = Plugin.FableBunnyLashStyle?.Value;
+        return string.Equals(s, "EarWhip", StringComparison.OrdinalIgnoreCase)
             || string.Equals(s, "Both", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -1013,7 +1090,8 @@ internal static class FableBunnyPatches
 
     private static void UpdateOrbs(AshlandsRebornFableBunny marker, Character source, float dt)
     {
-        if (marker.Orbs.Count == 0) return;
+        // NOTE: runs even with zero orbs - the lash state machine below also drives the
+        // M5 ear whip (EarWhip style builds no orbs but still needs Flare/Track/Return).
 
         // Lash phases: Flare (0.25s burst outward) -> Track (follow the hidden hands until
         // the attack ends; same InAttack grace as the roll) -> Return (0.4s) -> Orbit.
@@ -2032,6 +2110,11 @@ internal class AshlandsRebornFableBunny : MonoBehaviour
     public float BeamEnd;
     public bool AlwaysTrackHands;
     public readonly List<FableBunnyPatches.LimbBolt> Bolts = new();
+
+    // M5 procedural bone layer: ear-whip bones + the CurlAndRoll center-tumble node.
+    public readonly List<Transform> EarBones = new();
+    public Transform? SpinNode;
+    public float RollSpinAngle;
 
     private void OnEnable() => FableBunnyPatches.Register(this);
     private void OnDisable() => FableBunnyPatches.Unregister(this);
