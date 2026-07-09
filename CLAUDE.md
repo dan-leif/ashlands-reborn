@@ -281,6 +281,24 @@ kills it, and asserts the MasterSwitch/RefreshAll lifecycle — `[AR BunnyRecon]
 OBSERVATION DONE pass=X fail=Y` + PNGs in `AR_PhotoMode\`. Review gallery:
 `screenshots/fable-bunny/`.
 
+**v2 elemental modes (M3/M4, commit `64a049e`)**: `FableBunnyMode` (Bunny / LightElemental /
+LightningElemental — F1 dropdown, live rebuild) is the single rotate knob. Both elementals
+skip the donor entirely and anchor procedural FX to the hidden, still-animating Morgen bones
+(`FindMorgenBones`: Chest, Hand.l/r, and the 4 dot-suffixed limb chains). LightElemental:
+blinding pulsing core orb rides `Chest` (soft-shadow point light, random flare spikes), hand
+orbs always-track the hands (M1 wisp machinery + `AlwaysTrackHands`), LineRenderer beam on
+bite/slam, roll = the core drops to ground level and bounces as a marble. LightningElemental:
+flickering core + jagged LineRenderer bolts over each limb chain (bone points + midpoints
+re-jittered ~0.05s); arm bolts thicken/brighten during swipes, jitter doubles while rolling.
+All FX live under the pivot (revert cleanup free) and are purely procedural — no prefab pick
+is load-bearing. The light beam is named `AR_WispOrb_beam` deliberately: PhotoModePatches'
+framing exclusion matches the `AR_WispOrb` prefix, and a 20m beam would wreck auto-framing.
+M2 FX recon = `DumpFxCatalog` under `FableBunnyReconDump` (ZNetScene component/shader catalog
++ Eikthyr/GoblinKing EffectList dumps) for future visual upgrades — good candidates logged:
+`fx_Lightning`, `fx_chainlightning_hit/spread`, `fx_DvergerMage_Mistile_*`. The self-test
+cycles all three modes through the forced-attack gallery; v2 galleries live under
+`screenshots/fable-bunny/v2/<mode>/`.
+
 ### Fable Bunny config (section "Fable Bunny")
 
 v2 (commit `d126117`) dropped the hybrid Lox mode (user review: janky swap, too plain) and
@@ -289,7 +307,8 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 | Config key | Default | Effect |
 |---|---|---|
 | `EnableFableBunny` | true | Swap Morgen visuals for the donor creature |
-| `FableBunnyDonor` | "Hare" | Donor prefab (Hare, Lox, Wolf, Deer...); live-rebuilds on change |
+| `FableBunnyMode` | "Bunny" | THE rotate knob: Bunny / LightElemental / LightningElemental (live rebuild) |
+| `FableBunnyDonor` | "Hare" | Donor prefab (Hare, Lox, Wolf, Deer...); live-rebuilds on change (Bunny mode) |
 | `FableBunnyHeight` | 4.0 | Target donor height in meters (× star scale) |
 | `FableBunnyScale` | 1.0 | Multiplier on the height-derived scale |
 | `FableBunnyYOffset` | 0 | Vertical offset after ground alignment |
