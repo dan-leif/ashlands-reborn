@@ -70,6 +70,17 @@ internal static class FableBunnyPatches
 
     internal enum AttackClass { Lash, Smash, Bite, Roll, Unknown }
 
+    /// <summary>Which look replaces the Morgen (FableBunnyMode - the user's rotate knob).</summary>
+    internal enum BunnyMode { Bunny, LightElemental, LightningElemental }
+
+    internal static BunnyMode CurrentMode()
+    {
+        var s = Plugin.FableBunnyMode?.Value;
+        if (string.Equals(s, "LightElemental", StringComparison.OrdinalIgnoreCase)) return BunnyMode.LightElemental;
+        if (string.Equals(s, "LightningElemental", StringComparison.OrdinalIgnoreCase)) return BunnyMode.LightningElemental;
+        return BunnyMode.Bunny;
+    }
+
     // ---- registry ----------------------------------------------------------------------
 
     internal static int RegistryCount => Registry.Count;
@@ -234,39 +245,41 @@ internal static class FableBunnyPatches
         marker.Pivot = pivot.transform;
 
         marker.TargetHeight = targetHeight;
+        marker.Mode = CurrentMode();
 
-        // Single donor proxy (v2: the hybrid Lox mode was dropped after user review).
-        var primaryDonor = Plugin.FableBunnyDonor?.Value?.Trim();
-        if (string.IsNullOrEmpty(primaryDonor)) primaryDonor = "Hare";
-        BuildProxy(marker, primaryDonor!, isPrimary: true);
+        // The hidden Morgen bones keep animating hitbox-accurately (AlwaysAnimate) - hands
+        // anchor the wisp-lash tracking; Chest + limb chains anchor the elemental modes.
+        FindMorgenBones(source, marker);
 
-        if (marker.Proxies.Count == 0)
+        if (marker.Mode == BunnyMode.Bunny)
         {
-            Plugin.Log?.LogError($"[Fable Bunny] No donor proxy could be built (donor='{primaryDonor}') - reverting.");
-            marker.RevertAndDestroy();
-            return;
+            // Single donor proxy (v2: the hybrid Lox mode was dropped after user review).
+            var primaryDonor = Plugin.FableBunnyDonor?.Value?.Trim();
+            if (string.IsNullOrEmpty(primaryDonor)) primaryDonor = "Hare";
+            BuildProxy(marker, primaryDonor!, isPrimary: true);
+
+            if (marker.Proxies.Count == 0)
+            {
+                Plugin.Log?.LogError($"[Fable Bunny] No donor proxy could be built (donor='{primaryDonor}') - reverting.");
+                marker.RevertAndDestroy();
+                return;
+            }
+
+            ShowProxy(marker, 0);
+            if (LashIncludesWisps()) BuildWispOrbs(marker);
         }
-
-        ShowProxy(marker, 0);
-
-        // The hidden Morgen hand bones keep animating hitbox-accurately (AlwaysAnimate) -
-        // they anchor the wisp-lash tracking during swipe attacks.
-        foreach (var t in source.GetComponentsInChildren<Transform>(true))
+        else
         {
-            if (t.name == "Hand.l") marker.HandL = t;
-            else if (t.name == "Hand.r") marker.HandR = t;
+            BuildElemental(marker);
         }
-        if (marker.HandL == null || marker.HandR == null)
-            Plugin.Log?.LogWarning("[AR Bunny] Morgen hand bones not found - wisp lash degrades to orbit-only");
-
-        if (LashIncludesWisps()) BuildWispOrbs(marker);
 
         marker.Built = true;
 
-        if (_swapLogCount++ < 5)
+        if (_swapLogCount++ < 8)
             Plugin.Log?.LogInfo(
-                $"[Fable Bunny] Swapped Morgen -> {primaryDonor}: targetH={targetHeight:F2}, " +
-                $"star={starScale:F2}, orbs={marker.Orbs.Count}, starLook={Plugin.FableBunnyStarLook?.Value ?? 0}");
+                $"[Fable Bunny] Swapped Morgen -> {marker.Mode}: targetH={targetHeight:F2}, " +
+                $"star={starScale:F2}, orbs={marker.Orbs.Count}, bolts={marker.Bolts.Count}, " +
+                $"starLook={Plugin.FableBunnyStarLook?.Value ?? 0}");
     }
 
     private static GameObject? EnsureDonorTemplate(string donorName)
@@ -493,6 +506,7 @@ internal static class FableBunnyPatches
             if (_attackLogCount++ < 40)
                 Plugin.Log?.LogInfo($"[AR Bunny] attack start: anim='{animName ?? "?"}' class={cls}");
 
+            var elemental = marker.Mode != BunnyMode.Bunny;
             switch (cls)
             {
                 case AttackClass.Roll:
@@ -500,20 +514,33 @@ internal static class FableBunnyPatches
                     marker.RollStartTime = Time.time;
                     marker.NextRollJumpTime = Time.time; // first hop fires immediately in Drive
                     break;
-                case AttackClass.Bite:
+                case AttackClass.Bite when !elemental:
                     StartPounce(marker, duration: 0.5f, amplitude: 1.2f); // signed off - don't touch
                     break;
-                case AttackClass.Smash:
+                case AttackClass.Smash when !elemental:
                     StartPounce(marker, duration: 0.8f, amplitude: 1.5f);
                     break;
+                case AttackClass.Bite:
+                case AttackClass.Smash:
+                    // Elemental read: core flash spike; the Light elemental adds a light beam
+                    // along the attack direction (its projected bite/slam).
+                    marker.CoreFlashEnd = Time.time + 0.6f;
+                    if (marker.Mode == BunnyMode.LightElemental)
+                    {
+                        marker.BeamDir = __instance.transform.forward;
+                        marker.BeamEnd = Time.time + 0.8f;
+                    }
+                    break;
                 case AttackClass.Lash when marker.Orbs.Count > 0:
-                    // The wisp orbs carry the read; tone the body pounce down so the lash is
-                    // the visible event instead of an unrelated body bob.
-                    StartPounce(marker, duration: 0.45f, amplitude: 0.4f);
+                    // The orbs carry the read; in Bunny mode tone the body pounce down so the
+                    // lash is the visible event instead of an unrelated body bob.
+                    if (!elemental) StartPounce(marker, duration: 0.45f, amplitude: 0.4f);
+                    else marker.CoreFlashEnd = Time.time + 0.3f;
                     StartLash(marker);
                     break;
                 default:
-                    StartPounce(marker, duration: 0.45f, amplitude: 1.0f);
+                    if (!elemental) StartPounce(marker, duration: 0.45f, amplitude: 1.0f);
+                    else marker.CoreFlashEnd = Time.time + 0.4f;
                     break;
             }
         }
@@ -721,7 +748,7 @@ internal static class FableBunnyPatches
         // plus the donor's real jump trigger on each arc - destructive bounding instead of
         // the v1 flat jog.
         var bounceY = 0f;
-        if (marker.Rolling && IsHopHigherRoll())
+        if (marker.Rolling && marker.Mode == BunnyMode.Bunny && IsHopHigherRoll())
         {
             var hop = Mathf.Abs(Mathf.Sin(Mathf.PI * (Time.time - marker.RollStartTime) / RollHopPeriod));
             bounceY = 0.35f * marker.TargetHeight * hop;
@@ -740,6 +767,7 @@ internal static class FableBunnyPatches
         marker.Pivot.localPosition = Vector3.up * bounceY;
 
         UpdateOrbs(marker, source, dt);
+        UpdateElemental(marker, source, dt);
 
         if (anim == null || !anim.isActiveAndEnabled) return;
 
@@ -828,10 +856,12 @@ internal static class FableBunnyPatches
         return null;
     }
 
-    private static void BuildWispOrbs(AshlandsRebornFableBunny marker)
+    private static void BuildWispOrbs(AshlandsRebornFableBunny marker, Color? colorOverride = null,
+        float sizeMul = 1f, bool proceduralOnly = false)
     {
         if (marker.Pivot == null) return;
         var h = marker.TargetHeight; // all orb dimensions scale off the configured height
+        var col = colorOverride ?? WispColor;
 
         for (var i = 0; i < 2; i++)
         {
@@ -840,22 +870,23 @@ internal static class FableBunnyPatches
 
             // Preferred visual: a stripped clone of a real wisp prefab (probed - M2 recon may
             // improve the candidate list); guaranteed fallback: a procedural additive orb.
-            // Either way the orb gets a point light and a trail.
-            if (TryBuildWispVisual(orb.transform, 0.22f * h) == null)
+            // Elementals force procedural: the demister ball's fixed wisp-green fights their
+            // palette. Either way the orb gets a point light and a trail.
+            if (proceduralOnly || TryBuildWispVisual(orb.transform, 0.22f * h * sizeMul) == null)
             {
                 var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 TryDestroyImmediate(sphere.GetComponent<Collider>());
                 sphere.transform.SetParent(orb.transform, worldPositionStays: false);
-                sphere.transform.localScale = Vector3.one * (0.18f * h);
+                sphere.transform.localScale = Vector3.one * (0.18f * h * sizeMul);
                 var shader = FindOrbShader();
                 if (shader != null)
                 {
-                    var mat = new Material(shader) { color = WispColor };
-                    if (mat.HasProperty("_TintColor")) mat.SetColor("_TintColor", WispColor);
+                    var mat = new Material(shader) { color = col };
+                    if (mat.HasProperty("_TintColor")) mat.SetColor("_TintColor", col);
                     if (mat.HasProperty("_EmissionColor"))
                     {
                         mat.EnableKeyword("_EMISSION");
-                        mat.SetColor("_EmissionColor", WispColor * 2f);
+                        mat.SetColor("_EmissionColor", col * 2f);
                     }
                     sphere.GetComponent<Renderer>().material = mat;
                 }
@@ -865,22 +896,22 @@ internal static class FableBunnyPatches
             // phases brighten the light and enable the trail in UpdateOrbs.
             var light = orb.AddComponent<Light>();
             light.type = LightType.Point;
-            light.color = WispColor;
+            light.color = col;
             light.intensity = 1f;
             light.range = 1.5f * h;
             light.shadows = LightShadows.None;
 
             var trail = orb.AddComponent<TrailRenderer>();
             trail.time = 0.4f;
-            trail.startWidth = 0.09f * h;
+            trail.startWidth = 0.09f * h * sizeMul;
             trail.endWidth = 0f;
             trail.numCapVertices = 4;
             trail.emitting = false; // orbit leaves no trail; lash phases switch it on
             var trailShader = FindOrbShader();
             if (trailShader != null)
-                trail.material = new Material(trailShader) { color = WispColor };
-            trail.startColor = WispColor;
-            trail.endColor = new Color(WispColor.r, WispColor.g, WispColor.b, 0f);
+                trail.material = new Material(trailShader) { color = col };
+            trail.startColor = col;
+            trail.endColor = new Color(col.r, col.g, col.b, 0f);
 
             var data = new WispOrb
             {
@@ -1029,9 +1060,20 @@ internal static class FableBunnyPatches
                     lightIntensity = 1.5f;
                     break;
                 default:
-                    target = OrbitTarget(marker, orb);
-                    lerpRate = 6f;
-                    lightIntensity = 1f;
+                    // Elemental hand orbs sit AT the hands at all times ("orbs in place of
+                    // the morgen's hands"); bunny wisps orbit until a lash starts.
+                    if (marker.AlwaysTrackHands && orb.Hand != null)
+                    {
+                        target = orb.Hand.position;
+                        lerpRate = 22f;
+                        lightIntensity = 1.6f;
+                    }
+                    else
+                    {
+                        target = OrbitTarget(marker, orb);
+                        lerpRate = 6f;
+                        lightIntensity = 1f;
+                    }
                     break;
             }
             orb.Root.position = Vector3.Lerp(orb.Root.position, target, 1f - Mathf.Exp(-lerpRate * dt));
@@ -1039,6 +1081,234 @@ internal static class FableBunnyPatches
                 orb.Light.intensity = Mathf.Lerp(orb.Light.intensity, lightIntensity, 1f - Mathf.Exp(-8f * dt));
             if (orb.Trail != null)
                 orb.Trail.emitting = marker.LashState != LashState.Orbit;
+        }
+    }
+
+    // ---- elemental modes (v2 M3 light / M4 lightning) -----------------------------------
+    // Both replace the donor with FX anchored to the hidden Morgen bones: the skeleton keeps
+    // animating (AlwaysAnimate), so a core at Chest bobs/lunges with the REAL animation and
+    // limb-following bolts lash/stomp/roll exactly where the hitboxes are. Everything is
+    // procedural (primitives + additive materials + Lights + LineRenderers) so no prefab
+    // pick is load-bearing; the M2 FX-catalog dump exists to upgrade visuals later, not to
+    // gate. All objects live under the pivot, so RevertAndDestroy cleans them up for free.
+
+    private static readonly Color LightCoreColor = new(1f, 0.95f, 0.78f, 1f);
+    private static readonly Color LightningColor = new(0.62f, 0.8f, 1f, 1f);
+
+    /// <summary>Resolve the Morgen bones every mode anchors to. Names verified by v1 recon;
+    /// a missing name shortens/skips that chain (logged) but never breaks the build.</summary>
+    private static void FindMorgenBones(Character source, AshlandsRebornFableBunny marker)
+    {
+        var byName = new Dictionary<string, Transform>(StringComparer.Ordinal);
+        foreach (var t in source.GetComponentsInChildren<Transform>(true))
+            if (!byName.ContainsKey(t.name)) byName.Add(t.name, t);
+
+        byName.TryGetValue("Hand.l", out var handL); marker.HandL = handL;
+        byName.TryGetValue("Hand.r", out var handR); marker.HandR = handR;
+        byName.TryGetValue("Chest", out var chest); marker.Chest = chest;
+        if (marker.HandL == null || marker.HandR == null)
+            Plugin.Log?.LogWarning("[AR Bunny] Morgen hand bones not found - wisp lash degrades to orbit-only");
+
+        marker.LimbChains.Clear();
+        foreach (var side in new[] { "l", "r" })
+        {
+            AddChain(byName, marker, isArm: true, $"Shoulder.{side}", $"UpperArm.{side}", $"LowerArm.{side}", $"Hand.{side}");
+            AddChain(byName, marker, isArm: false, $"UpperLeg.{side}", $"LowerLeg.{side}", $"Foot.{side}");
+        }
+    }
+
+    private static void AddChain(Dictionary<string, Transform> byName, AshlandsRebornFableBunny marker,
+        bool isArm, params string[] names)
+    {
+        var bones = names
+            .Select(n => byName.TryGetValue(n, out var t) ? t : null)
+            .Where(t => t != null)
+            .Cast<Transform>()
+            .ToArray();
+        if (bones.Length >= 2) marker.LimbChains.Add(new LimbChain { Bones = bones, IsArm = isArm });
+        else Plugin.Log?.LogWarning($"[AR Bunny] limb chain unresolved: {string.Join("/", names)}");
+    }
+
+    private static void BuildElemental(AshlandsRebornFableBunny marker)
+    {
+        if (marker.Pivot == null) return;
+        var h = marker.TargetHeight;
+        var light = marker.Mode == BunnyMode.LightElemental;
+        var col = light ? LightCoreColor : LightningColor;
+        var shader = FindOrbShader();
+
+        // Core orb: tracks the Chest bone in UpdateElemental (world-space writes; the pivot
+        // parent exists only so revert cleanup gets it).
+        var core = new GameObject("AR_ElemCore");
+        core.transform.SetParent(marker.Pivot, worldPositionStays: false);
+        var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        TryDestroyImmediate(sphere.GetComponent<Collider>());
+        sphere.transform.SetParent(core.transform, worldPositionStays: false);
+        if (shader != null)
+        {
+            var mat = new Material(shader) { color = col };
+            if (mat.HasProperty("_TintColor")) mat.SetColor("_TintColor", col);
+            if (mat.HasProperty("_EmissionColor"))
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", col * 3f);
+            }
+            sphere.GetComponent<Renderer>().material = mat;
+        }
+        marker.CoreBaseScale = (light ? 0.55f : 0.4f) * h;
+        core.transform.localScale = Vector3.one * marker.CoreBaseScale; // core root carries the pulse
+
+        var pl = core.AddComponent<Light>();
+        pl.type = LightType.Point;
+        pl.color = col;
+        pl.range = 4f * h;
+        pl.intensity = light ? 5f : 3.5f;
+        // The Light elemental's signature is the STARK SHADOWS it casts while pulsing.
+        pl.shadows = light ? LightShadows.Soft : LightShadows.None;
+        marker.CoreOrb = core.transform;
+        marker.CoreLight = pl;
+        core.transform.position = marker.Source != null
+            ? marker.Source.transform.position + Vector3.up * (0.6f * h)
+            : marker.Pivot.position;
+
+        // Hand orbs: the M1 wisp machinery with tracking ALWAYS on - "orbs in place of the
+        // Morgen's hands". Lash flare/track/return still layers brightness on attack swings.
+        marker.AlwaysTrackHands = true;
+        BuildWispOrbs(marker, col, sizeMul: light ? 0.8f : 0.5f, proceduralOnly: true);
+
+        if (light)
+        {
+            // Beam for bite/slam. Named AR_WispOrb_beam so PhotoModePatches' framing
+            // exclusion (name-prefix match) ignores it - a 20m beam would wreck auto-framing.
+            var beamGo = new GameObject("AR_WispOrb_beam");
+            beamGo.transform.SetParent(marker.Pivot, worldPositionStays: false);
+            var lr = beamGo.AddComponent<LineRenderer>();
+            lr.positionCount = 2;
+            lr.startWidth = 0.22f * h;
+            lr.endWidth = 0.04f * h;
+            lr.numCapVertices = 4;
+            if (shader != null) lr.material = new Material(shader) { color = col };
+            lr.startColor = col;
+            lr.endColor = new Color(col.r, col.g, col.b, 0.15f);
+            lr.enabled = false;
+            marker.Beam = lr;
+        }
+        else
+        {
+            // Lightning limbs: one jagged polyline per limb chain (bone points + jittered
+            // midpoints). If no arm chain resolved, degrade to straight Chest->Hand bolts.
+            var chains = new List<LimbChain>(marker.LimbChains);
+            if (!chains.Any(c => c.IsArm) && marker.Chest != null)
+            {
+                if (marker.HandL != null) chains.Add(new LimbChain { Bones = new[] { marker.Chest, marker.HandL }, IsArm = true });
+                if (marker.HandR != null) chains.Add(new LimbChain { Bones = new[] { marker.Chest, marker.HandR }, IsArm = true });
+            }
+            foreach (var chain in chains)
+            {
+                var go = new GameObject($"AR_ElemBolt_{(chain.IsArm ? "arm" : "leg")}");
+                go.transform.SetParent(marker.Pivot, worldPositionStays: false);
+                var lr = go.AddComponent<LineRenderer>();
+                var points = chain.Bones.Length * 2 - 1;
+                lr.positionCount = points;
+                lr.startWidth = 0.09f * h;
+                lr.endWidth = 0.02f * h;
+                if (shader != null) lr.material = new Material(shader) { color = col };
+                lr.startColor = col;
+                lr.endColor = col;
+                marker.Bolts.Add(new LimbBolt
+                {
+                    Line = lr,
+                    Bones = chain.Bones,
+                    IsArm = chain.IsArm,
+                    Jitter = new Vector3[points],
+                });
+            }
+            if (marker.Bolts.Count == 0)
+                Plugin.Log?.LogWarning("[AR Bunny] lightning elemental: no limb chains resolved - core only");
+        }
+    }
+
+    private static void UpdateElemental(AshlandsRebornFableBunny marker, Character source, float dt)
+    {
+        if (marker.Mode == BunnyMode.Bunny || marker.CoreOrb == null) return;
+        var h = marker.TargetHeight;
+        var chestPos = marker.Chest != null
+            ? marker.Chest.position
+            : source.transform.position + Vector3.up * (0.6f * h);
+        var flash = marker.CoreFlashEnd > Time.time
+            ? Mathf.Clamp01((marker.CoreFlashEnd - Time.time) / 0.5f)
+            : 0f;
+
+        if (marker.Mode == BunnyMode.LightElemental)
+        {
+            // Occasional blinding spikes on top of the steady expand/contract pulse.
+            if (Time.time >= marker.NextFlareTime)
+            {
+                marker.NextFlareTime = Time.time + UnityEngine.Random.Range(4f, 9f);
+                marker.CoreFlashEnd = Mathf.Max(marker.CoreFlashEnd, Time.time + 0.35f);
+            }
+            var pulse = 1f + 0.25f * Mathf.Sin(Time.time * 3.1f);
+
+            // Roll = the orb IS the marble: drop to ground level and bounce along the real
+            // (invisible) roll trajectory; otherwise ride the animated Chest bone.
+            Vector3 target;
+            if (marker.Rolling)
+            {
+                var bounce = Mathf.Abs(Mathf.Sin(Mathf.PI * (Time.time - marker.RollStartTime) / RollHopPeriod));
+                target = source.transform.position + Vector3.up * (0.5f * marker.CoreBaseScale + 0.8f * h * bounce);
+            }
+            else target = chestPos;
+            marker.CoreOrb.position = Vector3.Lerp(marker.CoreOrb.position, target, 1f - Mathf.Exp(-16f * dt));
+
+            marker.CoreOrb.localScale = Vector3.one * (marker.CoreBaseScale * (pulse + 0.9f * flash));
+            if (marker.CoreLight != null)
+                marker.CoreLight.intensity = 5f * pulse + 22f * flash;
+
+            if (marker.Beam != null)
+            {
+                var beamOn = marker.BeamEnd > Time.time;
+                if (marker.Beam.enabled != beamOn) marker.Beam.enabled = beamOn;
+                if (beamOn)
+                {
+                    marker.Beam.SetPosition(0, marker.CoreOrb.position);
+                    marker.Beam.SetPosition(1, marker.CoreOrb.position + marker.BeamDir.normalized * (5f * h));
+                }
+            }
+        }
+        else
+        {
+            marker.CoreOrb.position = Vector3.Lerp(marker.CoreOrb.position, chestPos, 1f - Mathf.Exp(-20f * dt));
+            // Crackle: flicker the light every frame, re-roll the bolt jitter every ~0.05s.
+            if (marker.CoreLight != null)
+                marker.CoreLight.intensity = 3.5f + UnityEngine.Random.Range(-1.2f, 1.6f) + 14f * flash;
+            marker.CoreOrb.localScale = Vector3.one *
+                (marker.CoreBaseScale * (1f + 0.08f * Mathf.Sin(Time.time * 17f) + 0.5f * flash));
+
+            var reroll = Time.time >= marker.NextJitterTime;
+            if (reroll) marker.NextJitterTime = Time.time + 0.05f;
+            var lashing = marker.LashState == LashState.Flare || marker.LashState == LashState.Track;
+            var amp = (marker.Rolling ? 0.16f : 0.07f) * h;
+            foreach (var bolt in marker.Bolts)
+            {
+                if (bolt.Line == null || bolt.Bones.Length < 2) continue;
+                var boltAmp = bolt.IsArm && lashing ? amp * 1.8f : amp;
+                if (reroll)
+                    for (var j = 0; j < bolt.Jitter.Length; j++)
+                        bolt.Jitter[j] = j % 2 == 1 ? UnityEngine.Random.insideUnitSphere : Vector3.zero;
+                for (var j = 0; j < bolt.Jitter.Length; j++)
+                {
+                    var basePos = j % 2 == 0
+                        ? bolt.Bones[j / 2].position
+                        : (bolt.Bones[j / 2].position + bolt.Bones[j / 2 + 1].position) * 0.5f;
+                    bolt.Line.SetPosition(j, basePos + bolt.Jitter[j] * boltAmp);
+                }
+                var w = (bolt.IsArm && lashing ? 0.18f : 0.09f) * h * (1f + flash);
+                if (Mathf.Abs(bolt.Line.startWidth - w) > 0.001f)
+                {
+                    bolt.Line.startWidth = w;
+                    bolt.Line.endWidth = w * 0.25f;
+                }
+            }
         }
     }
 
@@ -1175,6 +1445,14 @@ internal static class FableBunnyPatches
                 _reconMiscDone = true;
                 var trophy = ZNetScene.instance.GetPrefab("TrophyHare");
                 Plugin.Log?.LogInfo($"[AR BunnyRecon] TrophyHare prefab: {(trophy != null ? "FOUND" : "not found")}");
+                // M2 FX catwalk (log form): catalog elemental-relevant vfx prefabs + boss
+                // attack EffectLists so elemental visual upgrades can be picked from evidence.
+                DumpFxCatalog();
+                foreach (var bossName in new[] { "Eikthyr", "GoblinKing" })
+                {
+                    var boss = ZNetScene.instance.GetPrefab(bossName);
+                    if (boss != null) DumpEffectLists(boss);
+                }
             }
 
             if (!_obsFired && Time.time - _reconWorldLoadedAt > 90f)
@@ -1254,10 +1532,25 @@ internal static class FableBunnyPatches
 
         PhotoModePatches.EnableCameraOverride();
 
-        // Forced attacks, one per attack item, two screenshots each (early + late pose).
+        // Forced attacks, one per attack item, two screenshots each (early + late pose) -
+        // cycled across all three FableBunnyMode looks. Each mode switch fires the
+        // SettingChanged -> RefreshAll path, exactly what the user's F1 rotate knob does.
         var items = hum != null ? hum.GetInventory()?.GetAllItems() : null;
-        if (hum != null && items != null)
+        foreach (var mode in new[] { "Bunny", "LightElemental", "LightningElemental" })
         {
+            if (go == null) break;
+            Plugin.FableBunnyMode.Value = mode;
+            yield return new WaitForSeconds(3f);
+            var mMode = go != null ? go.GetComponent<AshlandsRebornFableBunny>() : null;
+            Check(mMode != null && mMode.Built, $"{mode}: swap rebuilt after mode switch");
+            if (go == null) break;
+            go.transform.position = pos;
+            PhotoModePatches.AimCameraAt(go, 60);
+            yield return new WaitForSeconds(0.3f);
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"Morgen_{mode}_idle.png"));
+            yield return new WaitForSeconds(0.5f);
+
+            if (hum == null || items == null) continue;
             for (var i = 0; i < items.Count && go != null; i++)
             {
                 // Re-anchor before each attack: the roll covers ~50m and can carry the
@@ -1269,7 +1562,7 @@ internal static class FableBunnyPatches
                     ? FAttackAnimation?.GetValue(item.m_shared.m_attack) as string ?? "unknown"
                     : "unknown";
                 var ok = hum.StartAttack(player, false);
-                Plugin.Log?.LogInfo($"[AR BunnyRecon] forced attack '{anim}' -> {ok}");
+                Plugin.Log?.LogInfo($"[AR BunnyRecon] forced attack '{anim}' ({mode}) -> {ok}");
                 if (!ok)
                 {
                     yield return new WaitForSeconds(2f);
@@ -1279,17 +1572,19 @@ internal static class FableBunnyPatches
                 if (go == null) break;
                 PhotoModePatches.AimCameraAt(go, 45);
                 yield return new WaitForSeconds(0.15f);
-                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"Morgen_atk_{anim}_a.png"));
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"Morgen_{mode}_atk_{anim}_a.png"));
                 yield return new WaitForSeconds(0.6f);
                 if (go == null) break;
                 PhotoModePatches.AimCameraAt(go, 45);
                 yield return new WaitForSeconds(0.1f);
-                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"Morgen_atk_{anim}_b.png"));
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"Morgen_{mode}_atk_{anim}_b.png"));
                 var tEnd = Time.time + 6f;
                 while (go != null && hum != null && hum.InAttack() && Time.time < tEnd) yield return null;
                 yield return new WaitForSeconds(1f);
             }
         }
+        Plugin.FableBunnyMode.Value = "Bunny";
+        yield return new WaitForSeconds(2f);
 
         // Death: a real kill - vanilla fx must play with no bone corpse left behind.
         if (go != null)
@@ -1442,6 +1737,55 @@ internal static class FableBunnyPatches
         }
     }
 
+    private static readonly string[] FxNameFilters =
+    {
+        "wisp", "demister", "torch", "dverger", "dvergr", "lighthouse", "lightning", "thunder",
+        "himmin", "iolite", "gem", "eikthyr", "yagluth", "goblinking", "mistile", "staff",
+        "orb", "spark", "flare",
+    };
+
+    /// <summary>M2 FX catalog: one compact line per ZNetScene prefab matching the elemental
+    /// shopping-list filters - component counts + shader names, so elemental visual upgrades
+    /// can be picked from the log instead of guessed.</summary>
+    private static void DumpFxCatalog()
+    {
+        try
+        {
+            var scene = ZNetScene.instance;
+            var prefabs = AccessTools.Field(typeof(ZNetScene), "m_prefabs")?.GetValue(scene) as List<GameObject>;
+            if (prefabs == null)
+            {
+                Plugin.Log?.LogWarning("[AR BunnyRecon] ZNetScene.m_prefabs not readable - no FX catalog");
+                return;
+            }
+            var sb = new StringBuilder(32768);
+            sb.AppendLine($"[AR BunnyRecon] FX catalog ({prefabs.Count} prefabs scanned):");
+            foreach (var p in prefabs)
+            {
+                if (p == null) continue;
+                var n = p.name.ToLowerInvariant();
+                if (!FxNameFilters.Any(f => n.Contains(f))) continue;
+                var shaders = p.GetComponentsInChildren<Renderer>(true)
+                    .SelectMany(r => r.sharedMaterials ?? Array.Empty<Material>())
+                    .Where(m => m != null && m.shader != null)
+                    .Select(m => m.shader.name)
+                    .Distinct()
+                    .Take(3);
+                sb.AppendLine(
+                    $"  {p.name}: L={p.GetComponentsInChildren<Light>(true).Length}" +
+                    $" PS={p.GetComponentsInChildren<ParticleSystem>(true).Length}" +
+                    $" LR={p.GetComponentsInChildren<LineRenderer>(true).Length}" +
+                    $" TR={p.GetComponentsInChildren<TrailRenderer>(true).Length}" +
+                    $" sh=[{string.Join(";", shaders)}]");
+            }
+            Plugin.Log?.LogInfo(sb.ToString());
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log?.LogWarning($"[AR BunnyRecon] fx catalog error: {ex.Message}");
+        }
+    }
+
     /// <summary>Reflection sweep over every EffectList field on the prefab's components and
     /// its default items' attacks - names the rise/death/gore effect prefabs so the
     /// suppression blocklist rests on evidence instead of guesses.</summary>
@@ -1450,7 +1794,7 @@ internal static class FableBunnyPatches
         try
         {
             var sb = new StringBuilder(2048);
-            sb.AppendLine("[AR Bunny] Morgen EffectList inventory:");
+            sb.AppendLine($"[AR Bunny] {prefab.name} EffectList inventory:");
             foreach (var comp in prefab.GetComponentsInChildren<Component>(true))
             {
                 if (comp == null) continue;
@@ -1611,6 +1955,23 @@ internal static class FableBunnyPatches
         public bool IsPrimary;
     }
 
+    /// <summary>A resolved Morgen limb bone chain (root -> extremity).</summary>
+    internal sealed class LimbChain
+    {
+        public Transform[] Bones = Array.Empty<Transform>();
+        public bool IsArm;
+    }
+
+    /// <summary>One lightning limb: a jagged LineRenderer polyline over a hidden Morgen bone
+    /// chain (bone points + jittered midpoints, re-rolled every ~0.05s).</summary>
+    internal sealed class LimbBolt
+    {
+        public LineRenderer? Line;
+        public Transform[] Bones = Array.Empty<Transform>();
+        public Vector3[] Jitter = Array.Empty<Vector3>();
+        public bool IsArm;
+    }
+
     /// <summary>One wisp lash orb: procedural or prefab-sourced visual + light + trail,
     /// orbiting the donor and tracking a hidden Morgen hand bone during swipes.</summary>
     internal sealed class WispOrb
@@ -1655,6 +2016,22 @@ internal class AshlandsRebornFableBunny : MonoBehaviour
     public readonly List<FableBunnyPatches.WispOrb> Orbs = new();
     public FableBunnyPatches.LashState LashState;
     public float LashPhaseStart;
+
+    // Elemental modes (v2 M3/M4): core orb + beam + lightning limb bolts, all bone-anchored.
+    public FableBunnyPatches.BunnyMode Mode;
+    public Transform? Chest;
+    public readonly List<FableBunnyPatches.LimbChain> LimbChains = new();
+    public Transform? CoreOrb;
+    public Light? CoreLight;
+    public float CoreBaseScale;
+    public float CoreFlashEnd;
+    public float NextFlareTime;
+    public float NextJitterTime;
+    public LineRenderer? Beam;
+    public Vector3 BeamDir = Vector3.forward;
+    public float BeamEnd;
+    public bool AlwaysTrackHands;
+    public readonly List<FableBunnyPatches.LimbBolt> Bolts = new();
 
     private void OnEnable() => FableBunnyPatches.Register(this);
     private void OnDisable() => FableBunnyPatches.Unregister(this);

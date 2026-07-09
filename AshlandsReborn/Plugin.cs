@@ -114,6 +114,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableBunnyMoveAnimSpeed { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyLashStyle { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyRollStyle { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnyMode { get; private set; } = null!;
 
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
@@ -766,6 +767,18 @@ public class Plugin : BaseUnityPlugin
                 "curl up and tumble (procedural bone layer).",
                 new AcceptableValueList<string>("HopHigher", "CurlAndRoll")));
 
+        FableBunnyMode = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyMode",
+            "Bunny",
+            new ConfigDescription(
+                "Which look replaces the Morgen - THE in-game rotate knob for comparing v2 looks. " +
+                "Bunny = giant donor creature (FableBunnyDonor). LightElemental = blinding pulsing " +
+                "orb with hand orbs, stark shadows, light beams on bite/slam, and a marble roll. " +
+                "LightningElemental = crackling ball lightning whose limbs are jagged bolts " +
+                "following the hidden Morgen skeleton. Changing this live rebuilds all swapped Morgens.",
+                new AcceptableValueList<string>("Bunny", "LightElemental", "LightningElemental")));
+
         DevAutoLoad = Config.Bind(
             "Dev Automation",
             "DevAutoLoad",
@@ -1015,6 +1028,7 @@ public class Plugin : BaseUnityPlugin
         FableBunnyDonor.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyStarLook.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyLashStyle.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyMode.SettingChanged += (_, _) => OnFableBunnyChanged();
 
         EnableFableWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
