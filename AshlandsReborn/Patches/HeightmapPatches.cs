@@ -203,10 +203,12 @@ internal static class HeightmapPatches
     private static void ApplyStyled(Heightmap __instance, MeshFilter mf, List<Color32> colors, List<Vector3> vertices, int side, TransitionStyle style)
     {
         var radius = Mathf.Clamp(Plugin.TransitionBlurRadius?.Value ?? 2, 0, 4);
-        var pad = radius + 1;
+        var pad = Math.Max(radius + 1, TerrainTransition.SkirtRadiusCells(style));
         var grid = TerrainTransition.BuildMaskGrid(__instance, vertices, side, pad);
         var gridSide = side + 2 * pad;
         var raw = (float[])grid.Clone();
+        var skirt = TerrainTransition.BuildSkirt(raw, gridSide, TerrainTransition.AshHold,
+            TerrainTransition.SkirtDecayPerMeter(style), TerrainTransition.SkirtRadiusCells(style));
         TerrainTransition.Smooth(grid, gridSide, radius);
 
         var canBeLava = ChunkCanBeLava(__instance);
@@ -218,7 +220,7 @@ internal static class HeightmapPatches
             var row = Math.Min(i / side, side - 1);
             var wp = __instance.transform.TransformPoint(vertices[i]);
             var gi = (row + pad) * gridSide + col + pad;
-            var c = TerrainTransition.EvaluateColor(style, raw[gi], grid[gi], wp.x, wp.z, col, row, side);
+            var c = TerrainTransition.EvaluateColor(style, raw[gi], grid[gi], skirt[gi], wp.x, wp.z, col, row, side);
             colors[i] = c;
             if (canBeLava && raw[gi] >= 0.6f)
             {

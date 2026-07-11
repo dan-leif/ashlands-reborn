@@ -59,8 +59,69 @@ internal static class TerrainTransition
     private const float LavaGrassFraction = 0.2f;
     private const float LavaJitterFactor = 0.5f;
 
-    internal static float AshHold => Mathf.Clamp(Plugin.TransitionAshHold?.Value ?? 0.35f, 0.05f, 0.55f);
-    private static float FadeWidth => Mathf.Clamp(Plugin.TransitionFadeWidth?.Value ?? 0.25f, 0.05f, 0.5f);
+    internal static float AshHold => Mathf.Clamp(Plugin.TransitionAshHold?.Value ?? 0.2f, 0.05f, 0.55f);
+    private static float FadeWidth => Mathf.Clamp(Plugin.TransitionFadeWidth?.Value ?? 0.15f, 0.05f, 0.5f);
+
+    // Ash-skirt spatial widths: how many meters the full band fade spans around a lava
+    // feature regardless of how sharp the paint-mask cliff is. Mask-value bands alone
+    // collapse to under one triangle at 1-vertex-wide lava channels (the blur dilutes a
+    // lone 0.7 cell to ~0.03), re-showing lattice stair-steps (run-2 finding).
+    private const float MudSkirtMeters = 4f;
+    private const float LavaSkirtMeters = 2.5f;
+
+    private static float BandWidth(TransitionStyle style) =>
+        style == TransitionStyle.GrassToLava ? LavaRimR : FadeWidth;
+
+    internal static float SkirtDecayPerMeter(TransitionStyle style) =>
+        BandWidth(style) / (style == TransitionStyle.GrassToLava ? LavaSkirtMeters : MudSkirtMeters);
+
+    internal static int SkirtRadiusCells(TransitionStyle style) =>
+        Mathf.CeilToInt(style == TransitionStyle.GrassToLava ? LavaSkirtMeters : MudSkirtMeters) + 1;
+
+    /// <summary>
+    /// Grayscale dilation of the hold-capped raw mask with linear per-meter decay
+    /// (separable max-plus passes; Manhattan falloff). The result is >= min(raw, hold)
+    /// everywhere and projects the hold outward so the ash-to-green fade always has
+    /// spatial width; feeding it into the band via max() preserves the AshHold invariant.
+    /// Pure grid math on the padded cross-chunk grid, so neighboring chunks agree.
+    /// </summary>
+    internal static float[] BuildSkirt(float[] rawGrid, int gridSide, float hold, float decayPerCell, int radius)
+    {
+        var skirt = new float[rawGrid.Length];
+        for (var i = 0; i < rawGrid.Length; i++)
+            skirt[i] = Math.Min(rawGrid[i], hold);
+
+        var tmp = (float[])skirt.Clone();
+        for (var r = 0; r < gridSide; r++)
+        {
+            for (var c = 0; c < gridSide; c++)
+            {
+                var best = tmp[r * gridSide + c];
+                for (var k = 1; k <= radius; k++)
+                {
+                    var drop = decayPerCell * k;
+                    if (c - k >= 0) best = Math.Max(best, tmp[r * gridSide + c - k] - drop);
+                    if (c + k < gridSide) best = Math.Max(best, tmp[r * gridSide + c + k] - drop);
+                }
+                skirt[r * gridSide + c] = best;
+            }
+        }
+        for (var c = 0; c < gridSide; c++)
+        {
+            for (var r = 0; r < gridSide; r++)
+            {
+                var best = skirt[r * gridSide + c];
+                for (var k = 1; k <= radius; k++)
+                {
+                    var drop = decayPerCell * k;
+                    if (r - k >= 0) best = Math.Max(best, skirt[(r - k) * gridSide + c] - drop);
+                    if (r + k < gridSide) best = Math.Max(best, skirt[(r + k) * gridSide + c] - drop);
+                }
+                tmp[r * gridSide + c] = best;
+            }
+        }
+        return tmp;
+    }
 
     internal static TransitionStyle Current
     {
@@ -173,27 +234,31 @@ internal static class TerrainTransition
     }
 
     internal static Color32 EvaluateColor(TransitionStyle style, float rawMask, float mask,
-        float wx, float wz, int col, int row, int side)
+        float skirt, float wx, float wz, int col, int row, int side)
     {
         if (style == TransitionStyle.DebugGradient)
             return DebugColor(col, row, side);
 
-        // AshHold invariant: the band input is max(blurred + jittered, RAW) mask, and the
-        // ash ramp ends exactly at the hold with 255 - so any vertex whose raw mask is
-        // at/above the hold renders full vanilla ash and the shader keeps drawing its
+        // AshHold invariant: the band input is max(blurred + jittered, RAW, skirt), and
+        // the ash ramp ends exactly at the hold with 255 - so any vertex whose raw mask
+        // is at/above the hold renders full vanilla ash and the shader keeps drawing its
         // lava rim/cracks with the visible edge exactly where the ground turns deadly
         // (raw >= 0.6 is Heightmap.IsLava; the hold caps at 0.55). Taking the max instead
         // of a binary raw-threshold override keeps the invariant while following the
         // paint mask's own gradient at sharp pool edges - a binary stamp re-introduced
-        // the 1m lattice stair-steps the blur exists to kill (run-1 finding).
+        // the 1m lattice stair-steps the blur exists to kill (run-1 finding). The skirt
+        // term gets half jitter (Manhattan contours wobbled organic); the unjittered raw
+        // term alone carries the invariant, so noise can never expose lava.
         var hold = AshHold;
+        var jf = style == TransitionStyle.GrassToLava ? LavaJitterFactor : 1f;
+        var jitter = Jitter(wx, wz) * jf;
+        var m = Mathf.Max(Mathf.Max(mask + jitter, rawMask), skirt + jitter * 0.5f);
+
         if (style == TransitionStyle.GrassToLava)
-            return BandColor(Mathf.Max(mask + Jitter(wx, wz) * LavaJitterFactor, rawMask),
-                hold - LavaRimR, hold - LavaRimA, hold - LavaRimA, hold);
+            return BandColor(m, hold - LavaRimR, hold - LavaRimA, hold - LavaRimA, hold);
 
         var w = FadeWidth;
-        return BandColor(Mathf.Max(mask + Jitter(wx, wz), rawMask),
-            hold - w, hold - w / 3f, hold - w / 3f, hold);
+        return BandColor(m, hold - w, hold - w / 3f, hold - w / 3f, hold);
     }
 
     private static Color32 BandColor(float m, float rStart, float rEnd, float aStart, float aEnd)
@@ -232,16 +297,20 @@ internal static class TerrainTransition
     }
 
     /// <summary>Grass placement rule shared with ClutterSystemPatches for the styled
-    /// paths: grass only where the green band clearly dominates, using the raw mask +
-    /// the SAME jitter so the grass boundary wanders with the terrain bands. The raw
-    /// hold guard is belt+suspenders on top of the band cutoffs (which move with the
+    /// paths: grass only where the green band clearly dominates, using a skirt-mirrored
+    /// mask + the SAME jitter so the grass boundary wanders with the terrain bands. The
+    /// raw hold guard is belt+suspenders on top of the band cutoffs (which move with the
     /// hold): grass can never place on ground the hold renders as vanilla ash.</summary>
     internal static bool AllowGrassAt(Heightmap hmap, Vector3 point)
     {
         var style = Current;
-        var mask = hmap.GetVegetationMask(point);
         var hold = AshHold;
-        if (mask >= hold) return false;
+        if (hmap.GetVegetationMask(point) >= hold) return false;
+
+        // Mirror the terrain's ash skirt with point samples: nearby lava projects
+        // outward with the same per-meter decay, so grass stops mid-fade instead of
+        // sprouting on the gray skirt around thin lava features.
+        var mask = SkirtedMask(hmap, point, hold, SkirtDecayPerMeter(style));
 
         if (style == TransitionStyle.GrassToLava)
         {
@@ -251,6 +320,26 @@ internal static class TerrainTransition
         var w = FadeWidth;
         var mudCutoff = hold - w + w * 2f / 3f * MudGrassFraction;
         return mask + Jitter(point.x, point.z) < mudCutoff;
+    }
+
+    private static readonly Vector3[] SkirtProbeOffsets =
+    {
+        new(2f, 0f, 0f), new(-2f, 0f, 0f), new(0f, 0f, 2f), new(0f, 0f, -2f),
+        new(4f, 0f, 0f), new(-4f, 0f, 0f), new(0f, 0f, 4f), new(0f, 0f, -4f),
+    };
+
+    private static float SkirtedMask(Heightmap hmap, Vector3 point, float hold, float decayPerMeter)
+    {
+        var best = hmap.GetVegetationMask(point);
+        foreach (var off in SkirtProbeOffsets)
+        {
+            var q = point + off;
+            var owner = hmap.IsPointInside(q) ? hmap : Heightmap.FindHeightmap(q);
+            if (owner == null) continue;
+            var projected = Math.Min(owner.GetVegetationMask(q), hold) - decayPerMeter * off.magnitude;
+            if (projected > best) best = projected;
+        }
+        return best;
     }
 
     /// <summary>
