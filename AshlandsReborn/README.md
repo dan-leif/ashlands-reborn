@@ -15,12 +15,12 @@ BepInEx plugin that overrides Ashlands environment to Meadows-like weather (clea
 
 ## Configuration
 
-- **Enabled** (default: true) - Master toggle: turn the entire mod on or off. When off, Ashlands uses default weather and terrain.
+- **MasterSwitch** (default: true) - Master toggle: turn the entire mod on or off. When off, Ashlands uses default weather and terrain.
 - **EnableWeatherOverride** (default: true) - Override Ashlands weather to Meadows-like (clear sky, no cinder rain, no lava fog).
 - **EnableTerrainOverride** (default: true) - Override Ashlands terrain and grass to Meadows-like (green ground, green grass).
-- **LavaTerrainThreshold** (default: 0.05) - Points above this are treated as lava for terrain vertex color (shows lava texture). Lower = wider lava transition.
-- **LavaGrassThreshold** (default: 0.05) - Points above this are excluded from grass placement (no grass on lava edges). Lower = wider exclusion zone.
-- **TerrainRefreshInterval** (default: 0) - Seconds between terrain refreshes while in Ashlands. 0 = disabled (no periodic refresh, avoids stutter). 60 = refresh every minute to catch new terrain as you move.
+- **TerrainTransitionStyle** (default: MudBlend) - How green terrain fades into ash/lava. `MudBlend` = grass -> scorched mud -> ash -> lava with organic noisy edges. `GrassToLava` = grass runs almost to the lava rivers with a tight mud/ash rim. `Legacy` = the original binary stamp (blocky edges + yellow fringe). `DebugGradient` = dev calibration strips. Changing it live-rebuilds nearby terrain.
+- **TransitionNoiseScale / TransitionNoiseStrength** (defaults: 0.08 / 0.08) - Frequency and amplitude of the edge-breakup noise on the transition contours.
+- **TransitionBlurRadius** (default: 2) - Lava-mask blur in vertices; smooths the banding.
 - **EnableDevCommandsAndGodMode** (default: true) - When loading a world, run devcommands and god for easier testing.
 
 Use **ConfigurationManager** (F1 in-game) to toggle these at runtime without restarting.
@@ -29,8 +29,8 @@ Config file: `BepInEx/config/com.ashlandsreborn.weather.cfg`
 
 ## Known Limitations
 
-- **Jagged zone transitions:** Terrain is chunk-based (64m zones). Transitions between converted and unconverted areas can appear blocky rather than smoothly blended.
-- **Yellow seam at chunk boundaries:** A visible yellow line can appear at 64x64 zone boundaries where converted (green) terrain meets unconverted (gray) terrain. Accepted as a known limitation (vertex color, shader, and neighbor-poke approaches did not resolve it).
+- **Distant terrain:** Far-away (distant-LOD) chunks render uniformly green without lava detail; detail appears as chunks stream in.
+- The historical blocky transitions + yellow seam of the original override survive only in `TerrainTransitionStyle = Legacy`, kept as a revert option; the default MudBlend style replaces them with an organic fade.
 
 ## Building
 

@@ -157,9 +157,11 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | File | Patches | Purpose |
 |---|---|---|
 | `EnvManPatches.cs` | `EnvMan.Update` | Forces "Clear" environment when player is in Ashlands biome |
-| `HeightmapPatches.cs` | Heightmap build/rebuild | Rewrites terrain vertex colors; detects lava via vegetation mask threshold |
+| `HeightmapPatches.cs` | Heightmap build/rebuild | Rewrites terrain vertex colors per the active `TerrainTransitionStyle`; detects lava via vegetation mask (see "Terrain transition styles") |
+| `TerrainTransition.cs` | None (style engine) | Band ramps, mask blur, Perlin edge jitter, grass rule, and per-style material tint shared by Heightmap/Clutter patches |
 | `TreePatches.cs` | `ClutterSystem`, zone generation | Replaces Ashlands tree spawns with Beech/Oak at configurable density and ratio |
-| `ClutterSystemPatches.cs` | `ClutterSystem.Awake` | Minor grass clutter patch |
+| `ClutterSystemPatches.cs` | `ClutterSystem.GetGroundInfo` | Meadows grass on green terrain; excluded from lava/mud per the active transition style |
+| `TerrainPhotoPatches.cs` | None (no Harmony patches) | Dev harness: teleports to the transition test spot, cycles every transition style, captures top-down/oblique/close shots per style |
 | `ValkyriePatches.cs` | Creature spawn | Swaps Fallen Valkyrie prefab with Valkyrie mesh/animations |
 | `CharredWarriorPatches.cs` | Creature spawn | LEGACY (bypassed when `EnableFableWarrior=true`): equips armor/sword on Charred Melee via bind-pose math |
 | `FableWarriorPatches.cs` | `Humanoid.Awake`, `MonoUpdaters.LateUpdate`, `VisEquipment.Set*Equipped` | CURRENT Charred Warrior system: scaled Player-rig puppet dressed via native VisEquipment, driven by the Charred's animation (see below) |
@@ -169,6 +171,40 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `DevAutoLoadPatches.cs` | None (no Harmony patches) | State machine called from `Plugin.Update()` that auto-navigates FejdStartup menus on startup |
 
 **Note on `DevAutoLoadPatches.cs`:** This file has no `[HarmonyPatch]` attributes. Harmony-patching `FejdStartup.Start()` (a coroutine) and `FejdStartup.Update()` (not defined as an override) fails silently. Instead it exposes a `Tick()` method called from `Plugin.Update()` each frame, checking `FejdStartup.instance` directly.
+
+### Terrain transition styles (green → ash/lava fade)
+
+The terrain shader reads vertex colors as biome texture selectors: Meadows `(0,0,0,0)`,
+Swamp `(255,0,0,0)`, Plains `(0,0,0,255)`, AshLands `(255,0,0,255)` — **alpha is the
+Plains (yellow) selector** (recon-verified in-game via the `DebugGradient` calibration
+style: a pure-alpha ramp renders green→yellow; an alpha ramp with R=255 held renders
+mud→ash with no yellow). This is why the original override (now `Legacy`) showed a yellow
+fringe: it stamped full AshLands color directly against Meadows vertices, and GPU
+interpolation swept through mid-alpha. Its binary per-vertex mask threshold also snapped
+contours to the 1m lattice (90°/45° stair-steps).
+
+`TerrainTransition.cs` fixes both for the styled paths (`TerrainTransitionStyle` config,
+F1 dropdown, live rebuild via `SettingChanged` → `ForceTerrainRefresh`):
+- Fade routes through the Swamp red channel: green → `(R,0,0,0)` mud ramp → `(255,0,0,A)`
+  ash ramp → full AshLands. Alpha never rises until R is saturated, so Plains can't activate.
+- Lava mask is box-blurred on a padded grid (`BuildMaskGrid` samples neighbor chunks via
+  `Heightmap.FindHeightmap` so kernels agree across chunk borders — no seams), and band
+  thresholds get world-space Perlin jitter (deterministic, chunk-agnostic) for organic edges.
+- **Lava glow requires the AshLands vertex color** (DebugGradient strip 4 proof: Meadows
+  color over molten lava kills the glow). All styles keep full ash above mask ~0.45–0.58;
+  molten lava (mask > 0.6) is always deep inside that band.
+- `Legacy` is byte-identical to the pre-style behavior (stamp at 0.1, grass rule 0.11) —
+  the user's revert contract. Do not "fix" its threshold mismatch.
+- Styles: `MudBlend` (default; wide scorched-mud fade), `GrassToLava` (green almost to the
+  lava rivers, tight rim; jitter halved so noise can't cross the 0.6 molten threshold),
+  `DebugGradient` (dev calibration strips). Knobs: `TransitionNoiseScale/Strength`,
+  `TransitionBlurRadius`.
+
+**Autonomous verification**: `TerrainPhotoAuto` (or F7) teleports to `TerrainPhotoPos`
+(default "129,30,-9671", the historical problem spot), cycles all 4 styles with a terrain
+refresh each, captures top-down + oblique + ground-close shots per style into
+`AR_TerrainPhoto\`, writes DONE.txt + `[AR TerrainPhoto] DONE`. Outer loop: kill valheim →
+`dev.ps1` → poll log for the DONE marker → **kill the game immediately** → read PNGs.
 
 ### Config → feature guard pattern
 
@@ -377,7 +413,7 @@ The final design combines two layers to work around the ~177° arm bone orientat
 | Config key | Default hotkey | Effect |
 |---|---|---|
 | `MasterSwitch` | Backspace | Toggle all features |
-| `TerrainRefreshKey` | F7 | Force terrain vertex color rewrite |
+| `TerrainPhotoKey` | F7 | Run the terrain transition photo harness on demand |
 | `TreeRefreshKey` | F8 | Respawn tree replacements |
 | `CharredWarriorRefreshKey` | F10 | Dump chest matrices + re-apply Charred Warrior armor |
 | `DataDumpKey` | F11 | Dump player body mesh + charred sinew positioning data |
@@ -395,6 +431,9 @@ The final design combines two layers to work around the ~177° arm bone orientat
 | `PhotoModePrefabs` | "Charred_Melee" | CSV of creature prefabs the harness shoots per session (filenames prefixed per prefab) |
 | `PhotoModeSpawnDistance` | 5 | Distance in front of the player to spawn the test warrior |
 | `PhotoModeIslandPos` | "2736,40,2580" | Test island teleport target; empty disables |
+| `TerrainPhotoAuto` | false | Run the terrain photo harness once after world load (suppressed by PhotoModeAuto/M4Test) |
+| `TerrainPhotoKey` | F7 | Run the terrain photo harness on demand |
+| `TerrainPhotoPos` | "129,30,-9671" | Transition test spot (historical grid/yellow-line area); empty disables teleport |
 
 ### Fable Warrior config (section "Fable Warrior" + per-creature sections)
 

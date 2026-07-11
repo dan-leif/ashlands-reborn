@@ -140,6 +140,19 @@ internal static class TerrainPhotoPatches
                 ScreenCapture.CaptureScreenshot(obliquePath);
                 shotPaths.Add(obliquePath);
                 for (var f = 0; f < 5; f++) yield return null;
+
+                // Ground-level close-up looking south across the transition band (the
+                // historical yellow fringe was most visible at walking distance).
+                var closePos = ground + new Vector3(0f, 2.5f, 8f);
+                var closeAim = ground + new Vector3(0f, 0f, -12f);
+                PhotoModePatches.SetCameraOverride(
+                    closePos,
+                    Quaternion.LookRotation((closeAim - closePos).normalized, Vector3.up));
+                yield return new WaitForSeconds(0.3f);
+                var closePath = Path.Combine(dir, $"terrain_{style}_close.png");
+                ScreenCapture.CaptureScreenshot(closePath);
+                shotPaths.Add(closePath);
+                for (var f = 0; f < 5; f++) yield return null;
             }
 
             File.WriteAllLines(
