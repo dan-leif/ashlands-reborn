@@ -50,14 +50,15 @@ internal static class TerrainTransition
     // Band edges are anchored to the ash hold H (TransitionAshHold) so bands live
     // entirely below it: MudBlend ramps the red channel (grass -> scorched mud) over
     // [H-W, H-W/2] and alpha (mud -> ash) over [H-W/2, H] with W = TransitionFadeWidth;
-    // GrassToLava uses a fixed tight rim (R over [H-0.06, H-0.045], A over [H-0.045, H],
-    // jitter halved). The A-ramp gets at least half the band so it spans >= ~2 vertices
-    // at the skirt's decay rate - a sub-vertex A-ramp renders as 1m maroon lattice steps
-    // (run-3 finding). It ends exactly at H with 255, so band output meets the raw-mask
-    // hold rule (EvaluateColor) with no seam at the hold contour. Grass cutoffs sit at a
-    // fixed fraction of the R-ramp.
+    // GrassToLava uses a fixed tight rim (R over [H-0.06, H-0.035], A over [H-0.035, H],
+    // jitter halved). EVERY ramp segment must span >= ~1.5-2 vertices at the skirt's
+    // decay rate - a sub-vertex ramp renders as 1m lattice steps (run-3/4 findings: first
+    // the A-ramp painted maroon steps, then the 0.9m R-ramp stepped the mud->green edge).
+    // The A-ramp ends exactly at H with 255, so band output meets the raw-mask hold rule
+    // (EvaluateColor) with no seam at the hold contour. Grass cutoffs sit at a fixed
+    // fraction of the R-ramp.
     private const float MudGrassFraction = 0.48f;
-    private const float LavaRimR = 0.06f, LavaRimAWidth = 0.045f;
+    private const float LavaRimR = 0.06f, LavaRimAWidth = 0.035f;
     private const float LavaGrassFraction = 0.2f;
     private const float LavaJitterFactor = 0.5f;
 
@@ -69,7 +70,7 @@ internal static class TerrainTransition
     // collapse to under one triangle at 1-vertex-wide lava channels (the blur dilutes a
     // lone 0.7 cell to ~0.03), re-showing lattice stair-steps (run-2 finding).
     private const float MudSkirtMeters = 4f;
-    private const float LavaSkirtMeters = 2.5f;
+    private const float LavaSkirtMeters = 3.5f;
 
     private static float BandWidth(TransitionStyle style) =>
         style == TransitionStyle.GrassToLava ? LavaRimR : FadeWidth;
