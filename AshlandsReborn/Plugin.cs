@@ -30,6 +30,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> TransitionNoiseScale { get; private set; } = null!;
     public static ConfigEntry<float> TransitionNoiseStrength { get; private set; } = null!;
     public static ConfigEntry<int> TransitionBlurRadius { get; private set; } = null!;
+    public static ConfigEntry<float> TransitionAshHold { get; private set; } = null!;
+    public static ConfigEntry<float> TransitionFadeWidth { get; private set; } = null!;
 
     // --- Trees ---
     public static ConfigEntry<bool> EnableTreeReplacement { get; private set; } = null!;
@@ -237,6 +239,26 @@ public class Plugin : BaseUnityPlugin
                 "Vertices of box-blur applied to the lava mask before banding (kills the stair-step grid look). " +
                 "Ignored by Legacy.",
                 new AcceptableValueRange<int>(0, 4)));
+
+        TransitionAshHold = Config.Bind(
+            "Terrain",
+            "TransitionAshHold",
+            0.35f,
+            new ConfigDescription(
+                "Lava-mask level at/above which terrain always renders as full vanilla ash, evaluated on the RAW " +
+                "unblurred mask, so the shader's glowing lava rim/cracks and the deadly lava boundary stay exactly " +
+                "vanilla (lava is lethal above 0.6). Lower = more vanilla ash retained around lava. Ignored by " +
+                "Legacy and DebugGradient.",
+                new AcceptableValueRange<float>(0.05f, 0.55f)));
+
+        TransitionFadeWidth = Config.Bind(
+            "Terrain",
+            "TransitionFadeWidth",
+            0.25f,
+            new ConfigDescription(
+                "Width (lava-mask units) of the MudBlend green -> mud -> ash fade band below the ash hold. " +
+                "Smaller = narrower mud band. Ignored by the other styles.",
+                new AcceptableValueRange<float>(0.05f, 0.5f)));
 
         // --- Trees ---
         EnableTreeReplacement = Config.Bind(
@@ -1106,6 +1128,8 @@ public class Plugin : BaseUnityPlugin
         TransitionNoiseScale.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TransitionNoiseStrength.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TransitionBlurRadius.SettingChanged += (_, _) => OnTerrainTransitionChanged();
+        TransitionAshHold.SettingChanged += (_, _) => OnTerrainTransitionChanged();
+        TransitionFadeWidth.SettingChanged += (_, _) => OnTerrainTransitionChanged();
 
         try
         {

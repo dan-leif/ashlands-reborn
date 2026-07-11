@@ -47,18 +47,25 @@ internal static class TerrainTransition
     private static readonly Color OliveTint = new(0.4f, 0.5f, 0.3f, 1f);
     private static Color? _vanillaVariationCol;
 
-    // MudBlend bands (mask units, after blur + jitter): green below RStart, red channel
-    // ramps over [RStart,REnd] (grass -> scorched mud), alpha ramps over [AStart,AEnd]
-    // (mud -> ash), full AshLands above AEnd. Molten lava (mask > 0.6) sits deep inside
-    // the full-ash band, so lava rendering stays byte-identical to Legacy.
-    private const float MudRStart = 0.02f, MudREnd = 0.25f, MudAStart = 0.25f, MudAEnd = 0.45f;
-    private const float MudGrassCutoff = 0.13f;
-
-    // GrassToLava: same shape compressed against the molten edge. Jitter is halved so
-    // noise can't push the band across the 0.6 molten threshold.
-    private const float LavaRStart = 0.40f, LavaREnd = 0.50f, LavaAStart = 0.50f, LavaAEnd = 0.58f;
-    private const float LavaGrassCutoff = 0.42f;
+    // Band edges are anchored to the ash hold H (TransitionAshHold) so bands live
+    // entirely below it: MudBlend ramps the red channel (grass -> scorched mud) over
+    // [H-W, H-W/3] and alpha (mud -> ash) over [H-W/3, H] with W = TransitionFadeWidth;
+    // GrassToLava uses a fixed tight rim (R over [H-0.06, H-0.02], A over [H-0.02, H],
+    // jitter halved). The A-ramp ends exactly at H with 255, so band output meets the
+    // raw-mask hold rule (EvaluateColor) with no seam at the hold contour. Grass cutoffs
+    // sit at a fixed fraction of the R-ramp (values preserve the v1 cutoff shapes).
+    private const float MudGrassFraction = 0.48f;
+    private const float LavaRimR = 0.06f, LavaRimA = 0.02f;
+    private const float LavaGrassFraction = 0.2f;
     private const float LavaJitterFactor = 0.5f;
+
+    /// <summary>Full vanilla AshLands vertex color - the shader draws its glowing lava
+    /// rim + crack rivulets per-fragment from the paint mask ONLY where this layer is
+    /// active (DebugGradient strip "all Meadows over lava" proof).</summary>
+    internal static readonly Color32 FullAsh = new(255, 0, 0, 255);
+
+    internal static float AshHold => Mathf.Clamp(Plugin.TransitionAshHold?.Value ?? 0.35f, 0.05f, 0.55f);
+    private static float FadeWidth => Mathf.Clamp(Plugin.TransitionFadeWidth?.Value ?? 0.25f, 0.05f, 0.5f);
 
     internal static TransitionStyle Current
     {
@@ -170,20 +177,28 @@ internal static class TerrainTransition
         return (Mathf.PerlinNoise(wx * scale + 10000f, wz * scale + 10000f) - 0.5f) * strength;
     }
 
-    internal static Color32 EvaluateColor(TransitionStyle style, float mask,
+    internal static Color32 EvaluateColor(TransitionStyle style, float rawMask, float mask,
         float wx, float wz, int col, int row, int side)
     {
-        switch (style)
-        {
-            case TransitionStyle.DebugGradient:
-                return DebugColor(col, row, side);
-            case TransitionStyle.GrassToLava:
-                return BandColor(mask + Jitter(wx, wz) * LavaJitterFactor,
-                    LavaRStart, LavaREnd, LavaAStart, LavaAEnd);
-            default:
-                return BandColor(mask + Jitter(wx, wz),
-                    MudRStart, MudREnd, MudAStart, MudAEnd);
-        }
+        if (style == TransitionStyle.DebugGradient)
+            return DebugColor(col, row, side);
+
+        // AshHold invariant, evaluated on the RAW (unblurred, unjittered) mask: at/above
+        // the hold the vertex always renders as full vanilla ash, so the shader keeps
+        // drawing its lava rim/cracks and the visible lava edge stays exactly where the
+        // ground turns deadly. rawMask >= 0.6 is functionally lava (Heightmap.IsLava) and
+        // the hold caps at 0.55, so no lethal vertex can ever render non-ash, independent
+        // of blur radius and noise settings.
+        var hold = AshHold;
+        if (rawMask >= hold) return FullAsh;
+
+        if (style == TransitionStyle.GrassToLava)
+            return BandColor(mask + Jitter(wx, wz) * LavaJitterFactor,
+                hold - LavaRimR, hold - LavaRimA, hold - LavaRimA, hold);
+
+        var w = FadeWidth;
+        return BandColor(mask + Jitter(wx, wz),
+            hold - w, hold - w / 3f, hold - w / 3f, hold);
     }
 
     private static Color32 BandColor(float m, float rStart, float rEnd, float aStart, float aEnd)
@@ -194,35 +209,53 @@ internal static class TerrainTransition
     }
 
     /// <summary>
-    /// Four constant-z calibration strips per chunk, each ramping west->east:
-    ///   strip 0: (R,0,0,0)   - pure Swamp ramp (what does the mud fade band look like?)
-    ///   strip 1: (0,0,0,A)   - pure alpha ramp (does mid-alpha alone render yellow Plains?)
-    ///   strip 2: (255,0,0,A) - the MudBlend hypothesis band (does saturated R suppress it?)
-    ///   strip 3: (0,0,0,0)   - all Meadows, even over lava (does lava glow without ash color?)
+    /// Seven constant-z calibration strips per chunk, ramping west->east. The AshHold
+    /// rule is deliberately NOT applied to this style: strips 3-5 must paint non-ash over
+    /// the real lava pool to answer how the shader's rim/cracks degrade off full ash.
+    ///   strip 0: (R,0,0,0)     - pure Swamp ramp (what does the mud fade band look like?)
+    ///   strip 1: (0,0,0,A)     - pure alpha ramp (does mid-alpha alone render yellow Plains?)
+    ///   strip 2: (255,0,0,A)   - the MudBlend hypothesis band (does saturated R suppress it?)
+    ///   strip 3: (0,0,0,0)     - all Meadows, even over lava (does lava glow without ash color?)
+    ///   strip 4: (255,0,0,128) - constant half-ash over lava (do rim/cracks render dimmed?)
+    ///   strip 5: (255,0,0,0)   - constant swamp over lava (do rim/cracks render over mud?)
+    ///   strip 6: (0,G,0,0)     - Mountain gray-rock ramp (StoneAsh style candidate)
     /// </summary>
     private static Color32 DebugColor(int col, int row, int side)
     {
-        var strip = Mathf.Clamp(row * 4 / side, 0, 3);
+        var strip = Mathf.Clamp(row * 7 / side, 0, 6);
         var ramp = (byte)Mathf.RoundToInt(255f * col / Math.Max(1, side - 1));
         return strip switch
         {
             0 => new Color32(ramp, 0, 0, 0),
             1 => new Color32(0, 0, 0, ramp),
             2 => new Color32(255, 0, 0, ramp),
-            _ => new Color32(0, 0, 0, 0),
+            3 => new Color32(0, 0, 0, 0),
+            4 => new Color32(255, 0, 0, 128),
+            5 => new Color32(255, 0, 0, 0),
+            _ => new Color32(0, ramp, 0, 0),
         };
     }
 
     /// <summary>Grass placement rule shared with ClutterSystemPatches for the styled
     /// paths: grass only where the green band clearly dominates, using the raw mask +
-    /// the SAME jitter so the grass boundary wanders with the terrain bands.</summary>
+    /// the SAME jitter so the grass boundary wanders with the terrain bands. The raw
+    /// hold guard is belt+suspenders on top of the band cutoffs (which move with the
+    /// hold): grass can never place on ground the hold renders as vanilla ash.</summary>
     internal static bool AllowGrassAt(Heightmap hmap, Vector3 point)
     {
         var style = Current;
         var mask = hmap.GetVegetationMask(point);
-        return style == TransitionStyle.GrassToLava
-            ? mask + Jitter(point.x, point.z) * LavaJitterFactor < LavaGrassCutoff
-            : mask + Jitter(point.x, point.z) < MudGrassCutoff;
+        var hold = AshHold;
+        if (mask >= hold) return false;
+
+        if (style == TransitionStyle.GrassToLava)
+        {
+            var cutoff = hold - LavaRimR + (LavaRimR - LavaRimA) * LavaGrassFraction;
+            return mask + Jitter(point.x, point.z) * LavaJitterFactor < cutoff;
+        }
+        var w = FadeWidth;
+        var mudCutoff = hold - w + w * 2f / 3f * MudGrassFraction;
+        return mask + Jitter(point.x, point.z) < mudCutoff;
     }
 
     /// <summary>

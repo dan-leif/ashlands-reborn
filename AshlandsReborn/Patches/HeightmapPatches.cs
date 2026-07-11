@@ -12,9 +12,26 @@ internal static class HeightmapPatches
 {
     private static int _terrainOverrideLogCount;
     private static int _neighborPokeLogCount;
+    private static int _lavaCheckLogCount;
     private static readonly Dictionary<Heightmap, Heightmap.Biome[]> SavedCornerBiomes = new();
 
     private const float NeighborPokeRadius = 80f;
+
+    // LAVACHECK (TERRAIN_LAVA_EDGE_PLAN.md): counts vertices whose RAW mask marks them
+    // functionally lava (Heightmap.IsLava threshold 0.6) but whose final vertex color is
+    // not full AshLands - i.e. lethal ground rendering as something safe-looking. The
+    // AshHold invariant makes this impossible by construction for the styled paths; the
+    // counters prove it per run. ApplyStyled always counts (its raw grid is free);
+    // ApplyLegacy samples per-vertex only while the photo harness arms the check.
+    internal static bool LavaCheckArmed;
+    internal static long LavaCheckLavaVertices;
+    internal static long LavaCheckViolations;
+
+    internal static void ResetLavaCheck()
+    {
+        LavaCheckLavaVertices = 0;
+        LavaCheckViolations = 0;
+    }
 
     /// <summary>
     /// When Ashlands biome is requested for terrain coloring, use Meadows instead.
@@ -116,6 +133,8 @@ internal static class HeightmapPatches
         }
 
         var lavaRestored = 0;
+        var lavaVerts = 0;
+        var violations = 0;
         for (var i = 0; i < colors.Count; i++)
         {
             float mask;
@@ -137,6 +156,25 @@ internal static class HeightmapPatches
                 colors[i] = new Color32(255, 0, 0, 255);
                 lavaRestored++;
             }
+
+            // Read-only instrumentation; the colors written above stay byte-identical.
+            if (LavaCheckArmed)
+            {
+                var rawMask = __instance.GetVegetationMask(__instance.transform.TransformPoint(vertices[i]));
+                if (rawMask >= 0.6f)
+                {
+                    lavaVerts++;
+                    var c = colors[i];
+                    if (c.r != 255 || c.g != 0 || c.b != 0 || c.a != 255) violations++;
+                }
+            }
+        }
+        if (LavaCheckArmed)
+        {
+            LavaCheckLavaVertices += lavaVerts;
+            LavaCheckViolations += violations;
+            if (violations > 0 && _lavaCheckLogCount++ < 20)
+                Plugin.Log?.LogWarning($"[AR LavaCheck] chunk ({__instance.transform.position.x:F0}, {__instance.transform.position.z:F0}) style=Legacy violations={violations}");
         }
         if (lavaRestored > 0)
         {
@@ -147,25 +185,41 @@ internal static class HeightmapPatches
     }
 
     /// <summary>Styled transition: blurred lava-mask grid (with cross-chunk padding) fed
-    /// through the style's band ramp. Overwriting every vertex is safe because the prefix
-    /// already forced the whole chunk to uniform Meadows output.</summary>
+    /// through the style's band ramp; the pre-blur raw grid feeds the AshHold invariant
+    /// and LAVACHECK. Overwriting every vertex is safe because the prefix already forced
+    /// the whole chunk to uniform Meadows output.</summary>
     private static void ApplyStyled(Heightmap __instance, MeshFilter mf, List<Color32> colors, List<Vector3> vertices, int side, TransitionStyle style)
     {
         var radius = Mathf.Clamp(Plugin.TransitionBlurRadius?.Value ?? 2, 0, 4);
         var pad = radius + 1;
         var grid = TerrainTransition.BuildMaskGrid(__instance, vertices, side, pad);
         var gridSide = side + 2 * pad;
+        var raw = (float[])grid.Clone();
         TerrainTransition.Smooth(grid, gridSide, radius);
 
+        var lavaVerts = 0;
+        var violations = 0;
         for (var i = 0; i < colors.Count; i++)
         {
             var col = Math.Min(i % side, side - 1);
             var row = Math.Min(i / side, side - 1);
             var wp = __instance.transform.TransformPoint(vertices[i]);
-            colors[i] = TerrainTransition.EvaluateColor(style,
-                grid[(row + pad) * gridSide + col + pad], wp.x, wp.z, col, row, side);
+            var gi = (row + pad) * gridSide + col + pad;
+            var c = TerrainTransition.EvaluateColor(style, raw[gi], grid[gi], wp.x, wp.z, col, row, side);
+            colors[i] = c;
+            if (raw[gi] >= 0.6f)
+            {
+                lavaVerts++;
+                if (c.r != 255 || c.g != 0 || c.b != 0 || c.a != 255) violations++;
+            }
         }
         mf.mesh.SetColors(colors);
+
+        LavaCheckLavaVertices += lavaVerts;
+        LavaCheckViolations += violations;
+        // DebugGradient paints over lava by design (calibration strips) - exempt from the warning.
+        if (violations > 0 && style != TransitionStyle.DebugGradient && _lavaCheckLogCount++ < 20)
+            Plugin.Log?.LogWarning($"[AR LavaCheck] chunk ({__instance.transform.position.x:F0}, {__instance.transform.position.z:F0}) style={style} violations={violations}");
 
         if (_terrainOverrideLogCount++ < 5)
             Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override ({style}): styled {colors.Count} vertices at ({__instance.transform.position.x:F0}, {__instance.transform.position.z:F0})");
