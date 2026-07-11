@@ -243,7 +243,7 @@ public class Plugin : BaseUnityPlugin
         TransitionAshHold = Config.Bind(
             "Terrain",
             "TransitionAshHold",
-            0.35f,
+            0.2f,
             new ConfigDescription(
                 "Lava-mask level at/above which terrain always renders as full vanilla ash, evaluated on the RAW " +
                 "unblurred mask, so the shader's glowing lava rim/cracks and the deadly lava boundary stay exactly " +
@@ -254,7 +254,7 @@ public class Plugin : BaseUnityPlugin
         TransitionFadeWidth = Config.Bind(
             "Terrain",
             "TransitionFadeWidth",
-            0.25f,
+            0.15f,
             new ConfigDescription(
                 "Width (lava-mask units) of the MudBlend green -> mud -> ash fade band below the ash hold. " +
                 "Smaller = narrower mud band. Ignored by the other styles.",

@@ -17,12 +17,13 @@ internal static class HeightmapPatches
 
     private const float NeighborPokeRadius = 80f;
 
-    // LAVACHECK (TERRAIN_LAVA_EDGE_PLAN.md): counts vertices whose RAW mask marks them
-    // functionally lava (Heightmap.IsLava threshold 0.6) but whose final vertex color is
-    // not full AshLands - i.e. lethal ground rendering as something safe-looking. The
-    // AshHold invariant makes this impossible by construction for the styled paths; the
-    // counters prove it per run. ApplyStyled always counts (its raw grid is free);
-    // ApplyLegacy samples per-vertex only while the photo harness arms the check.
+    // LAVACHECK (TERRAIN_LAVA_EDGE_PLAN.md): counts vertices that are functionally lava
+    // (mirrors Heightmap.IsLava exactly: non-biome-edge AshLands chunk + raw point-sampled
+    // mask >= 0.6) but whose final vertex color is not full AshLands - i.e. lethal ground
+    // rendering as something safe-looking. The AshHold invariant makes this impossible by
+    // construction for the styled paths; the counters prove it per run. ApplyStyled always
+    // counts (its raw grid is free); ApplyLegacy samples per-vertex only while the photo
+    // harness arms the check.
     internal static bool LavaCheckArmed;
     internal static long LavaCheckLavaVertices;
     internal static long LavaCheckViolations;
@@ -31,6 +32,16 @@ internal static class HeightmapPatches
     {
         LavaCheckLavaVertices = 0;
         LavaCheckViolations = 0;
+    }
+
+    /// <summary>IsLava can only ever be true on a non-biome-edge pure-AshLands chunk
+    /// (Heightmap.IsLava checks GetBiome + IsBiomeEdge before the mask). Corners are
+    /// restored before the recolor passes run, so this is accurate there.</summary>
+    private static bool ChunkCanBeLava(Heightmap hmap)
+    {
+        if (hmap.IsBiomeEdge()) return false;
+        var corners = AccessTools.Field(typeof(Heightmap), "m_cornerBiomes").GetValue(hmap) as Heightmap.Biome[];
+        return corners != null && corners[0] == Heightmap.Biome.AshLands;
     }
 
     /// <summary>
@@ -133,6 +144,7 @@ internal static class HeightmapPatches
         }
 
         var lavaRestored = 0;
+        var lavaCheck = LavaCheckArmed && ChunkCanBeLava(__instance);
         var lavaVerts = 0;
         var violations = 0;
         for (var i = 0; i < colors.Count; i++)
@@ -158,7 +170,7 @@ internal static class HeightmapPatches
             }
 
             // Read-only instrumentation; the colors written above stay byte-identical.
-            if (LavaCheckArmed)
+            if (lavaCheck)
             {
                 var rawMask = __instance.GetVegetationMask(__instance.transform.TransformPoint(vertices[i]));
                 if (rawMask >= 0.6f)
@@ -169,7 +181,7 @@ internal static class HeightmapPatches
                 }
             }
         }
-        if (LavaCheckArmed)
+        if (lavaCheck)
         {
             LavaCheckLavaVertices += lavaVerts;
             LavaCheckViolations += violations;
@@ -197,6 +209,7 @@ internal static class HeightmapPatches
         var raw = (float[])grid.Clone();
         TerrainTransition.Smooth(grid, gridSide, radius);
 
+        var canBeLava = ChunkCanBeLava(__instance);
         var lavaVerts = 0;
         var violations = 0;
         for (var i = 0; i < colors.Count; i++)
@@ -207,7 +220,7 @@ internal static class HeightmapPatches
             var gi = (row + pad) * gridSide + col + pad;
             var c = TerrainTransition.EvaluateColor(style, raw[gi], grid[gi], wp.x, wp.z, col, row, side);
             colors[i] = c;
-            if (raw[gi] >= 0.6f)
+            if (canBeLava && raw[gi] >= 0.6f)
             {
                 lavaVerts++;
                 if (c.r != 255 || c.g != 0 || c.b != 0 || c.a != 255) violations++;

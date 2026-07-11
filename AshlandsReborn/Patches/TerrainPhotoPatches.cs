@@ -145,6 +145,13 @@ internal static class TerrainPhotoPatches
                 {
                     lavaLine = $"LAVACHECK {style} EXEMPT (calibration strips paint over lava by design; lavaVerts={lavaVerts} nonAsh={lavaViol})";
                 }
+                else if (style == "Legacy" && lavaViol > 0)
+                {
+                    // Not aggregated: Legacy is the byte-identical revert contract, so its
+                    // stride-2 subsampling misses (a lethal vertex whose stride-neighbor
+                    // sample is <= 0.1) are reported but not fixable.
+                    lavaLine = $"LAVACHECK Legacy CONTRACT n={lavaViol} (lavaVerts={lavaVerts}) - pre-existing stride-2 sampling artifact in the revert path";
+                }
                 else
                 {
                     totalViolations += lavaViol;

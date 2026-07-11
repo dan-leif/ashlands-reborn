@@ -59,11 +59,6 @@ internal static class TerrainTransition
     private const float LavaGrassFraction = 0.2f;
     private const float LavaJitterFactor = 0.5f;
 
-    /// <summary>Full vanilla AshLands vertex color - the shader draws its glowing lava
-    /// rim + crack rivulets per-fragment from the paint mask ONLY where this layer is
-    /// active (DebugGradient strip "all Meadows over lava" proof).</summary>
-    internal static readonly Color32 FullAsh = new(255, 0, 0, 255);
-
     internal static float AshHold => Mathf.Clamp(Plugin.TransitionAshHold?.Value ?? 0.35f, 0.05f, 0.55f);
     private static float FadeWidth => Mathf.Clamp(Plugin.TransitionFadeWidth?.Value ?? 0.25f, 0.05f, 0.5f);
 
@@ -183,21 +178,21 @@ internal static class TerrainTransition
         if (style == TransitionStyle.DebugGradient)
             return DebugColor(col, row, side);
 
-        // AshHold invariant, evaluated on the RAW (unblurred, unjittered) mask: at/above
-        // the hold the vertex always renders as full vanilla ash, so the shader keeps
-        // drawing its lava rim/cracks and the visible lava edge stays exactly where the
-        // ground turns deadly. rawMask >= 0.6 is functionally lava (Heightmap.IsLava) and
-        // the hold caps at 0.55, so no lethal vertex can ever render non-ash, independent
-        // of blur radius and noise settings.
+        // AshHold invariant: the band input is max(blurred + jittered, RAW) mask, and the
+        // ash ramp ends exactly at the hold with 255 - so any vertex whose raw mask is
+        // at/above the hold renders full vanilla ash and the shader keeps drawing its
+        // lava rim/cracks with the visible edge exactly where the ground turns deadly
+        // (raw >= 0.6 is Heightmap.IsLava; the hold caps at 0.55). Taking the max instead
+        // of a binary raw-threshold override keeps the invariant while following the
+        // paint mask's own gradient at sharp pool edges - a binary stamp re-introduced
+        // the 1m lattice stair-steps the blur exists to kill (run-1 finding).
         var hold = AshHold;
-        if (rawMask >= hold) return FullAsh;
-
         if (style == TransitionStyle.GrassToLava)
-            return BandColor(mask + Jitter(wx, wz) * LavaJitterFactor,
+            return BandColor(Mathf.Max(mask + Jitter(wx, wz) * LavaJitterFactor, rawMask),
                 hold - LavaRimR, hold - LavaRimA, hold - LavaRimA, hold);
 
         var w = FadeWidth;
-        return BandColor(mask + Jitter(wx, wz),
+        return BandColor(Mathf.Max(mask + Jitter(wx, wz), rawMask),
             hold - w, hold - w / 3f, hold - w / 3f, hold);
     }
 
