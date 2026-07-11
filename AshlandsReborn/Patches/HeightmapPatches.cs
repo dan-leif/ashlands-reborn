@@ -203,12 +203,18 @@ internal static class HeightmapPatches
     private static void ApplyStyled(Heightmap __instance, MeshFilter mf, List<Color32> colors, List<Vector3> vertices, int side, TransitionStyle style)
     {
         var radius = Mathf.Clamp(Plugin.TransitionBlurRadius?.Value ?? 2, 0, 4);
-        var pad = Math.Max(radius + 1, TerrainTransition.SkirtRadiusCells(style));
+        var pad = Math.Max(radius + 1, TerrainTransition.SkirtRadiusCells(style) + radius);
         var grid = TerrainTransition.BuildMaskGrid(__instance, vertices, side, pad);
         var gridSide = side + 2 * pad;
         var raw = (float[])grid.Clone();
+        // The skirt is blurred too: the hold region's contour is lattice-blocky (the
+        // paint mask's level set), and an unsmoothed distance field inherits those 1m
+        // corners into every band contour (run-5 finding). Blurring rounds the corners
+        // and flattens the near-contour gradient so the binary hold gate has no visible
+        // 1m alpha step.
         var skirt = TerrainTransition.BuildSkirt(raw, gridSide, TerrainTransition.AshHold,
             TerrainTransition.SkirtDecayPerMeter(style), TerrainTransition.SkirtRadiusCells(style));
+        TerrainTransition.Smooth(skirt, gridSide, radius);
         TerrainTransition.Smooth(grid, gridSide, radius);
 
         var canBeLava = ChunkCanBeLava(__instance);
