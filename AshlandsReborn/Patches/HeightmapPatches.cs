@@ -13,7 +13,6 @@ internal static class HeightmapPatches
     private static int _terrainOverrideLogCount;
     private static int _neighborPokeLogCount;
     private static readonly Dictionary<Heightmap, Heightmap.Biome[]> SavedCornerBiomes = new();
-    private static readonly int ShaderAshlandsVariationCol = Shader.PropertyToID("_AshlandsVariationCol");
 
     private const float NeighborPokeRadius = 80f;
 
@@ -48,7 +47,9 @@ internal static class HeightmapPatches
     }
 
     /// <summary>
-    /// After mesh build: restore m_cornerBiomes, restore lava vertex colors, override _AshlandsVariationCol to Meadows green.
+    /// After mesh build: restore m_cornerBiomes, then re-color the transition per the active
+    /// TerrainTransitionStyle (Legacy = original binary lava stamp) and apply the per-style
+    /// _AshlandsVariationCol material tint.
     /// </summary>
     [HarmonyPatch(typeof(Heightmap), "RebuildRenderMesh")]
     [HarmonyPostfix]
@@ -73,11 +74,29 @@ internal static class HeightmapPatches
         mf.mesh.GetVertices(vertices);
         if (colors.Count == 0 || colors.Count != vertices.Count) return;
 
-        var lavaThreshold = 0.1f;
-        var sampleStride = 2;
         var w = (int)Mathf.Sqrt(vertices.Count) - 1;
         if (w < 1) w = 64;
         var side = w + 1;
+
+        var style = TerrainTransition.Current;
+        if (style == TransitionStyle.Legacy)
+            ApplyLegacy(__instance, mf, colors, vertices, side);
+        else
+            ApplyStyled(__instance, mf, colors, vertices, side, style);
+
+        // Per-style Ashlands material tint (Legacy keeps the original olive green that
+        // reduced the yellow seams; DebugGradient restores vanilla).
+        var mat = AccessTools.Field(typeof(Heightmap), "m_materialInstance").GetValue(__instance) as Material;
+        if (mat != null)
+            TerrainTransition.ApplyVariationCol(mat);
+    }
+
+    /// <summary>Original binary lava stamp, byte-identical - the user's revert path.
+    /// See TerrainTransition for why it produces the yellow fringe + stair-step contours.</summary>
+    private static void ApplyLegacy(Heightmap __instance, MeshFilter mf, List<Color32> colors, List<Vector3> vertices, int side)
+    {
+        var lavaThreshold = 0.1f;
+        var sampleStride = 2;
 
         float[]? sampled = null;
         int sampleSide = 0;
@@ -125,11 +144,31 @@ internal static class HeightmapPatches
             if (_terrainOverrideLogCount++ < 5)
                 Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override: lava restore for {lavaRestored} vertices at ({__instance.transform.position.x:F0}, {__instance.transform.position.z:F0})");
         }
+    }
 
-        // Override Ashlands material tint to Meadows green to reduce yellow seams
-        var mat = AccessTools.Field(typeof(Heightmap), "m_materialInstance").GetValue(__instance) as Material;
-        if (mat != null && mat.HasProperty(ShaderAshlandsVariationCol))
-            mat.SetColor(ShaderAshlandsVariationCol, new Color(0.4f, 0.5f, 0.3f, 1f));
+    /// <summary>Styled transition: blurred lava-mask grid (with cross-chunk padding) fed
+    /// through the style's band ramp. Overwriting every vertex is safe because the prefix
+    /// already forced the whole chunk to uniform Meadows output.</summary>
+    private static void ApplyStyled(Heightmap __instance, MeshFilter mf, List<Color32> colors, List<Vector3> vertices, int side, TransitionStyle style)
+    {
+        var radius = Mathf.Clamp(Plugin.TransitionBlurRadius?.Value ?? 2, 0, 4);
+        var pad = radius + 1;
+        var grid = TerrainTransition.BuildMaskGrid(__instance, vertices, side, pad);
+        var gridSide = side + 2 * pad;
+        TerrainTransition.Smooth(grid, gridSide, radius);
+
+        for (var i = 0; i < colors.Count; i++)
+        {
+            var col = Math.Min(i % side, side - 1);
+            var row = Math.Min(i / side, side - 1);
+            var wp = __instance.transform.TransformPoint(vertices[i]);
+            colors[i] = TerrainTransition.EvaluateColor(style,
+                grid[(row + pad) * gridSide + col + pad], wp.x, wp.z, col, row, side);
+        }
+        mf.mesh.SetColors(colors);
+
+        if (_terrainOverrideLogCount++ < 5)
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain override ({style}): styled {colors.Count} vertices at ({__instance.transform.position.x:F0}, {__instance.transform.position.z:F0})");
     }
 
     private static bool HasAshLands(Heightmap hmap)

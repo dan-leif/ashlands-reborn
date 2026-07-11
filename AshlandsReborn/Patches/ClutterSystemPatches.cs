@@ -19,13 +19,23 @@ internal static class ClutterSystemPatches
         if (!Plugin.IsTerrainOverrideActive) return;
         if (biome != Heightmap.Biome.AshLands) return;
 
-        var lavaThreshold = 0.11f;
-        if (hmap != null && hmap.GetVegetationMask(point) > lavaThreshold)
+        if (TerrainTransition.Current == TransitionStyle.Legacy)
         {
-            biome = Heightmap.Biome.None;
-            return;
-        }
+            // Original rule, byte-identical - the user's revert path.
+            var lavaThreshold = 0.11f;
+            if (hmap != null && hmap.GetVegetationMask(point) > lavaThreshold)
+            {
+                biome = Heightmap.Biome.None;
+                return;
+            }
 
-        biome = Heightmap.Biome.Meadows;
+            biome = Heightmap.Biome.Meadows;
+        }
+        else
+        {
+            biome = hmap != null && !TerrainTransition.AllowGrassAt(hmap, point)
+                ? Heightmap.Biome.None
+                : Heightmap.Biome.Meadows;
+        }
     }
 }

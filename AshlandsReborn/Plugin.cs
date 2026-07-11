@@ -26,6 +26,10 @@ public class Plugin : BaseUnityPlugin
 
     // --- Terrain ---
     public static ConfigEntry<bool> EnableTerrainOverride { get; private set; } = null!;
+    public static ConfigEntry<string> TerrainTransitionStyle { get; private set; } = null!;
+    public static ConfigEntry<float> TransitionNoiseScale { get; private set; } = null!;
+    public static ConfigEntry<float> TransitionNoiseStrength { get; private set; } = null!;
+    public static ConfigEntry<int> TransitionBlurRadius { get; private set; } = null!;
 
     // --- Trees ---
     public static ConfigEntry<bool> EnableTreeReplacement { get; private set; } = null!;
@@ -127,6 +131,9 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> PhotoModePrefabs { get; private set; } = null!;
     public static ConfigEntry<float> PhotoModeSpawnDistance { get; private set; } = null!;
     public static ConfigEntry<string> PhotoModeIslandPos { get; private set; } = null!;
+    public static ConfigEntry<bool> TerrainPhotoAuto { get; private set; } = null!;
+    public static ConfigEntry<KeyCode> TerrainPhotoKey { get; private set; } = null!;
+    public static ConfigEntry<string> TerrainPhotoPos { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
@@ -193,6 +200,43 @@ public class Plugin : BaseUnityPlugin
             true,
             "When in Ashlands, override terrain and grass to Meadows-like (green ground, green grass)."
         );
+
+        TerrainTransitionStyle = Config.Bind(
+            "Terrain",
+            "TerrainTransitionStyle",
+            "MudBlend",
+            new ConfigDescription(
+                "How green terrain transitions into ash/lava. Legacy = original binary stamp (exact previous " +
+                "behavior). MudBlend = grass -> scorched mud -> ash -> lava multi-band fade with organic noisy " +
+                "edges. GrassToLava = grass runs almost to the lava rivers with a tight mud/ash rim. " +
+                "DebugGradient = dev calibration strips. Changing this live-rebuilds nearby terrain.",
+                new AcceptableValueList<string>("Legacy", "MudBlend", "GrassToLava", "DebugGradient")));
+
+        TransitionNoiseScale = Config.Bind(
+            "Terrain",
+            "TransitionNoiseScale",
+            0.08f,
+            new ConfigDescription(
+                "World-space frequency of the transition edge-breakup noise (lower = larger wobbles). Ignored by Legacy.",
+                new AcceptableValueRange<float>(0.01f, 0.5f)));
+
+        TransitionNoiseStrength = Config.Bind(
+            "Terrain",
+            "TransitionNoiseStrength",
+            0.08f,
+            new ConfigDescription(
+                "How far transition band thresholds are jittered (lava-mask units). 0 = perfectly smooth contour " +
+                "lines. Ignored by Legacy.",
+                new AcceptableValueRange<float>(0f, 0.3f)));
+
+        TransitionBlurRadius = Config.Bind(
+            "Terrain",
+            "TransitionBlurRadius",
+            2,
+            new ConfigDescription(
+                "Vertices of box-blur applied to the lava mask before banding (kills the stair-step grid look). " +
+                "Ignored by Legacy.",
+                new AcceptableValueRange<int>(0, 4)));
 
         // --- Trees ---
         EnableTreeReplacement = Config.Bind(
@@ -853,6 +897,28 @@ public class Plugin : BaseUnityPlugin
             "don't save the logout point, so the player can regress to world spawn between runs). " +
             "Empty string disables the teleport.");
 
+        TerrainPhotoAuto = Config.Bind(
+            "Dev Automation",
+            "TerrainPhotoAuto",
+            false,
+            "Run the terrain transition photo harness once ~10s after world load: teleports the player to " +
+            "TerrainPhotoPos, cycles every TerrainTransitionStyle with a terrain refresh per style, and " +
+            "captures top-down + oblique screenshots into <plugin dir>\\AR_TerrainPhoto\\. Suppressed while " +
+            "PhotoModeAuto or PhotoModeM4Test own the session.");
+
+        TerrainPhotoKey = Config.Bind(
+            "Dev Automation",
+            "TerrainPhotoKey",
+            KeyCode.F7,
+            "Hotkey to run the terrain transition photo harness on demand.");
+
+        TerrainPhotoPos = Config.Bind(
+            "Dev Automation",
+            "TerrainPhotoPos",
+            "129,30,-9671",
+            "'x,y,z' of the terrain transition test spot (a known green/ash/lava boundary with the historical " +
+            "grid + yellow-line artifacts). Empty string disables the teleport.");
+
         // Migrate renamed/moved config keys
         try
         {
@@ -1036,6 +1102,11 @@ public class Plugin : BaseUnityPlugin
         ClonePlayerToTwitcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToMage.SettingChanged += (_, _) => OnFableWarriorModeChanged();
 
+        TerrainTransitionStyle.SettingChanged += (_, _) => OnTerrainTransitionChanged();
+        TransitionNoiseScale.SettingChanged += (_, _) => OnTerrainTransitionChanged();
+        TransitionNoiseStrength.SettingChanged += (_, _) => OnTerrainTransitionChanged();
+        TransitionBlurRadius.SettingChanged += (_, _) => OnTerrainTransitionChanged();
+
         try
         {
             Harmony.PatchAll(typeof(Plugin).Assembly);
@@ -1199,6 +1270,7 @@ public class Plugin : BaseUnityPlugin
         Patches.DevAutoLoadPatches.Tick();
         Patches.PhotoModePatches.Tick();
         Patches.LifecycleTestPatches.Tick();
+        Patches.TerrainPhotoPatches.Tick();
         Patches.FableBunnyPatches.ReconTick();
 
         var inWorld = Player.m_localPlayer != null;
@@ -1325,6 +1397,12 @@ public class Plugin : BaseUnityPlugin
     {
         if (!MasterSwitch.Value || Player.m_localPlayer == null) return;
         Patches.FableBunnyPatches.RefreshAll();
+    }
+
+    private void OnTerrainTransitionChanged()
+    {
+        if (!MasterSwitch.Value || Player.m_localPlayer == null) return;
+        Patches.EnvManPatches.ForceTerrainRefresh(force: true);
     }
 
     // Mode transitions between the legacy Charred Warrior swap and the Fable Warrior puppet

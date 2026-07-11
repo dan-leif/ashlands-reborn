@@ -258,23 +258,32 @@ internal static class PhotoModePatches
     /// </summary>
     internal static IEnumerator TeleportToIslandRoutine(Player player)
     {
-        var islandPos = ParseIslandPos(Plugin.PhotoModeIslandPos?.Value);
-        if (islandPos == null || Vector3.Distance(player.transform.position, islandPos.Value) <= 15f)
+        var islandPos = ParsePos(Plugin.PhotoModeIslandPos?.Value);
+        if (islandPos == null)
+            yield break;
+        yield return TeleportRoutine(player, islandPos.Value);
+    }
+
+    /// <summary>Retry-teleport to an arbitrary position (no-op when already close).
+    /// Shared by the photo shoot, the M4 self-test, and the terrain photo harness.</summary>
+    internal static IEnumerator TeleportRoutine(Player player, Vector3 pos)
+    {
+        if (Vector3.Distance(player.transform.position, pos) <= 15f)
             yield break;
 
-        Plugin.Log?.LogInfo($"[AR PhotoMode] Teleporting player to test island {islandPos.Value}");
+        Plugin.Log?.LogInfo($"[AR PhotoMode] Teleporting player to {pos}");
         // TeleportTo refuses during its ~2s post-load cooldown - retry until accepted.
         var accepted = false;
         for (var attempt = 0; attempt < 20 && !accepted; attempt++)
         {
-            accepted = player.TeleportTo(islandPos.Value, player.transform.rotation, distantTeleport: true);
+            accepted = player.TeleportTo(pos, player.transform.rotation, distantTeleport: true);
             if (!accepted) yield return new WaitForSeconds(0.5f);
         }
         var timeout = Time.time + 30f;
         while (player.IsTeleporting() && Time.time < timeout) yield return null;
         if (!accepted || player.IsTeleporting())
-            Plugin.Log?.LogWarning("[AR PhotoMode] Island teleport incomplete - capturing at current position");
-        yield return new WaitForSeconds(3f); // let terrain/objects around the island settle
+            Plugin.Log?.LogWarning("[AR PhotoMode] Teleport incomplete - continuing at current position");
+        yield return new WaitForSeconds(3f); // let terrain/objects around the target settle
     }
 
     // Camera-override access for the M4 lifecycle self-test (reuses this class's
@@ -290,7 +299,7 @@ internal static class PhotoModePatches
 
     internal static void ClearCameraOverride() => _cameraOverrideActive = false;
 
-    private static Vector3? ParseIslandPos(string? raw)
+    internal static Vector3? ParsePos(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
         var parts = raw!.Split(',');
