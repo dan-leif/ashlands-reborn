@@ -49,13 +49,15 @@ internal static class TerrainTransition
 
     // Band edges are anchored to the ash hold H (TransitionAshHold) so bands live
     // entirely below it: MudBlend ramps the red channel (grass -> scorched mud) over
-    // [H-W, H-W/3] and alpha (mud -> ash) over [H-W/3, H] with W = TransitionFadeWidth;
-    // GrassToLava uses a fixed tight rim (R over [H-0.06, H-0.02], A over [H-0.02, H],
-    // jitter halved). The A-ramp ends exactly at H with 255, so band output meets the
-    // raw-mask hold rule (EvaluateColor) with no seam at the hold contour. Grass cutoffs
-    // sit at a fixed fraction of the R-ramp (values preserve the v1 cutoff shapes).
+    // [H-W, H-W/2] and alpha (mud -> ash) over [H-W/2, H] with W = TransitionFadeWidth;
+    // GrassToLava uses a fixed tight rim (R over [H-0.06, H-0.045], A over [H-0.045, H],
+    // jitter halved). The A-ramp gets at least half the band so it spans >= ~2 vertices
+    // at the skirt's decay rate - a sub-vertex A-ramp renders as 1m maroon lattice steps
+    // (run-3 finding). It ends exactly at H with 255, so band output meets the raw-mask
+    // hold rule (EvaluateColor) with no seam at the hold contour. Grass cutoffs sit at a
+    // fixed fraction of the R-ramp.
     private const float MudGrassFraction = 0.48f;
-    private const float LavaRimR = 0.06f, LavaRimA = 0.02f;
+    private const float LavaRimR = 0.06f, LavaRimAWidth = 0.045f;
     private const float LavaGrassFraction = 0.2f;
     private const float LavaJitterFactor = 0.5f;
 
@@ -239,26 +241,26 @@ internal static class TerrainTransition
         if (style == TransitionStyle.DebugGradient)
             return DebugColor(col, row, side);
 
-        // AshHold invariant: the band input is max(blurred + jittered, RAW, skirt), and
-        // the ash ramp ends exactly at the hold with 255 - so any vertex whose raw mask
-        // is at/above the hold renders full vanilla ash and the shader keeps drawing its
+        // AshHold invariant: any vertex whose RAW (unblurred, unjittered) mask is
+        // at/above the hold renders full vanilla ash, so the shader keeps drawing its
         // lava rim/cracks with the visible edge exactly where the ground turns deadly
-        // (raw >= 0.6 is Heightmap.IsLava; the hold caps at 0.55). Taking the max instead
-        // of a binary raw-threshold override keeps the invariant while following the
-        // paint mask's own gradient at sharp pool edges - a binary stamp re-introduced
-        // the 1m lattice stair-steps the blur exists to kill (run-1 finding). The skirt
-        // term gets half jitter (Manhattan contours wobbled organic); the unjittered raw
-        // term alone carries the invariant, so noise can never expose lava.
+        // (raw >= 0.6 is Heightmap.IsLava; the hold caps at 0.55) - noise can never
+        // expose lava. Below the hold the band input is max(blurred + jittered, skirt +
+        // half jitter): the skirt ramps up to exactly the hold at the contour, so the
+        // binary gate has no jump, and raw itself must NOT feed the band - its per-vertex
+        // lattice grain painted 1m color steps across the whole mid-band (run-3 finding).
         var hold = AshHold;
+        if (rawMask >= hold) return new Color32(255, 0, 0, 255);
+
         var jf = style == TransitionStyle.GrassToLava ? LavaJitterFactor : 1f;
         var jitter = Jitter(wx, wz) * jf;
-        var m = Mathf.Max(Mathf.Max(mask + jitter, rawMask), skirt + jitter * 0.5f);
+        var m = Mathf.Max(mask + jitter, skirt + jitter * 0.5f);
 
         if (style == TransitionStyle.GrassToLava)
-            return BandColor(m, hold - LavaRimR, hold - LavaRimA, hold - LavaRimA, hold);
+            return BandColor(m, hold - LavaRimR, hold - LavaRimAWidth, hold - LavaRimAWidth, hold);
 
         var w = FadeWidth;
-        return BandColor(m, hold - w, hold - w / 3f, hold - w / 3f, hold);
+        return BandColor(m, hold - w, hold - w / 2f, hold - w / 2f, hold);
     }
 
     private static Color32 BandColor(float m, float rStart, float rEnd, float aStart, float aEnd)
@@ -314,11 +316,11 @@ internal static class TerrainTransition
 
         if (style == TransitionStyle.GrassToLava)
         {
-            var cutoff = hold - LavaRimR + (LavaRimR - LavaRimA) * LavaGrassFraction;
+            var cutoff = hold - LavaRimR + (LavaRimR - LavaRimAWidth) * LavaGrassFraction;
             return mask + Jitter(point.x, point.z) * LavaJitterFactor < cutoff;
         }
         var w = FadeWidth;
-        var mudCutoff = hold - w + w * 2f / 3f * MudGrassFraction;
+        var mudCutoff = hold - w + w / 2f * MudGrassFraction;
         return mask + Jitter(point.x, point.z) < mudCutoff;
     }
 
