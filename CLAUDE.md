@@ -190,21 +190,46 @@ F1 dropdown, live rebuild via `SettingChanged` → `ForceTerrainRefresh`):
 - Lava mask is box-blurred on a padded grid (`BuildMaskGrid` samples neighbor chunks via
   `Heightmap.FindHeightmap` so kernels agree across chunk borders — no seams), and band
   thresholds get world-space Perlin jitter (deterministic, chunk-agnostic) for organic edges.
-- **Lava glow requires the AshLands vertex color** (DebugGradient strip 4 proof: Meadows
-  color over molten lava kills the glow). All styles keep full ash above mask ~0.45–0.58;
-  molten lava (mask > 0.6) is always deep inside that band.
+- **Lava glow requires the AshLands vertex color** (DebugGradient strip proofs: Meadows
+  color over molten lava kills the glow; constant half-ash `(255,0,0,128)` renders it dim
+  crimson — the glow scales with ash weight, so only full ash matches vanilla).
+- **AshHold invariant (v2, safety)**: `Heightmap.IsLava` = raw point-sampled paint-mask
+  alpha > 0.6 on a non-biome-edge AshLands chunk. Every styled vertex with raw mask ≥
+  `TransitionAshHold` (default 0.2, slider 0.05–0.55 < 0.6) renders full vanilla ash via a
+  binary gate on the RAW mask, so lethal ground can never look safe and the shader's
+  glowing rim/cracks stay exactly where vanilla puts them. LAVACHECK (in
+  `HeightmapPatches`, armed by the photo harness) counts violations per rebuild — must be
+  0. Do NOT feed raw into the band ramps: its lattice grain paints 1m color steps.
+- **Ash skirt (v2, band shaping)**: below the hold, band input =
+  `max(blurred+jitter, blurred-skirt + jitter/2)`. The skirt is a distance-decayed
+  grayscale dilation (separable max-plus) of the hold-capped raw mask, box-blurred to
+  round the hold region's lattice-blocky level-set corners. It guarantees the fade spans
+  ~4 m (MudBlend) / ~3.5 m (GrassToLava) around every lava feature — mask-value bands
+  alone collapse to <1 m at sharp mask cliffs (thin lava channels) and re-show stair
+  steps. Every ramp segment must span ≥ ~1.5–2 vertices at the skirt decay rate.
+  `AllowGrassAt` mirrors the skirt with 8 point probes so grass stops mid-fade.
+- Bands are anchored to the hold H: MudBlend R-ramp `[H−W, H−W/2]`, A-ramp `[H−W/2, H]`
+  (W = `TransitionFadeWidth`, default 0.15); GrassToLava fixed rim R `[H−0.06, H−0.035]`,
+  A `[H−0.035, H]`, jitter halved. A-ramps end at H with 255 → no seam at the gate.
 - `Legacy` is byte-identical to the pre-style behavior (stamp at 0.1, grass rule 0.11) —
-  the user's revert contract. Do not "fix" its threshold mismatch.
-- Styles: `MudBlend` (default; wide scorched-mud fade), `GrassToLava` (green almost to the
-  lava rivers, tight rim; jitter halved so noise can't cross the 0.6 molten threshold),
-  `DebugGradient` (dev calibration strips). Knobs: `TransitionNoiseScale/Strength`,
-  `TransitionBlurRadius`.
+  the user's revert contract. Do not "fix" its threshold mismatch. Known contract
+  artifact: its stride-2 subsampling misses ~1 lethal vertex at the test spot (raw ≥ 0.6
+  whose stride neighbor sample is ≤ 0.1 renders green); LAVACHECK reports it as
+  `CONTRACT`, excluded from the aggregate. The styled paths are strictly safer.
+- Styles: `MudBlend` (default; scorched-mud fade), `GrassToLava` (green close to the lava
+  rivers, tight rim), `DebugGradient` (7 dev calibration strips; EXEMPT from the hold —
+  strips must paint over lava; G-ramp strip renders yellow-green, not clean gray, so a
+  StoneAsh style was evaluated and rejected). Knobs: `TransitionAshHold`,
+  `TransitionFadeWidth`, `TransitionNoiseScale/Strength`, `TransitionBlurRadius` — all
+  live-refresh via F1.
 
 **Autonomous verification**: `TerrainPhotoAuto` (or F7) teleports to `TerrainPhotoPos`
-(default "129,30,-9671", the historical problem spot), cycles all 4 styles with a terrain
-refresh each, captures top-down + oblique + ground-close shots per style into
-`AR_TerrainPhoto\`, writes DONE.txt + `[AR TerrainPhoto] DONE`. Outer loop: kill valheim →
-`dev.ps1` → poll log for the DONE marker → **kill the game immediately** → read PNGs.
+(default "129,30,-9671", the historical problem spot), captures a vanilla ground-truth
+set (override disabled), then cycles all 4 styles with a terrain refresh each, running
+LAVACHECK + GRASSCHECK per style and capturing top-down + oblique + lava-edge close shots
+into `AR_TerrainPhoto\` (checks + shot paths in DONE.txt, `[AR TerrainPhoto] DONE` in the
+log). Outer loop: kill valheim → `dev.ps1` → poll log for the DONE marker → **kill the
+game immediately** → read PNGs. Final v2 gallery: `screenshots/terrain-transition/`.
 
 ### Config → feature guard pattern
 

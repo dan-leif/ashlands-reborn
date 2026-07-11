@@ -21,6 +21,8 @@ BepInEx plugin that overrides Ashlands environment to Meadows-like weather (clea
 - **TerrainTransitionStyle** (default: MudBlend) - How green terrain fades into ash/lava. `MudBlend` = grass -> scorched mud -> ash -> lava with organic noisy edges. `GrassToLava` = grass runs almost to the lava rivers with a tight mud/ash rim. `Legacy` = the original binary stamp (blocky edges + yellow fringe). `DebugGradient` = dev calibration strips. Changing it live-rebuilds nearby terrain.
 - **TransitionNoiseScale / TransitionNoiseStrength** (defaults: 0.08 / 0.08) - Frequency and amplitude of the edge-breakup noise on the transition contours.
 - **TransitionBlurRadius** (default: 2) - Lava-mask blur in vertices; smooths the banding.
+- **TransitionAshHold** (default: 0.2) - Lava-mask level at/above which terrain always renders as full vanilla ash (evaluated on the raw mask), keeping the glowing lava rim/cracks and the deadly lava boundary exactly vanilla. Lower = more vanilla ash retained around lava.
+- **TransitionFadeWidth** (default: 0.15) - Width of the MudBlend green -> mud -> ash fade band below the ash hold; smaller = narrower mud band.
 - **EnableDevCommandsAndGodMode** (default: true) - When loading a world, run devcommands and god for easier testing.
 
 Use **ConfigurationManager** (F1 in-game) to toggle these at runtime without restarting.
