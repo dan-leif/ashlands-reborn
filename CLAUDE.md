@@ -223,16 +223,22 @@ F1 dropdown, live rebuild via `SettingChanged` → `ForceTerrainRefresh`):
   paint over lava; G-ramp strip renders yellow-green, not clean gray, so a StoneAsh style
   was evaluated and rejected). Knobs: `TransitionAshHold`, `TransitionFadeWidth`,
   `TransitionNoiseScale/Strength`, `TransitionBlurRadius` — all live-refresh via F1.
-- **LegacySmooth (v4, TERRAIN_TRANSITION_V4_PLAN.md)**: Legacy's binary Meadows↔full-ash
-  stamp (no band; the ~1-triangle yellow interpolation fringe along the line is accepted)
-  thresholded on the styled `max(blurred+jitter, skirt+jitter/2)` field, so the contour
-  wanders organically. **The stamp threshold must sit BELOW the hold**
-  (`LegacySmoothThreshold` = hold − 2.5 cells of skirt decay ≈ 0.106 at defaults, ≈
-  Legacy's own 0.1): stamping at the hold itself exposed the raw AshHold gate as 1m
-  lattice stair-steps at raw-mask cliffs (v4 run-1) — band styles hide the gate behind
-  their A-ramp reaching 255 at H, a binary stamp has no partial alpha, so its region must
-  strictly contain the gate region. Un-jittered `max(mask, skirt) ≥ t/2` guard prevents
-  far-field jitter speckles at extreme knob settings.
+- **LegacySmooth (v4, TERRAIN_TRANSITION_V4_PLAN.md)**: Legacy's green↔full-ash look
+  (no mud band) with an organic contour. Three findings define the final shape:
+  (1) **the stamp threshold must sit BELOW the hold** (`LegacySmoothThreshold` = hold −
+  2.5 cells of skirt decay ≈ 0.106 at defaults, ≈ Legacy's own 0.1): stamping at the hold
+  exposed the raw AshHold gate as 1m lattice stair-steps at raw-mask cliffs (run-1) —
+  band styles hide the gate behind their A-ramp reaching 255 at H, so the stamp region
+  must strictly contain the gate region; (2) a hard per-vertex stamp is
+  **lattice-quantized by construction** — two-octave jitter (`Jitter2`, 4× frequency,
+  positive-biased on the skirt term to keep the gate-cover guarantee) turns straight runs
+  into wander but every segment stays a 1m lattice edge (runs 2–3); (3) so the edge is
+  anti-aliased by `LegacySmoothAAWidth`: R and A ramp TOGETHER over [t−2 cells, t],
+  straight through the `(t,0,0,t)` Plains diagonal — the accepted yellow fringe IS the
+  smoothing gradient, and the visible contour becomes the interpolated iso-line inside
+  boundary triangles (sub-vertex smooth). Grass stops at the ramp's outer edge.
+  Un-jittered `max(mask, skirt) ≥ t/2` guard prevents far-field jitter speckles at
+  extreme knob settings.
 - **AshBlend (v3, TERRAIN_NO_MUD_PLAN.md)**: green fades directly into ash; identical to
   MudBlend in band/skirt/grass code (only the material differs). Do NOT re-attempt a
   direct green→ash fade in vertex-color space: biome weights are Chebyshev distances
@@ -258,11 +264,20 @@ F1 dropdown, live rebuild via `SettingChanged` → `ForceTerrainRefresh`):
 
 **Autonomous verification**: `TerrainPhotoAuto` (or F7) teleports to `TerrainPhotoPos`
 (default "129,30,-9671", the historical problem spot), captures a vanilla ground-truth
-set (override disabled), then cycles all 5 styles with a terrain refresh each, running
+set (override disabled), then cycles all 7 styles with a terrain refresh each, running
 LAVACHECK + GRASSCHECK per style and capturing top-down + oblique + lava-edge close shots
 into `AR_TerrainPhoto\` (checks + shot paths in DONE.txt, `[AR TerrainPhoto] DONE` in the
-log). Outer loop: kill valheim → `dev.ps1` → poll log for the DONE marker → **kill the
-game immediately** → read PNGs. Gallery (v3-refreshed): `screenshots/terrain-transition/`.
+log). v4 extras (all off by default): `TerrainPhotoRefCapture` visits the pickaxe-dug
+rock strip at `TerrainPhotoRefPos` (149,30,-9600) first — vanilla + GrassToLava sets plus
+an `[AR TerrainPhoto] REFGRID` dump (veg mask, paint RGBA, mesh normal Y, vertex color;
+v4 recon: dug paint RGB is all zero and normal Y drops to 0.63–0.98, so the dug-rock look
+is slope-path geometry, not a paint channel); `TerrainPhotoProbeSpecs` appends RockBlend
+capture sets per swap spec (+ one wide-band variant); `TerrainPhotoProbeAshBrightness`
+appends AshBlend sets per brightness value (band-tone calibration measures these).
+Outer loop: kill valheim → **delete the BepInEx log** (stale DONE markers from the
+previous run otherwise satisfy the poll instantly) → `dev.ps1` → poll for "starting
+game", then for the DONE marker → **kill the game immediately** → read PNGs.
+Gallery (v4-refreshed): `screenshots/terrain-transition/`.
 
 ### Config → feature guard pattern
 
