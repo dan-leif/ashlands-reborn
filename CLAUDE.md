@@ -223,22 +223,20 @@ F1 dropdown, live rebuild via `SettingChanged` → `ForceTerrainRefresh`):
   paint over lava; G-ramp strip renders yellow-green, not clean gray, so a StoneAsh style
   was evaluated and rejected). Knobs: `TransitionAshHold`, `TransitionFadeWidth`,
   `TransitionNoiseScale/Strength`, `TransitionBlurRadius` — all live-refresh via F1.
-- **LegacySmooth (v4, TERRAIN_TRANSITION_V4_PLAN.md)**: Legacy's green↔full-ash look
-  (no mud band) with an organic contour. Three findings define the final shape:
-  (1) **the stamp threshold must sit BELOW the hold** (`LegacySmoothThreshold` = hold −
-  2.5 cells of skirt decay ≈ 0.106 at defaults, ≈ Legacy's own 0.1): stamping at the hold
-  exposed the raw AshHold gate as 1m lattice stair-steps at raw-mask cliffs (run-1) —
-  band styles hide the gate behind their A-ramp reaching 255 at H, so the stamp region
-  must strictly contain the gate region; (2) a hard per-vertex stamp is
-  **lattice-quantized by construction** — two-octave jitter (`Jitter2`, 4× frequency,
-  positive-biased on the skirt term to keep the gate-cover guarantee) turns straight runs
-  into wander but every segment stays a 1m lattice edge (runs 2–3); (3) so the edge is
-  anti-aliased by `LegacySmoothAAWidth`: R and A ramp TOGETHER over [t−2 cells, t],
-  straight through the `(t,0,0,t)` Plains diagonal — the accepted yellow fringe IS the
-  smoothing gradient, and the visible contour becomes the interpolated iso-line inside
-  boundary triangles (sub-vertex smooth). Grass stops at the ramp's outer edge.
-  Un-jittered `max(mask, skirt) ≥ t/2` guard prevents far-field jitter speckles at
-  extreme knob settings.
+- **LegacySmooth (v4.1, TERRAIN_TRANSITION_V4_PLAN.md)**: Legacy's green↔full-ash look
+  (no mud stage) with MudBlend's curve quality: MudBlend's exact fade geometry — same
+  `[H−W, H]` anchors, same blurred+skirt+jitter field, same grass rule (shared code
+  branch) — but R and A ramp TOGETHER along the `(t,0,0,t)` diagonal, i.e.
+  `BandColor(m, H−W, H, H−W, H)`. Mid-fade renders a soft warm tinge (the diagonal's
+  partial Plains/Swamp weights) — Legacy's hard yellow fringe spread gently along an
+  organic line; the A-ramp reaching 255 at H hides the AshHold gate like every band
+  style. Hard-won negative results (v4 runs 1–4, do NOT retry): a binary per-vertex
+  stamp, at ANY threshold, on ANY smooth field, with ANY jitter, renders
+  lattice-quantized 90°/45° edges — stamping at the hold additionally exposes the raw
+  gate's own lattice at mask cliffs; a narrow (~2-cell) AA ramp fails the same way
+  because the full green/ash contrast compresses into ~1 vertex. Curves require the
+  fade to span the whole band width (~4 vertices), which is why the final design is
+  just MudBlend's geometry with a diagonal color path.
 - **AshBlend (v3, TERRAIN_NO_MUD_PLAN.md)**: green fades directly into ash; identical to
   MudBlend in band/skirt/grass code (only the material differs). Do NOT re-attempt a
   direct green→ash fade in vertex-color space: biome weights are Chebyshev distances
