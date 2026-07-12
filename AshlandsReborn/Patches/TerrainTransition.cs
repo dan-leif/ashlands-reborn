@@ -270,6 +270,17 @@ internal static class TerrainTransition
         if (style == TransitionStyle.DebugGradient)
             return DebugColor(col, row, side);
 
+        // Dev diagnostic (LegacySmoothDebugRamp): paint the whole chunk with the
+        // (b,0,0,b) diagonal ramp west->east, ignoring the mask, so one top-down shot
+        // shows exactly which point of the green->ash diagonal renders the Plains line
+        // (and how the slice swap hides it). Like DebugGradient this deliberately
+        // bypasses the AshHold gate - diagnostic runs will log LavaCheck warnings.
+        if (style == TransitionStyle.LegacySmooth && (Plugin.LegacySmoothDebugRamp?.Value ?? false))
+        {
+            var rb = (byte)Mathf.RoundToInt(255f * col / Math.Max(1, side - 1));
+            return new Color32(rb, 0, 0, rb);
+        }
+
         // AshHold invariant: any vertex whose RAW (unblurred, unjittered) mask is
         // at/above the hold renders full vanilla ash, so the shader keeps drawing its
         // lava rim/cracks with the visible edge exactly where the ground turns deadly
@@ -501,6 +512,17 @@ internal static class TerrainTransition
             Color.white,
             0f,
             "RockBlendSwapSlices"),
+        // v4.2: the mid-fade of LegacySmooth's diagonal carries partial Plains weight -
+        // the khaki slice 8 pops as a yellow line floating inside otherwise-green ground
+        // (green on BOTH sides, because the perceptual green/ash crossover sits closer
+        // to the ash end of the ramp). Swapping grass over the offending overlay slices
+        // hides the line under the very texture that surrounds it.
+        TransitionStyle.LegacySmooth => new BandArrayParams(
+            Plugin.LegacySmoothSwapSlices?.Value ?? "",
+            1f,
+            Color.white,
+            0f,
+            "LegacySmoothSwapSlices"),
         _ => null,
     };
 
@@ -557,7 +579,7 @@ internal static class TerrainTransition
         }
 
         var bandParams = CurrentBandParams(Current);
-        if (bandParams.HasValue)
+        if (bandParams.HasValue && !string.IsNullOrWhiteSpace(bandParams.Value.Swaps))
         {
             var patched = GetOrBuildPatchedArray(bandParams.Value);
             if (patched != null && current != patched)

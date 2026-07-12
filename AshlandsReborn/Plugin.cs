@@ -40,6 +40,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> RockBlendSwapSlices { get; private set; } = null!;
     public static ConfigEntry<float> RockBlendBandBrightness { get; private set; } = null!;
     public static ConfigEntry<bool> RockBlendWideBand { get; private set; } = null!;
+    public static ConfigEntry<string> LegacySmoothSwapSlices { get; private set; } = null!;
+    public static ConfigEntry<bool> LegacySmoothDebugRamp { get; private set; } = null!;
     public static ConfigEntry<bool> TerrainArrayUncompressed { get; private set; } = null!;
 
     // --- Trees ---
@@ -149,6 +151,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> TerrainPhotoRefCapture { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoProbeSpecs { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoProbeAshBrightness { get; private set; } = null!;
+    public static ConfigEntry<string> TerrainPhotoProbeLegacySpecs { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
@@ -356,6 +359,16 @@ public class Plugin : BaseUnityPlugin
             false,
             "RockBlend only (dev comparison): use MudBlend's wide TransitionFadeWidth band geometry instead " +
             "of GrassToLava's tight rim. Live rebuild.");
+
+        LegacySmoothSwapSlices = Config.Bind(
+            "Terrain",
+            "LegacySmoothSwapSlices",
+            "",
+            "LegacySmooth only: comma-separated dstSlice:srcSlice pairs for the cloned terrain diffuse " +
+            "array. The mid-fade of the green->ash diagonal carries partial Plains weight, which renders " +
+            "the khaki slice 8 as a yellow line floating inside otherwise-green ground; '8:0' overwrites " +
+            "it with the meadows grass texture that surrounds it (and '8:0,3:0' also hides the swamp mud " +
+            "overlay sharing the same window). Empty = vanilla array. Live rebuild.");
 
         TerrainArrayUncompressed = Config.Bind(
             "Terrain",
@@ -1076,6 +1089,23 @@ public class Plugin : BaseUnityPlugin
             "Comma-separated AshBlendBandBrightness values (e.g. '1.0,1.3,1.6'). When non-empty, the terrain " +
             "photo run appends an AshBlend capture set per value for band-tone calibration.");
 
+        TerrainPhotoProbeLegacySpecs = Config.Bind(
+            "Dev Automation",
+            "TerrainPhotoProbeLegacySpecs",
+            "",
+            "Semicolon-separated LegacySmoothSwapSlices values (use 'none' for the vanilla-array baseline). " +
+            "When non-empty, the terrain photo run first captures a LegacySmoothDebugRamp diagnostic set, " +
+            "then a LegacySmooth capture set per spec.");
+
+        LegacySmoothDebugRamp = Config.Bind(
+            "Dev Automation",
+            "LegacySmoothDebugRamp",
+            false,
+            "Dev diagnostic: LegacySmooth paints every Ashlands chunk with the raw (b,0,0,b) green->ash " +
+            "diagonal ramp west->east, ignoring the lava mask, so a top-down shot shows exactly which part " +
+            "of the diagonal renders the Plains line. BYPASSES the ash-hold safety gate - lethal ground " +
+            "will look green while this is on. Live rebuild.");
+
         // Migrate renamed/moved config keys
         try
         {
@@ -1273,6 +1303,8 @@ public class Plugin : BaseUnityPlugin
         RockBlendSwapSlices.SettingChanged += (_, _) => OnBandArrayConfigChanged();
         RockBlendBandBrightness.SettingChanged += (_, _) => OnBandArrayConfigChanged();
         RockBlendWideBand.SettingChanged += (_, _) => OnTerrainTransitionChanged();
+        LegacySmoothSwapSlices.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        LegacySmoothDebugRamp.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TerrainArrayUncompressed.SettingChanged += (_, _) => OnBandArrayConfigChanged();
 
         try

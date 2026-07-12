@@ -184,6 +184,7 @@ internal static class TerrainPhotoPatches
             // GRASSCHECK results from the main cycle already cover these captures.
             yield return ProbeRockSpecs(pos, ground, dir, shotPaths);
             yield return ProbeAshBrightness(pos, ground, dir, shotPaths);
+            yield return ProbeLegacySpecs(pos, ground, dir, shotPaths);
 
             checkLines.Insert(0, totalViolations == 0 ? "LAVACHECK PASS" : $"LAVACHECK FAIL n={totalViolations}");
 
@@ -362,6 +363,41 @@ internal static class TerrainPhotoPatches
         Plugin.RockBlendWideBand.Value = false;
         if (Plugin.RockBlendSwapSlices.Value != originalSpec)
             Plugin.RockBlendSwapSlices.Value = originalSpec;
+    }
+
+    /// <summary>LegacySmooth plains-line probe (v4.2): first a LegacySmoothDebugRamp
+    /// diagnostic set (the raw diagonal painted across each chunk - locates the Plains
+    /// line on the ramp), then one capture set per TerrainPhotoProbeLegacySpecs entry
+    /// ('none' = vanilla-array baseline).</summary>
+    private static IEnumerator ProbeLegacySpecs(Vector3 pos, Vector3 ground, string dir, List<string> shotPaths)
+    {
+        var specs = (Plugin.TerrainPhotoProbeLegacySpecs?.Value ?? "")
+            .Split(';').Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
+        if (specs.Length == 0) yield break;
+
+        var originalSpec = Plugin.LegacySmoothSwapSlices!.Value;
+        SetStyle("LegacySmooth");
+
+        Plugin.Log?.LogInfo("[AR TerrainPhoto] Probe LegacySmooth diagonal ramp diagnostic");
+        Plugin.LegacySmoothDebugRamp!.Value = true; // fires refresh; bypasses the hold gate by design
+        yield return WaitForRebuild(pos);
+        yield return CaptureSet("LegacySmooth_ramp", ground, dir, shotPaths);
+        Plugin.LegacySmoothDebugRamp.Value = false;
+        yield return WaitForRebuild(pos);
+
+        foreach (var spec in specs)
+        {
+            var effective = spec == "none" ? "" : spec;
+            Plugin.Log?.LogInfo($"[AR TerrainPhoto] Probe LegacySmooth spec '{effective}'");
+            if (Plugin.LegacySmoothSwapSlices.Value != effective)
+                Plugin.LegacySmoothSwapSlices.Value = effective; // SettingChanged invalidates the array cache + refreshes
+            else
+                EnvManPatches.ForceTerrainRefresh(force: true);
+            yield return WaitForRebuild(pos);
+            yield return CaptureSet($"LegacySmooth_{(effective.Length == 0 ? "none" : Sanitize(effective))}", ground, dir, shotPaths);
+        }
+        if (Plugin.LegacySmoothSwapSlices.Value != originalSpec)
+            Plugin.LegacySmoothSwapSlices.Value = originalSpec;
     }
 
     /// <summary>AshBlend band-tone probe: one capture set per TerrainPhotoProbeAshBrightness
