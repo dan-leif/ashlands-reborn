@@ -266,11 +266,13 @@ public class Plugin : BaseUnityPlugin
         AshBlendSwapSlices = Config.Bind(
             "Terrain",
             "AshBlendSwapSlices",
-            "3:7",
+            "3:13",
             "AshBlend only (dev tuning): comma-separated dstSlice:srcSlice pairs copied inside the cloned " +
             "terrain diffuse texture array, so the listed layers render as another layer's texture. Default " +
-            "3:7 = the swamp/mud overlay (slice 3) renders as main ash (slice 7); recon in " +
-            "SHADER_SLICE_MAPPING.md. Changing this rebuilds the patched array and refreshes nearby terrain."
+            "3:13 = the swamp/mud overlay (slice 3) renders as the lighter ash-pair texture (slice 13), which " +
+            "blends smoothly into the pale full-ash zone at the lava rim; 3:7 (main ash) is darker/dramatic " +
+            "but shows the binary ash-hold contour as high-contrast 1m steps. Recon in SHADER_SLICE_MAPPING.md. " +
+            "Changing this rebuilds the patched array and refreshes nearby terrain."
         );
 
         // --- Trees ---

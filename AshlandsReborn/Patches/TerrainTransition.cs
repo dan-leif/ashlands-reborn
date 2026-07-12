@@ -19,7 +19,7 @@ internal enum TransitionStyle
     MudBlend,
 
     /// <summary>MudBlend's exact fade geometry, but the chunk material's diffuse texture
-    /// array is cloned with the swamp/mud slice overwritten by the main ash slice, so the
+    /// array is cloned with the swamp/mud slice overwritten by an ash-family slice, so the
     /// same vertex colors render green fading directly into ash - no mud terrain, and no
     /// yellow either (alpha still stays 0 until red saturates). See TERRAIN_NO_MUD_PLAN.md
     /// for why a direct green-to-ash vertex fade is impossible in color space alone.</summary>
@@ -383,11 +383,16 @@ internal static class TerrainTransition
     //
     // The terrain shader picks _DiffuseArrayTex slices purely from vertex color; the
     // swamp/mud overlay is slice 3, albedo-only (recon: SHADER_SLICE_MAPPING.md, asm
-    // lines 382-397), so a cloned array with the ash slice (7) copied over slice 3 turns
-    // MudBlend's mud band into a direct green->ash fade. Graphics.CopyTexture is GPU-side
-    // and ignores isReadable; the clone is built once per session (all chunks share it,
-    // so neighboring chunks agree - no seams) and cached along with the vanilla array
-    // reference for revert.
+    // lines 382-397), so a cloned array with an ash slice copied over slice 3 turns
+    // MudBlend's mud band into a direct green->ash fade. The default source is slice 13
+    // (the lighter ash-pair texture), NOT slice 7 (main ash): the near-black slice 7
+    // renders the fade band so much darker than the pale full-ash hold zone that the
+    // binary AshHold gate reads as high-contrast 1m stair-steps wherever a raw-mask
+    // cliff pokes gated vertices into the band (v3 run-1 finding); slice 13 puts band
+    // and hold in the same tonal family and the gate disappears into the ash mottling.
+    // Graphics.CopyTexture is GPU-side and ignores isReadable; the clone is built once
+    // per session (all chunks share it, so neighboring chunks agree - no seams) and
+    // cached along with the vanilla array reference for revert.
     private static readonly int ShaderDiffuseArray = Shader.PropertyToID("_DiffuseArrayTex");
     private static Texture2DArray? _vanillaDiffuseArray;
     private static Texture2DArray? _patchedDiffuseArray;
@@ -445,7 +450,7 @@ internal static class TerrainTransition
 
     private static Texture2DArray? GetOrBuildPatchedArray()
     {
-        var spec = Plugin.AshBlendSwapSlices?.Value ?? "3:7";
+        var spec = Plugin.AshBlendSwapSlices?.Value ?? "3:13";
         if (_patchedDiffuseArray != null && _patchedSpec == spec) return _patchedDiffuseArray;
         var src = _vanillaDiffuseArray;
         if (src == null) return null;

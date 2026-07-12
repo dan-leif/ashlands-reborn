@@ -216,20 +216,42 @@ F1 dropdown, live rebuild via `SettingChanged` → `ForceTerrainRefresh`):
   artifact: its stride-2 subsampling misses ~1 lethal vertex at the test spot (raw ≥ 0.6
   whose stride neighbor sample is ≤ 0.1 renders green); LAVACHECK reports it as
   `CONTRACT`, excluded from the aggregate. The styled paths are strictly safer.
-- Styles: `MudBlend` (default; scorched-mud fade), `GrassToLava` (green close to the lava
-  rivers, tight rim), `DebugGradient` (7 dev calibration strips; EXEMPT from the hold —
-  strips must paint over lava; G-ramp strip renders yellow-green, not clean gray, so a
-  StoneAsh style was evaluated and rejected). Knobs: `TransitionAshHold`,
-  `TransitionFadeWidth`, `TransitionNoiseScale/Strength`, `TransitionBlurRadius` — all
-  live-refresh via F1.
+- Styles: `MudBlend` (default; scorched-mud fade), `AshBlend` (v3: MudBlend with NO mud —
+  see below), `GrassToLava` (green close to the lava rivers, tight rim), `DebugGradient`
+  (7 dev calibration strips; EXEMPT from the hold — strips must paint over lava; G-ramp
+  strip renders yellow-green, not clean gray, so a StoneAsh style was evaluated and
+  rejected). Knobs: `TransitionAshHold`, `TransitionFadeWidth`,
+  `TransitionNoiseScale/Strength`, `TransitionBlurRadius` — all live-refresh via F1.
+- **AshBlend (v3, TERRAIN_NO_MUD_PLAN.md)**: green fades directly into ash; identical to
+  MudBlend in band/skirt/grass code (only the material differs). Do NOT re-attempt a
+  direct green→ash fade in vertex-color space: biome weights are Chebyshev distances
+  from the corner colors (asm recon in SHADER_SLICE_MAPPING.md), so every path from
+  Meadows to full AshLands crosses either Plains yellow (the `(t,0,0,t)` diagonal peaks
+  at 0.5 Plains weight) or the swamp corner `(255,0,0,0)` = mud. The fix changes what
+  the swamp corner renders AS: the swamp overlay is `_DiffuseArrayTex` slice 3,
+  albedo-only (asm lines 382–397; never samples the normal array), so
+  `ApplyStyleMaterial` (called per chunk per rebuild from `RebuildRenderMesh_Postfix`)
+  assigns Ashlands chunks a session-cached cloned array (`Graphics.CopyTexture` —
+  GPU-side, ignores isReadable; BC7 sRGB 256×256×16, single mip; one shared clone → no
+  seams) with slice 13 copied over slice 3. **Source = slice 13 (light ash pair), NOT 7
+  (main ash)**: near-black 7 renders the fade band so much darker than the pale hold
+  zone that the binary AshHold gate reads as high-contrast 1m stair-steps wherever a
+  raw-mask cliff pokes gated vertices into the band (v3 run-1 finding); 13 puts band and
+  hold in one tonal family and the gate vanishes into the ash mottling.
+  `AshBlendSwapSlices` (default "3:13", dst:src CSV, live rebuild) makes slice probing
+  config-only. All other styles and the override-off rebuild path (`RestoreVanillaArray`
+  in the postfix's early return) restore the vanilla array, so live style cycling can't
+  leak; DebugGradient calibrates vanilla so it stays on the vanilla array by design.
+  Slice 3 doubles as the paint-mask hoe-path texture → player paths on Ashlands chunks
+  render ash-toned under AshBlend (accepted as thematic).
 
 **Autonomous verification**: `TerrainPhotoAuto` (or F7) teleports to `TerrainPhotoPos`
 (default "129,30,-9671", the historical problem spot), captures a vanilla ground-truth
-set (override disabled), then cycles all 4 styles with a terrain refresh each, running
+set (override disabled), then cycles all 5 styles with a terrain refresh each, running
 LAVACHECK + GRASSCHECK per style and capturing top-down + oblique + lava-edge close shots
 into `AR_TerrainPhoto\` (checks + shot paths in DONE.txt, `[AR TerrainPhoto] DONE` in the
 log). Outer loop: kill valheim → `dev.ps1` → poll log for the DONE marker → **kill the
-game immediately** → read PNGs. Final v2 gallery: `screenshots/terrain-transition/`.
+game immediately** → read PNGs. Gallery (v3-refreshed): `screenshots/terrain-transition/`.
 
 ### Config → feature guard pattern
 
