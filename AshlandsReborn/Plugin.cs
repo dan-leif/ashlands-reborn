@@ -293,20 +293,26 @@ public class Plugin : BaseUnityPlugin
         AshBlendBandBrightness = Config.Bind(
             "Terrain",
             "AshBlendBandBrightness",
-            1.0f,
+            1.43f,
             new ConfigDescription(
                 "AshBlend only: brightness multiplier applied to the swapped-in band texture (byte space). " +
                 "The full-ash zone renders a per-pixel 7+13 blend plus the variation overlay, so any single " +
                 "stock slice reads darker than it - grade the band up until it tonally matches the adjacent " +
-                "full-ash ground. 1.0 = untouched slice (byte-identical compressed clone path). Live rebuild.",
+                "full-ash ground. The default pairs with the default AshBlendBandTint for an effective " +
+                "(1.23, 1.30, 1.43) per-channel lift, measured within ~1% mean luminance of the adjacent " +
+                "full-ash zone (v4 run-1 calibration). 1.0 with a white tint = untouched slice " +
+                "(byte-identical compressed clone path). Live rebuild.",
                 new AcceptableValueRange<float>(0.25f, 2.5f)));
 
         AshBlendBandTint = Config.Bind(
             "Terrain",
             "AshBlendBandTint",
-            Color.white,
+            new Color(0.86f, 0.91f, 1f),
             "AshBlend only: color multiplier applied to the band texture after AshBlendBandBrightness " +
-            "(white = no tint). Live rebuild.");
+            "(white = no tint). The default cools the band - at matched brightness the raw slice reads " +
+            "warmer (R +7%, B -11%) than the blue-gray full-ash zone (v4 run-1 measurement). Components " +
+            "must stay <= 1 (Color configs clamp on save); put any overall lift into " +
+            "AshBlendBandBrightness instead. Live rebuild.");
 
         AshBlendBandMix = Config.Bind(
             "Terrain",

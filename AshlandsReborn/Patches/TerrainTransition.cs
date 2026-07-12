@@ -108,6 +108,21 @@ internal static class TerrainTransition
     internal static float SkirtDecayPerMeter(TransitionStyle style) =>
         BandWidth(style) / (UsesLavaRim(style) ? LavaSkirtMeters : MudSkirtMeters);
 
+    /// <summary>LegacySmooth's stamp threshold sits a ~2.5-cell guard margin BELOW the ash
+    /// hold. Run-1 finding: stamping at the hold itself exposes the raw AshHold gate as 1m
+    /// lattice stair-steps wherever a raw-mask cliff (thin lava channel) pokes gated
+    /// vertices outside the smooth field's contour - the blur dilutes the field below the
+    /// hold right where raw is at/above it. Band styles hide the gate because their A-ramp
+    /// reaches 255 exactly at the hold; a binary stamp has no partial alpha to hide behind,
+    /// so its region must strictly CONTAIN the gate region: the blurred skirt droops at
+    /// most ~2 cells x decay below the hold over any raw>=hold vertex (worst case: isolated
+    /// single-cell feature under a radius-2 blur), hence the margin. Net effect at defaults
+    /// is a threshold of ~0.106 - almost exactly Legacy's own 0.1 stamp level. The hold/2
+    /// floor keeps extreme knob combos (min hold + max fade width) from stamping ash on
+    /// half the map.</summary>
+    internal static float LegacySmoothThreshold =>
+        Mathf.Max(AshHold - 2.5f * SkirtDecayPerMeter(TransitionStyle.LegacySmooth), AshHold * 0.5f);
+
     internal static int SkirtRadiusCells(TransitionStyle style) =>
         Mathf.CeilToInt(UsesLavaRim(style) ? LavaSkirtMeters : MudSkirtMeters) + 1;
 
@@ -287,14 +302,19 @@ internal static class TerrainTransition
         var jitter = Jitter(wx, wz) * jf;
         var m = Mathf.Max(mask + jitter, skirt + jitter * 0.5f);
 
-        // LegacySmooth: the same binary stamp as Legacy, but on the smooth field - no band,
-        // just an organically wandering line. The un-jittered guard keeps extreme knob
-        // combos (low hold + high noise strength) from stamping stray ash speckles far
-        // from any lava; near the contour the smooth field is ~hold, far above hold/2.
+        // LegacySmooth: the same binary stamp as Legacy, but on the smooth field at a
+        // guard-margin threshold (see LegacySmoothThreshold) so the stamp region strictly
+        // contains the raw AshHold gate region - no exposed 1m gate lattice. The
+        // un-jittered second condition keeps extreme knob combos (low hold + high noise
+        // strength) from stamping stray ash speckles far from any lava; near the contour
+        // the smooth field is ~t, far above t/2.
         if (style == TransitionStyle.LegacySmooth)
-            return m >= hold && Mathf.Max(mask, skirt) >= hold * 0.5f
+        {
+            var t = LegacySmoothThreshold;
+            return m >= t && Mathf.Max(mask, skirt) >= t * 0.5f
                 ? new Color32(255, 0, 0, 255)
                 : new Color32(0, 0, 0, 0);
+        }
 
         if (UsesLavaRim(style))
             return BandColor(m, hold - LavaRimR, hold - LavaRimAWidth, hold - LavaRimAWidth, hold);
@@ -356,9 +376,10 @@ internal static class TerrainTransition
 
         if (style == TransitionStyle.LegacySmooth)
         {
-            // Mirror the binary stamp: same field, same full-strength jitter, stopping a
-            // small margin short of the line so grass never pokes through the ash edge.
-            return mask + Jitter(point.x, point.z) < hold - LegacySmoothGrassMargin;
+            // Mirror the binary stamp: same field, same full-strength jitter, same
+            // guard-margin threshold, stopping a small margin short of the line so
+            // grass never pokes through the ash edge.
+            return mask + Jitter(point.x, point.z) < LegacySmoothThreshold - LegacySmoothGrassMargin;
         }
         if (UsesLavaRim(style))
         {
