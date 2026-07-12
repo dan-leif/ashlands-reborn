@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using HarmonyLib;
 using UnityEngine;
 
 namespace AshlandsReborn.Patches;
@@ -26,7 +28,8 @@ namespace AshlandsReborn.Patches;
 /// </summary>
 internal static class TerrainPhotoPatches
 {
-    private static readonly string[] Styles = { "Legacy", "MudBlend", "AshBlend", "GrassToLava", "DebugGradient" };
+    private static readonly string[] Styles =
+        { "Legacy", "LegacySmooth", "MudBlend", "AshBlend", "RockBlend", "GrassToLava", "DebugGradient" };
     private const float RebuildWatchRadius = 160f;
 
     private static bool _running;
@@ -96,6 +99,16 @@ internal static class TerrainPhotoPatches
                 yield break;
             }
 
+            var dir = Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location) ?? ".", "AR_TerrainPhoto");
+            Directory.CreateDirectory(dir);
+            var shotPaths = new List<string>();
+            var checkLines = new List<string>();
+
+            // One-time dug-rock reference visit (v4): capture the pickaxe-dug strip at
+            // TerrainPhotoRefPos before the normal style cycle at the main test spot.
+            if (Plugin.TerrainPhotoRefCapture?.Value ?? false)
+                yield return CaptureRefStrip(player, dir, shotPaths);
+
             var target = PhotoModePatches.ParsePos(Plugin.TerrainPhotoPos?.Value);
             if (target != null)
                 yield return PhotoModePatches.TeleportRoutine(player, target.Value);
@@ -112,10 +125,6 @@ internal static class TerrainPhotoPatches
             var ground = pos;
             if (Heightmap.GetHeight(pos, out var h)) ground.y = h;
 
-            var dir = Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location) ?? ".", "AR_TerrainPhoto");
-            Directory.CreateDirectory(dir);
-            var shotPaths = new List<string>();
-            var checkLines = new List<string>();
             long totalViolations = 0;
 
             // Vanilla ground truth: the visible lava edge exactly where the game puts it.
@@ -170,6 +179,12 @@ internal static class TerrainPhotoPatches
             }
             HeightmapPatches.LavaCheckArmed = false;
 
+            // Optional probe passes (v4): RockBlend slice candidates + AshBlend band
+            // brightness. Slice/tone knobs never touch vertex colors, so the LAVACHECK/
+            // GRASSCHECK results from the main cycle already cover these captures.
+            yield return ProbeRockSpecs(pos, ground, dir, shotPaths);
+            yield return ProbeAshBrightness(pos, ground, dir, shotPaths);
+
             checkLines.Insert(0, totalViolations == 0 ? "LAVACHECK PASS" : $"LAVACHECK FAIL n={totalViolations}");
 
             File.WriteAllLines(
@@ -197,6 +212,185 @@ internal static class TerrainPhotoPatches
         var timeout = Time.time + 10f;
         while (Heightmap.HaveQueuedRebuild(pos, RebuildWatchRadius) && Time.time < timeout) yield return null;
         yield return new WaitForSeconds(1.5f); // clutter + render settle
+    }
+
+    private static void SetStyle(string style)
+    {
+        if (Plugin.TerrainTransitionStyle!.Value != style)
+            Plugin.TerrainTransitionStyle.Value = style; // SettingChanged fires ForceTerrainRefresh
+        else
+            EnvManPatches.ForceTerrainRefresh(force: true);
+    }
+
+    private static string Sanitize(string spec) => spec.Replace(':', '-').Replace(',', '_');
+
+    /// <summary>One-time dug-rock reference capture (TERRAIN_TRANSITION_V4_PLAN.md step 1):
+    /// visit the pickaxe-dug strip, shoot it Vanilla and under GrassToLava (the style whose
+    /// dug rim IS the user's reference screenshot), and log a REFGRID dump - veg mask,
+    /// paint-mask RGBA, nearest render-mesh vertex color and normal Y - to answer whether
+    /// the dug-rock look is slope-path (normal-driven) or paint-channel.</summary>
+    private static IEnumerator CaptureRefStrip(Player player, string dir, List<string> shotPaths)
+    {
+        var target = PhotoModePatches.ParsePos(Plugin.TerrainPhotoRefPos?.Value);
+        if (target == null)
+        {
+            Plugin.Log?.LogWarning("[AR TerrainPhoto] TerrainPhotoRefCapture set but TerrainPhotoRefPos is empty/invalid - skipping");
+            yield break;
+        }
+        var pos = target.Value;
+        Plugin.Log?.LogInfo($"[AR TerrainPhoto] RefStrip visit at ({pos.x:F0},{pos.z:F0})");
+        yield return PhotoModePatches.TeleportRoutine(player, pos);
+
+        var timeout = Time.time + 30f;
+        while (Heightmap.FindHeightmap(pos) == null && Time.time < timeout) yield return null;
+        timeout = Time.time + 15f;
+        while (Heightmap.HaveQueuedRebuild(pos, RebuildWatchRadius) && Time.time < timeout) yield return null;
+        yield return new WaitForSeconds(2f);
+
+        var ground = pos;
+        if (Heightmap.GetHeight(pos, out var h)) ground.y = h;
+
+        Plugin.Log?.LogInfo("[AR TerrainPhoto] RefStrip Vanilla (override disabled)");
+        Plugin.EnableTerrainOverride!.Value = false;
+        EnvManPatches.ForceTerrainRefresh(force: true);
+        yield return WaitForRebuild(pos);
+        yield return CaptureSet("RefDug_Vanilla", ground, dir, shotPaths);
+        DumpRefGrid(ground, "vanilla");
+
+        Plugin.EnableTerrainOverride.Value = true;
+        Plugin.Log?.LogInfo("[AR TerrainPhoto] RefStrip GrassToLava");
+        SetStyle("GrassToLava");
+        yield return WaitForRebuild(pos);
+        yield return CaptureSet("RefDug_GrassToLava", ground, dir, shotPaths);
+        DumpRefGrid(ground, "grasstolava");
+    }
+
+    /// <summary>REFGRID recon dump over the dug strip: 11x11 samples at 2m spacing.
+    /// All reflection lookups are defensive - a missing member logs and degrades the
+    /// dump, never breaks the run.</summary>
+    private static void DumpRefGrid(Vector3 center, string label)
+    {
+        var paintField = AccessTools.Field(typeof(Heightmap), "m_paintMask");
+        var worldToVertex = AccessTools.Method(typeof(Heightmap), "WorldToVertex");
+        if (paintField == null || worldToVertex == null)
+            Plugin.Log?.LogWarning("[AR TerrainPhoto] REFGRID: m_paintMask/WorldToVertex not found - paint columns will be n/a");
+
+        var meshCache = new Dictionary<Heightmap, (Color32[] colors, Vector3[] verts, Vector3[] normals, int side)>();
+        for (var dz = -10f; dz <= 10f; dz += 2f)
+        {
+            for (var dx = -10f; dx <= 10f; dx += 2f)
+            {
+                var p = center + new Vector3(dx, 0f, dz);
+                var hmap = Heightmap.FindHeightmap(p);
+                if (hmap == null) continue;
+
+                var veg = hmap.GetVegetationMask(p);
+
+                var paintStr = "n/a";
+                try
+                {
+                    if (paintField?.GetValue(hmap) is Texture2D paint && worldToVertex != null)
+                    {
+                        var args = new object[] { p, 0, 0 };
+                        worldToVertex.Invoke(hmap, args);
+                        var px = paint.GetPixel((int)args[1], (int)args[2]);
+                        paintStr = $"{px.r:F2},{px.g:F2},{px.b:F2},{px.a:F2}";
+                    }
+                }
+                catch (Exception)
+                {
+                    // paint mask unreadable on this build - veg mask still tells the story
+                }
+
+                if (!meshCache.TryGetValue(hmap, out var md))
+                {
+                    var mesh = hmap.GetComponent<MeshFilter>()?.mesh;
+                    md = mesh != null && mesh.vertexCount > 0
+                        ? (mesh.colors32, mesh.vertices, mesh.normals, (int)Mathf.Round(Mathf.Sqrt(mesh.vertexCount)))
+                        : (null!, null!, null!, 0);
+                    meshCache[hmap] = md;
+                }
+
+                var vertStr = "n/a";
+                if (md.side > 0)
+                {
+                    var local = hmap.transform.InverseTransformPoint(p);
+                    var v0 = md.verts[0];
+                    var col = Mathf.Clamp(Mathf.RoundToInt(local.x - v0.x), 0, md.side - 1);
+                    var row = Mathf.Clamp(Mathf.RoundToInt(local.z - v0.z), 0, md.side - 1);
+                    var idx = row * md.side + col;
+                    if (idx >= 0 && idx < md.verts.Length)
+                    {
+                        var c = md.colors.Length > idx ? md.colors[idx] : default;
+                        var ny = md.normals.Length > idx ? md.normals[idx].y : -1f;
+                        vertStr = $"color=({c.r},{c.g},{c.b},{c.a}) nY={ny:F3}";
+                    }
+                }
+
+                Plugin.Log?.LogInfo($"[AR TerrainPhoto] REFGRID {label} ({p.x:F1},{p.z:F1}) veg={veg:F3} paint=({paintStr}) {vertStr}");
+            }
+        }
+    }
+
+    /// <summary>RockBlend slice-candidate probe: one capture set per TerrainPhotoProbeSpecs
+    /// entry, plus a wide-band geometry variant of the first spec.</summary>
+    private static IEnumerator ProbeRockSpecs(Vector3 pos, Vector3 ground, string dir, List<string> shotPaths)
+    {
+        var specs = (Plugin.TerrainPhotoProbeSpecs?.Value ?? "")
+            .Split(';').Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
+        if (specs.Length == 0) yield break;
+
+        var originalSpec = Plugin.RockBlendSwapSlices!.Value;
+        SetStyle("RockBlend");
+        foreach (var spec in specs)
+        {
+            Plugin.Log?.LogInfo($"[AR TerrainPhoto] Probe RockBlend {spec}");
+            if (Plugin.RockBlendSwapSlices.Value != spec)
+                Plugin.RockBlendSwapSlices.Value = spec; // SettingChanged invalidates the array cache + refreshes
+            else
+                EnvManPatches.ForceTerrainRefresh(force: true);
+            yield return WaitForRebuild(pos);
+            yield return CaptureSet($"RockBlend_{Sanitize(spec)}", ground, dir, shotPaths);
+        }
+
+        Plugin.Log?.LogInfo($"[AR TerrainPhoto] Probe RockBlend wide-band {specs[0]}");
+        if (Plugin.RockBlendSwapSlices.Value != specs[0])
+            Plugin.RockBlendSwapSlices.Value = specs[0];
+        Plugin.RockBlendWideBand!.Value = true;
+        yield return WaitForRebuild(pos);
+        yield return CaptureSet($"RockBlend_wide_{Sanitize(specs[0])}", ground, dir, shotPaths);
+        Plugin.RockBlendWideBand.Value = false;
+        if (Plugin.RockBlendSwapSlices.Value != originalSpec)
+            Plugin.RockBlendSwapSlices.Value = originalSpec;
+    }
+
+    /// <summary>AshBlend band-tone probe: one capture set per TerrainPhotoProbeAshBrightness
+    /// value - the band-vs-full-ash mean-RGB target is measured on these close shots.</summary>
+    private static IEnumerator ProbeAshBrightness(Vector3 pos, Vector3 ground, string dir, List<string> shotPaths)
+    {
+        var values = (Plugin.TerrainPhotoProbeAshBrightness?.Value ?? "")
+            .Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
+        if (values.Length == 0) yield break;
+
+        var originalB = Plugin.AshBlendBandBrightness!.Value;
+        SetStyle("AshBlend");
+        foreach (var raw in values)
+        {
+            if (!float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var b))
+            {
+                Plugin.Log?.LogWarning($"[AR TerrainPhoto] Probe brightness: cannot parse '{raw}'");
+                continue;
+            }
+            Plugin.Log?.LogInfo($"[AR TerrainPhoto] Probe AshBlend brightness {b:F2}");
+            if (!Mathf.Approximately(Plugin.AshBlendBandBrightness.Value, b))
+                Plugin.AshBlendBandBrightness.Value = b;
+            else
+                EnvManPatches.ForceTerrainRefresh(force: true);
+            yield return WaitForRebuild(pos);
+            yield return CaptureSet($"AshBlend_b{b:F2}", ground, dir, shotPaths);
+        }
+        if (!Mathf.Approximately(Plugin.AshBlendBandBrightness.Value, originalB))
+            Plugin.AshBlendBandBrightness.Value = originalB;
     }
 
     private static IEnumerator CaptureSet(string label, Vector3 ground, string dir, List<string> shotPaths)

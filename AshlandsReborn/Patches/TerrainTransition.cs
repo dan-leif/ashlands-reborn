@@ -14,6 +14,13 @@ internal enum TransitionStyle
     /// stride-2 subsampled grid. Kept as the user's revert path.</summary>
     Legacy,
 
+    /// <summary>Legacy's look (binary Meadows/full-AshLands stamp, no fade band) but
+    /// thresholded on the styled path's blurred + skirted + Perlin-jittered field, so the
+    /// contour wanders as a smooth organic line instead of 90/45-degree lattice rectangles.
+    /// The thin (~1 triangle) yellow interpolation fringe along the line is accepted - it is
+    /// the GPU crossing the (t,0,0,t) diagonal, inherent to any binary stamp.</summary>
+    LegacySmooth,
+
     /// <summary>Grass fades into scorched mud (Swamp channel), then mud fades into ash,
     /// with blurred mask + noise-jittered band edges for organic contours.</summary>
     MudBlend,
@@ -24,6 +31,13 @@ internal enum TransitionStyle
     /// yellow either (alpha still stays 0 until red saturates). See TERRAIN_NO_MUD_PLAN.md
     /// for why a direct green-to-ash vertex fade is impossible in color space alone.</summary>
     AshBlend,
+
+    /// <summary>The "dug rock strip" transition (TERRAIN_TRANSITION_V4_PLAN.md): GrassToLava's
+    /// tight-rim band geometry, but the rim renders as gray rock instead of mud - the chunk's
+    /// diffuse array is cloned with the swamp slice overwritten per RockBlendSwapSlices
+    /// (default the base-rock-scales slice 5, matching the user's pickaxe-dug reference strip
+    /// at (149,-9600)).</summary>
+    RockBlend,
 
     /// <summary>Green runs almost to the molten lava; only a tight mud/ash rim at the edge.</summary>
     GrassToLava,
@@ -69,6 +83,8 @@ internal static class TerrainTransition
     private const float LavaRimR = 0.06f, LavaRimAWidth = 0.035f;
     private const float LavaGrassFraction = 0.2f;
     private const float LavaJitterFactor = 0.5f;
+    // LegacySmooth: grass stops this far (mask units) short of the binary stamp line.
+    private const float LegacySmoothGrassMargin = 0.02f;
 
     internal static float AshHold => Mathf.Clamp(Plugin.TransitionAshHold?.Value ?? 0.2f, 0.05f, 0.55f);
     private static float FadeWidth => Mathf.Clamp(Plugin.TransitionFadeWidth?.Value ?? 0.15f, 0.05f, 0.5f);
@@ -80,14 +96,20 @@ internal static class TerrainTransition
     private const float MudSkirtMeters = 4f;
     private const float LavaSkirtMeters = 3.5f;
 
+    /// <summary>Styles that use GrassToLava's tight lava-rim band geometry (RockBlend is the
+    /// same rim rendered as rock; its dev toggle widens it to MudBlend's band for comparison).</summary>
+    private static bool UsesLavaRim(TransitionStyle style) =>
+        style == TransitionStyle.GrassToLava
+        || (style == TransitionStyle.RockBlend && !(Plugin.RockBlendWideBand?.Value ?? false));
+
     private static float BandWidth(TransitionStyle style) =>
-        style == TransitionStyle.GrassToLava ? LavaRimR : FadeWidth;
+        UsesLavaRim(style) ? LavaRimR : FadeWidth;
 
     internal static float SkirtDecayPerMeter(TransitionStyle style) =>
-        BandWidth(style) / (style == TransitionStyle.GrassToLava ? LavaSkirtMeters : MudSkirtMeters);
+        BandWidth(style) / (UsesLavaRim(style) ? LavaSkirtMeters : MudSkirtMeters);
 
     internal static int SkirtRadiusCells(TransitionStyle style) =>
-        Mathf.CeilToInt(style == TransitionStyle.GrassToLava ? LavaSkirtMeters : MudSkirtMeters) + 1;
+        Mathf.CeilToInt(UsesLavaRim(style) ? LavaSkirtMeters : MudSkirtMeters) + 1;
 
     /// <summary>
     /// Grayscale dilation of the hold-capped raw mask with linear per-meter decay
@@ -261,11 +283,20 @@ internal static class TerrainTransition
         var hold = AshHold;
         if (rawMask >= hold) return new Color32(255, 0, 0, 255);
 
-        var jf = style == TransitionStyle.GrassToLava ? LavaJitterFactor : 1f;
+        var jf = UsesLavaRim(style) ? LavaJitterFactor : 1f;
         var jitter = Jitter(wx, wz) * jf;
         var m = Mathf.Max(mask + jitter, skirt + jitter * 0.5f);
 
-        if (style == TransitionStyle.GrassToLava)
+        // LegacySmooth: the same binary stamp as Legacy, but on the smooth field - no band,
+        // just an organically wandering line. The un-jittered guard keeps extreme knob
+        // combos (low hold + high noise strength) from stamping stray ash speckles far
+        // from any lava; near the contour the smooth field is ~hold, far above hold/2.
+        if (style == TransitionStyle.LegacySmooth)
+            return m >= hold && Mathf.Max(mask, skirt) >= hold * 0.5f
+                ? new Color32(255, 0, 0, 255)
+                : new Color32(0, 0, 0, 0);
+
+        if (UsesLavaRim(style))
             return BandColor(m, hold - LavaRimR, hold - LavaRimAWidth, hold - LavaRimAWidth, hold);
 
         var w = FadeWidth;
@@ -323,7 +354,13 @@ internal static class TerrainTransition
         // sprouting on the gray skirt around thin lava features.
         var mask = SkirtedMask(hmap, point, hold, SkirtDecayPerMeter(style));
 
-        if (style == TransitionStyle.GrassToLava)
+        if (style == TransitionStyle.LegacySmooth)
+        {
+            // Mirror the binary stamp: same field, same full-strength jitter, stopping a
+            // small margin short of the line so grass never pokes through the ash edge.
+            return mask + Jitter(point.x, point.z) < hold - LegacySmoothGrassMargin;
+        }
+        if (UsesLavaRim(style))
         {
             var cutoff = hold - LavaRimR + (LavaRimR - LavaRimAWidth) * LavaGrassFraction;
             return mask + Jitter(point.x, point.z) * LavaJitterFactor < cutoff;
@@ -357,16 +394,28 @@ internal static class TerrainTransition
     /// Per-style _AshlandsVariationCol. The vanilla value is cached from the first
     /// material instance touched this session (instances are fresh clones of the shared
     /// material, so the first touch still holds the vanilla color) - DebugGradient
-    /// restores it so raw texture-layer colors are observable.
+    /// restores it so raw texture-layer colors are observable. AshBlend's tint is
+    /// configurable (a lighter variation color brightens the slice-15 overlay in the
+    /// full-ash zone toward the band tone - v4 idea 3); every applied value is tracked
+    /// so RestoreVanillaMaterial recognizes styled materials even after knob changes.
     /// </summary>
     internal static void ApplyVariationCol(Material mat)
     {
         if (mat == null || !mat.HasProperty(ShaderAshlandsVariationCol)) return;
         _vanillaVariationCol ??= mat.GetColor(ShaderAshlandsVariationCol);
 
-        mat.SetColor(ShaderAshlandsVariationCol,
-            Current == TransitionStyle.DebugGradient ? _vanillaVariationCol.Value : OliveTint);
+        var target = Current switch
+        {
+            TransitionStyle.DebugGradient => _vanillaVariationCol.Value,
+            TransitionStyle.AshBlend => Plugin.AshBlendVariationColor?.Value ?? OliveTint,
+            _ => OliveTint,
+        };
+        if (Current != TransitionStyle.DebugGradient)
+            AppliedVariationCols.Add(target);
+        mat.SetColor(ShaderAshlandsVariationCol, target);
     }
+
+    private static readonly HashSet<Color> AppliedVariationCols = new() { OliveTint };
 
     /// <summary>Per-style material state, applied per chunk per rebuild: the variation
     /// tint plus, for AshBlend, the patched diffuse texture array (every other style must
@@ -379,37 +428,91 @@ internal static class TerrainTransition
         ApplyDiffuseArray(mat);
     }
 
-    // --- AshBlend diffuse-array patch ---
+    // --- Band diffuse-array patch (AshBlend / RockBlend) ---
     //
     // The terrain shader picks _DiffuseArrayTex slices purely from vertex color; the
     // swamp/mud overlay is slice 3, albedo-only (recon: SHADER_SLICE_MAPPING.md, asm
-    // lines 382-397), so a cloned array with an ash slice copied over slice 3 turns
-    // MudBlend's mud band into a direct green->ash fade. The default source is slice 13
+    // lines 382-397), so a cloned array with another slice copied over slice 3 turns
+    // MudBlend's mud band into a different-material fade. AshBlend defaults to slice 13
     // (the lighter ash-pair texture), NOT slice 7 (main ash): the near-black slice 7
     // renders the fade band so much darker than the pale full-ash hold zone that the
     // binary AshHold gate reads as high-contrast 1m stair-steps wherever a raw-mask
     // cliff pokes gated vertices into the band (v3 run-1 finding); slice 13 puts band
     // and hold in the same tonal family and the gate disappears into the ash mottling.
-    // Graphics.CopyTexture is GPU-side and ignores isReadable; the clone is built once
-    // per session (all chunks share it, so neighboring chunks agree - no seams) and
-    // cached along with the vanilla array reference for revert.
+    // RockBlend defaults to slice 5 (base rock scales - the user's dug-strip reference).
+    //
+    // Two clone flavors (v4, TERRAIN_TRANSITION_V4_PLAN.md idea 3):
+    //  - Compressed: byte-identical BC7 slice copies via Graphics.CopyTexture (GPU-side,
+    //    ignores isReadable). Used whenever every tone knob is neutral - the v3 path.
+    //  - Uncompressed graded: any single existing slice is darker and flatter than the
+    //    full-ash composite (7+13 per-pixel blend + slice-15 variation overlay + detail
+    //    normal), so the band texture is synthesized instead: each BC7 slice is GPU
+    //    decoded (CopyTexture -> Texture2D -> Blit -> ReadPixels; sRGB RT keeps the
+    //    round trip byte-faithful), the band slice is graded in byte space (brightness x
+    //    tint, optional grass-slice mix), and the whole clone is rebuilt as RGBA32
+    //    (CopyTexture cannot mix BC7 and RGBA32 in one array). ~4 MB VRAM, one-time.
+    //
+    // Clones are cached per parameter descriptor and shared by every chunk (neighboring
+    // chunks agree - no seams); the vanilla array reference is kept for revert.
     private static readonly int ShaderDiffuseArray = Shader.PropertyToID("_DiffuseArrayTex");
     private static Texture2DArray? _vanillaDiffuseArray;
-    private static Texture2DArray? _patchedDiffuseArray;
-    private static string? _patchedSpec;
     private static bool _patchFailedLogged;
     private static int _restoreLogCount;
+    private static readonly Dictionary<string, Texture2DArray> PatchedArrayCache = new();
     private static readonly HashSet<Texture2DArray> AllPatchedArrays = new();
 
-    /// <summary>Drops the cached patched array so the next AshBlend rebuild reconstructs
-    /// it from the current AshBlendSwapSlices value. The old clone is intentionally not
-    /// destroyed - distant, not-yet-rebuilt chunks may still render it (it stays tracked
-    /// in AllPatchedArrays for RestoreVanillaArray); a dev tuning change leaks one 1 MB
-    /// GPU texture per change until session end, which is acceptable.</summary>
+    /// <summary>Per-style band-array parameters: which slices are swapped and how the
+    /// swapped-in band texture is graded. Neutral grading routes to the byte-identical
+    /// compressed clone path.</summary>
+    private readonly struct BandArrayParams
+    {
+        public readonly string Swaps;
+        public readonly float Brightness;
+        public readonly Color Tint;
+        public readonly float GrassMix;
+        public readonly string ConfigName;
+
+        public BandArrayParams(string swaps, float brightness, Color tint, float grassMix, string configName)
+        {
+            Swaps = swaps;
+            Brightness = brightness;
+            Tint = tint;
+            GrassMix = grassMix;
+            ConfigName = configName;
+        }
+
+        public bool GradingNeutral =>
+            Mathf.Approximately(Brightness, 1f) && Tint == Color.white && GrassMix <= 0f;
+
+        public string CacheKey(bool uncompressed) =>
+            $"{Swaps}|b{Brightness:F3}|t{Tint.r:F3},{Tint.g:F3},{Tint.b:F3}|m{GrassMix:F3}|{(uncompressed ? "u" : "c")}";
+    }
+
+    private static BandArrayParams? CurrentBandParams(TransitionStyle style) => style switch
+    {
+        TransitionStyle.AshBlend => new BandArrayParams(
+            Plugin.AshBlendSwapSlices?.Value ?? "3:13",
+            Plugin.AshBlendBandBrightness?.Value ?? 1f,
+            Plugin.AshBlendBandTint?.Value ?? Color.white,
+            Plugin.AshBlendBandMix?.Value ?? 0f,
+            "AshBlendSwapSlices"),
+        TransitionStyle.RockBlend => new BandArrayParams(
+            Plugin.RockBlendSwapSlices?.Value ?? "3:5",
+            Plugin.RockBlendBandBrightness?.Value ?? 1f,
+            Color.white,
+            0f,
+            "RockBlendSwapSlices"),
+        _ => null,
+    };
+
+    /// <summary>Drops the cached patched arrays so the next rebuild reconstructs them
+    /// from the current swap/tone config values. Old clones are intentionally not
+    /// destroyed - distant, not-yet-rebuilt chunks may still render them (they stay
+    /// tracked in AllPatchedArrays for RestoreVanillaArray); a dev tuning change leaks
+    /// one 1-4 MB GPU texture per change until session end, which is acceptable.</summary>
     internal static void InvalidatePatchedArray()
     {
-        _patchedDiffuseArray = null;
-        _patchedSpec = null;
+        PatchedArrayCache.Clear();
         _patchFailedLogged = false;
     }
 
@@ -425,7 +528,7 @@ internal static class TerrainTransition
         RestoreVanillaArray(mat);
 
         if (_vanillaVariationCol.HasValue && mat.HasProperty(ShaderAshlandsVariationCol)
-            && mat.GetColor(ShaderAshlandsVariationCol) == OliveTint)
+            && AppliedVariationCols.Contains(mat.GetColor(ShaderAshlandsVariationCol)))
             mat.SetColor(ShaderAshlandsVariationCol, _vanillaVariationCol.Value);
     }
 
@@ -454,9 +557,10 @@ internal static class TerrainTransition
             _vanillaDiffuseArray = current;
         }
 
-        if (Current == TransitionStyle.AshBlend)
+        var bandParams = CurrentBandParams(Current);
+        if (bandParams.HasValue)
         {
-            var patched = GetOrBuildPatchedArray();
+            var patched = GetOrBuildPatchedArray(bandParams.Value);
             if (patched != null && current != patched)
                 mat.SetTexture(ShaderDiffuseArray, patched);
         }
@@ -466,61 +570,178 @@ internal static class TerrainTransition
         }
     }
 
-    private static Texture2DArray? GetOrBuildPatchedArray()
+    private static Texture2DArray? GetOrBuildPatchedArray(BandArrayParams p)
     {
-        var spec = Plugin.AshBlendSwapSlices?.Value ?? "3:13";
-        if (_patchedDiffuseArray != null && _patchedSpec == spec) return _patchedDiffuseArray;
         var src = _vanillaDiffuseArray;
         if (src == null) return null;
 
+        var uncompressed = !p.GradingNeutral || (Plugin.TerrainArrayUncompressed?.Value ?? false);
+        var key = p.CacheKey(uncompressed);
+        if (PatchedArrayCache.TryGetValue(key, out var cached) && cached != null) return cached;
+
+        var swaps = ParseSwaps(p.Swaps, src.depth, p.ConfigName);
         try
         {
-            // Recon: 256x256 x16, BC7 sRGB, single mip. Built generically anyway so a
-            // game update changing the format keeps working (CopyTexture only needs
-            // src/dst to match, which a same-format clone guarantees).
-            var flags = src.mipmapCount > 1 ? TextureCreationFlags.MipChain : TextureCreationFlags.None;
-            var clone = new Texture2DArray(src.width, src.height, src.depth, src.graphicsFormat, flags, src.mipmapCount)
-            {
-                name = src.name + "_AshBlend",
-                filterMode = src.filterMode,
-                wrapMode = src.wrapMode,
-                anisoLevel = src.anisoLevel,
-            };
-            for (var slice = 0; slice < src.depth; slice++)
-                for (var mip = 0; mip < src.mipmapCount; mip++)
-                    Graphics.CopyTexture(src, slice, mip, clone, slice, mip);
-
-            foreach (var pair in spec.Split(','))
-            {
-                var parts = pair.Split(':');
-                if (parts.Length != 2
-                    || !int.TryParse(parts[0].Trim(), out var dst)
-                    || !int.TryParse(parts[1].Trim(), out var srcSlice)
-                    || dst < 0 || dst >= src.depth || srcSlice < 0 || srcSlice >= src.depth)
-                {
-                    Plugin.Log?.LogWarning($"[Ashlands Reborn] AshBlendSwapSlices: ignoring bad pair '{pair}'");
-                    continue;
-                }
-                for (var mip = 0; mip < src.mipmapCount; mip++)
-                    Graphics.CopyTexture(src, srcSlice, mip, clone, dst, mip);
-            }
-
-            _patchedDiffuseArray = clone;
-            _patchedSpec = spec;
+            var clone = uncompressed
+                ? BuildGradedClone(src, swaps, p.Brightness, p.Tint, p.GrassMix)
+                : BuildCompressedClone(src, swaps);
+            PatchedArrayCache[key] = clone;
             AllPatchedArrays.Add(clone);
-            Plugin.Log?.LogInfo($"[Ashlands Reborn] AshBlend: built patched diffuse array ({spec}) "
-                + $"{src.width}x{src.height}x{src.depth} {src.graphicsFormat}");
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] Terrain band array built ({key}) "
+                + $"{src.width}x{src.height}x{src.depth} {(uncompressed ? "RGBA32 graded" : src.graphicsFormat.ToString())}");
             return clone;
         }
         catch (Exception e)
         {
-            // Fail soft: AshBlend then renders exactly like MudBlend (vanilla array).
             if (!_patchFailedLogged)
             {
                 _patchFailedLogged = true;
-                Plugin.Log?.LogError($"[Ashlands Reborn] AshBlend: patched array build failed - falling back to vanilla array. {e}");
+                Plugin.Log?.LogError($"[Ashlands Reborn] Terrain band array build failed ({key}). {e}");
             }
-            return null;
+            if (uncompressed)
+            {
+                // Fail soft in stages: an ungraded compressed swap still beats no swap.
+                try
+                {
+                    var clone = BuildCompressedClone(src, swaps);
+                    PatchedArrayCache[key] = clone;
+                    AllPatchedArrays.Add(clone);
+                    Plugin.Log?.LogWarning($"[Ashlands Reborn] Terrain band array: graded build failed, using ungraded compressed clone for ({key})");
+                    return clone;
+                }
+                catch
+                {
+                    // fall through to vanilla
+                }
+            }
+            return null; // style then renders exactly like MudBlend (vanilla array)
+        }
+    }
+
+    private static List<KeyValuePair<int, int>> ParseSwaps(string spec, int depth, string configName)
+    {
+        var swaps = new List<KeyValuePair<int, int>>();
+        foreach (var pair in spec.Split(','))
+        {
+            if (string.IsNullOrWhiteSpace(pair)) continue;
+            var parts = pair.Split(':');
+            if (parts.Length != 2
+                || !int.TryParse(parts[0].Trim(), out var dst)
+                || !int.TryParse(parts[1].Trim(), out var srcSlice)
+                || dst < 0 || dst >= depth || srcSlice < 0 || srcSlice >= depth)
+            {
+                Plugin.Log?.LogWarning($"[Ashlands Reborn] {configName}: ignoring bad pair '{pair}'");
+                continue;
+            }
+            swaps.Add(new KeyValuePair<int, int>(dst, srcSlice));
+        }
+        return swaps;
+    }
+
+    /// <summary>v3 path, byte-identical slices: same format as vanilla, GPU-side copies only.</summary>
+    private static Texture2DArray BuildCompressedClone(Texture2DArray src, List<KeyValuePair<int, int>> swaps)
+    {
+        // Recon: 256x256 x16, BC7 sRGB, single mip. Built generically anyway so a
+        // game update changing the format keeps working (CopyTexture only needs
+        // src/dst to match, which a same-format clone guarantees).
+        var flags = src.mipmapCount > 1 ? TextureCreationFlags.MipChain : TextureCreationFlags.None;
+        var clone = new Texture2DArray(src.width, src.height, src.depth, src.graphicsFormat, flags, src.mipmapCount)
+        {
+            name = src.name + "_ARBand",
+            filterMode = src.filterMode,
+            wrapMode = src.wrapMode,
+            anisoLevel = src.anisoLevel,
+        };
+        for (var slice = 0; slice < src.depth; slice++)
+            for (var mip = 0; mip < src.mipmapCount; mip++)
+                Graphics.CopyTexture(src, slice, mip, clone, slice, mip);
+
+        foreach (var pair in swaps)
+            for (var mip = 0; mip < src.mipmapCount; mip++)
+                Graphics.CopyTexture(src, pair.Value, mip, clone, pair.Key, mip);
+        return clone;
+    }
+
+    /// <summary>Uncompressed rebuild with the swapped-in band slice graded in byte space
+    /// (matching how the PIL tone target is measured). All 16 slices are GPU-decoded
+    /// because CopyTexture cannot mix BC7 and RGBA32 within one array.</summary>
+    private static Texture2DArray BuildGradedClone(Texture2DArray src, List<KeyValuePair<int, int>> swaps,
+        float brightness, Color tint, float grassMix)
+    {
+        var mips = src.mipmapCount > 1;
+        var clone = new Texture2DArray(src.width, src.height, src.depth, TextureFormat.RGBA32, mips, linear: false)
+        {
+            name = src.name + "_ARBandGraded",
+            filterMode = src.filterMode,
+            wrapMode = src.wrapMode,
+            anisoLevel = src.anisoLevel,
+        };
+
+        var pixels = new Color32[src.depth][];
+        for (var slice = 0; slice < src.depth; slice++)
+            pixels[slice] = DecodeSlice(src, slice);
+
+        foreach (var pair in swaps)
+        {
+            var graded = (Color32[])pixels[pair.Value].Clone();
+            GradeBandPixels(graded, grassMix > 0f ? pixels[0] : null, brightness, tint, grassMix);
+            pixels[pair.Key] = graded;
+        }
+
+        for (var slice = 0; slice < src.depth; slice++)
+            clone.SetPixels32(pixels[slice], slice, 0);
+        clone.Apply(updateMipmaps: mips, makeNoLongerReadable: true);
+        return clone;
+    }
+
+    /// <summary>BC7 -> readable RGBA32 bytes: CopyTexture the slice into a same-format
+    /// Texture2D (GPU-side, ignores isReadable), let the GPU decompress it through an
+    /// sRGB Blit, and read the pixels back. sRGB RT + sRGB texture keeps the round trip
+    /// byte-faithful in the linear-color-space player.</summary>
+    private static Color32[] DecodeSlice(Texture2DArray src, int slice)
+    {
+        var compressed = new Texture2D(src.width, src.height, src.graphicsFormat, TextureCreationFlags.None);
+        var rt = RenderTexture.GetTemporary(src.width, src.height, 0,
+            RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+        var prevActive = RenderTexture.active;
+        try
+        {
+            Graphics.CopyTexture(src, slice, 0, compressed, 0, 0);
+            Graphics.Blit(compressed, rt);
+            RenderTexture.active = rt;
+            var readable = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false, linear: false);
+            readable.ReadPixels(new Rect(0, 0, src.width, src.height), 0, 0);
+            readable.Apply(false);
+            var result = readable.GetPixels32();
+            UnityEngine.Object.Destroy(readable);
+            return result;
+        }
+        finally
+        {
+            RenderTexture.active = prevActive;
+            RenderTexture.ReleaseTemporary(rt);
+            UnityEngine.Object.Destroy(compressed);
+        }
+    }
+
+    /// <summary>Byte-space grading: optional grass-slice mix ("singed grass" bridge tonally
+    /// between the two sides), then brightness x tint. Alpha is left untouched.</summary>
+    private static void GradeBandPixels(Color32[] band, Color32[]? grass, float brightness, Color tint, float grassMix)
+    {
+        for (var i = 0; i < band.Length; i++)
+        {
+            float r = band[i].r, g = band[i].g, b = band[i].b;
+            if (grass != null && i < grass.Length)
+            {
+                r = Mathf.Lerp(r, grass[i].r, grassMix);
+                g = Mathf.Lerp(g, grass[i].g, grassMix);
+                b = Mathf.Lerp(b, grass[i].b, grassMix);
+            }
+            band[i] = new Color32(
+                (byte)Mathf.Clamp(Mathf.RoundToInt(r * brightness * tint.r), 0, 255),
+                (byte)Mathf.Clamp(Mathf.RoundToInt(g * brightness * tint.g), 0, 255),
+                (byte)Mathf.Clamp(Mathf.RoundToInt(b * brightness * tint.b), 0, 255),
+                band[i].a);
         }
     }
 }

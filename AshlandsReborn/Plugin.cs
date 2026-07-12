@@ -33,6 +33,14 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> TransitionAshHold { get; private set; } = null!;
     public static ConfigEntry<float> TransitionFadeWidth { get; private set; } = null!;
     public static ConfigEntry<string> AshBlendSwapSlices { get; private set; } = null!;
+    public static ConfigEntry<float> AshBlendBandBrightness { get; private set; } = null!;
+    public static ConfigEntry<Color> AshBlendBandTint { get; private set; } = null!;
+    public static ConfigEntry<float> AshBlendBandMix { get; private set; } = null!;
+    public static ConfigEntry<Color> AshBlendVariationColor { get; private set; } = null!;
+    public static ConfigEntry<string> RockBlendSwapSlices { get; private set; } = null!;
+    public static ConfigEntry<float> RockBlendBandBrightness { get; private set; } = null!;
+    public static ConfigEntry<bool> RockBlendWideBand { get; private set; } = null!;
+    public static ConfigEntry<bool> TerrainArrayUncompressed { get; private set; } = null!;
 
     // --- Trees ---
     public static ConfigEntry<bool> EnableTreeReplacement { get; private set; } = null!;
@@ -137,6 +145,10 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> TerrainPhotoAuto { get; private set; } = null!;
     public static ConfigEntry<KeyCode> TerrainPhotoKey { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoPos { get; private set; } = null!;
+    public static ConfigEntry<string> TerrainPhotoRefPos { get; private set; } = null!;
+    public static ConfigEntry<bool> TerrainPhotoRefCapture { get; private set; } = null!;
+    public static ConfigEntry<string> TerrainPhotoProbeSpecs { get; private set; } = null!;
+    public static ConfigEntry<string> TerrainPhotoProbeAshBrightness { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
@@ -210,12 +222,15 @@ public class Plugin : BaseUnityPlugin
             "MudBlend",
             new ConfigDescription(
                 "How green terrain transitions into ash/lava. Legacy = original binary stamp (exact previous " +
-                "behavior). MudBlend = grass -> scorched mud -> ash -> lava multi-band fade with organic noisy " +
+                "behavior). LegacySmooth = the same binary green/ash stamp on a smoothed+jittered field, so the " +
+                "contour is an organic line instead of lattice stair-steps (thin yellow interpolation fringe " +
+                "accepted). MudBlend = grass -> scorched mud -> ash -> lava multi-band fade with organic noisy " +
                 "edges. AshBlend = MudBlend's fade geometry but the mud renders as ash (green fades directly " +
-                "into ash - no swamp texture, no yellow). GrassToLava = grass runs almost to the lava rivers " +
-                "with a tight mud/ash rim. DebugGradient = dev calibration strips. Changing this live-rebuilds " +
+                "into ash - no swamp texture, no yellow). RockBlend = GrassToLava's tight rim rendered as gray " +
+                "rock (the dug-rock-strip look). GrassToLava = grass runs almost to the lava rivers with a " +
+                "tight mud/ash rim. DebugGradient = dev calibration strips. Changing this live-rebuilds " +
                 "nearby terrain.",
-                new AcceptableValueList<string>("Legacy", "MudBlend", "AshBlend", "GrassToLava", "DebugGradient")));
+                new AcceptableValueList<string>("Legacy", "LegacySmooth", "MudBlend", "AshBlend", "RockBlend", "GrassToLava", "DebugGradient")));
 
         TransitionNoiseScale = Config.Bind(
             "Terrain",
@@ -274,6 +289,75 @@ public class Plugin : BaseUnityPlugin
             "but shows the binary ash-hold contour as high-contrast 1m steps. Recon in SHADER_SLICE_MAPPING.md. " +
             "Changing this rebuilds the patched array and refreshes nearby terrain."
         );
+
+        AshBlendBandBrightness = Config.Bind(
+            "Terrain",
+            "AshBlendBandBrightness",
+            1.0f,
+            new ConfigDescription(
+                "AshBlend only: brightness multiplier applied to the swapped-in band texture (byte space). " +
+                "The full-ash zone renders a per-pixel 7+13 blend plus the variation overlay, so any single " +
+                "stock slice reads darker than it - grade the band up until it tonally matches the adjacent " +
+                "full-ash ground. 1.0 = untouched slice (byte-identical compressed clone path). Live rebuild.",
+                new AcceptableValueRange<float>(0.25f, 2.5f)));
+
+        AshBlendBandTint = Config.Bind(
+            "Terrain",
+            "AshBlendBandTint",
+            Color.white,
+            "AshBlend only: color multiplier applied to the band texture after AshBlendBandBrightness " +
+            "(white = no tint). Live rebuild.");
+
+        AshBlendBandMix = Config.Bind(
+            "Terrain",
+            "AshBlendBandMix",
+            0.0f,
+            new ConfigDescription(
+                "AshBlend only: fraction of the grass slice (0) blended into the band texture before grading - " +
+                "a 'singed grass' bridge that is by construction tonally between the two sides. 0 = pure ash " +
+                "band. Live rebuild.",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        AshBlendVariationColor = Config.Bind(
+            "Terrain",
+            "AshBlendVariationColor",
+            new Color(0.4f, 0.5f, 0.3f, 1f),
+            "AshBlend only: _AshlandsVariationCol tint for the slice-15 variation overlay in the full-ash " +
+            "zone. The default olive matches every other styled path; a lighter color brightens the ash side " +
+            "toward the band tone. Live rebuild.");
+
+        RockBlendSwapSlices = Config.Bind(
+            "Terrain",
+            "RockBlendSwapSlices",
+            "3:5",
+            "RockBlend only: comma-separated dstSlice:srcSlice pairs for the cloned terrain diffuse array. " +
+            "Default 3:5 = the swamp/mud overlay renders as the base-rock-scales texture, matching the " +
+            "pickaxe-dug rock strip the transition imitates. 3:4 / 3:14 = cliff textures, 3:12 = lighter " +
+            "rubble. Live rebuild.");
+
+        RockBlendBandBrightness = Config.Bind(
+            "Terrain",
+            "RockBlendBandBrightness",
+            1.0f,
+            new ConfigDescription(
+                "RockBlend only: brightness multiplier for the rock band texture (see AshBlendBandBrightness). " +
+                "1.0 = untouched slice. Live rebuild.",
+                new AcceptableValueRange<float>(0.25f, 2.5f)));
+
+        RockBlendWideBand = Config.Bind(
+            "Terrain",
+            "RockBlendWideBand",
+            false,
+            "RockBlend only (dev comparison): use MudBlend's wide TransitionFadeWidth band geometry instead " +
+            "of GrassToLava's tight rim. Live rebuild.");
+
+        TerrainArrayUncompressed = Config.Bind(
+            "Terrain",
+            "TerrainArrayUncompressed",
+            false,
+            "Dev: force the uncompressed (RGBA32, GPU-decoded) patched-array build even when all tone knobs " +
+            "are neutral, to verify the decode round trip is byte-faithful against the compressed clone. " +
+            "Non-neutral tone knobs always use the uncompressed path regardless.");
 
         // --- Trees ---
         EnableTreeReplacement = Config.Bind(
@@ -956,6 +1040,36 @@ public class Plugin : BaseUnityPlugin
             "'x,y,z' of the terrain transition test spot (a known green/ash/lava boundary with the historical " +
             "grid + yellow-line artifacts). Empty string disables the teleport.");
 
+        TerrainPhotoRefPos = Config.Bind(
+            "Dev Automation",
+            "TerrainPhotoRefPos",
+            "149,30,-9600",
+            "'x,y,z' of the pickaxe-dug rock strip used as RockBlend's visual reference (persists in the " +
+            "world save). Used by TerrainPhotoRefCapture.");
+
+        TerrainPhotoRefCapture = Config.Bind(
+            "Dev Automation",
+            "TerrainPhotoRefCapture",
+            false,
+            "During the next terrain photo run, first visit TerrainPhotoRefPos and capture the dug-rock " +
+            "reference (Vanilla + GrassToLava sets) plus an [AR TerrainPhoto] REFGRID dump of veg mask, " +
+            "paint-mask RGBA, mesh normal Y and vertex color over the strip (slope-path vs paint-channel recon).");
+
+        TerrainPhotoProbeSpecs = Config.Bind(
+            "Dev Automation",
+            "TerrainPhotoProbeSpecs",
+            "",
+            "Semicolon-separated RockBlendSwapSlices values (e.g. '3:5;3:4;3:14;3:12'). When non-empty, the " +
+            "terrain photo run appends a RockBlend capture set per spec (LAVACHECK/GRASSCHECK unaffected - " +
+            "slice swaps do not change vertex colors), plus one RockBlendWideBand variant of the first spec.");
+
+        TerrainPhotoProbeAshBrightness = Config.Bind(
+            "Dev Automation",
+            "TerrainPhotoProbeAshBrightness",
+            "",
+            "Comma-separated AshBlendBandBrightness values (e.g. '1.0,1.3,1.6'). When non-empty, the terrain " +
+            "photo run appends an AshBlend capture set per value for band-tone calibration.");
+
         // Migrate renamed/moved config keys
         try
         {
@@ -1145,11 +1259,15 @@ public class Plugin : BaseUnityPlugin
         TransitionBlurRadius.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TransitionAshHold.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TransitionFadeWidth.SettingChanged += (_, _) => OnTerrainTransitionChanged();
-        AshBlendSwapSlices.SettingChanged += (_, _) =>
-        {
-            Patches.TerrainTransition.InvalidatePatchedArray();
-            OnTerrainTransitionChanged();
-        };
+        AshBlendSwapSlices.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        AshBlendBandBrightness.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        AshBlendBandTint.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        AshBlendBandMix.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        AshBlendVariationColor.SettingChanged += (_, _) => OnTerrainTransitionChanged();
+        RockBlendSwapSlices.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        RockBlendBandBrightness.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        RockBlendWideBand.SettingChanged += (_, _) => OnTerrainTransitionChanged();
+        TerrainArrayUncompressed.SettingChanged += (_, _) => OnBandArrayConfigChanged();
 
         try
         {
@@ -1447,6 +1565,14 @@ public class Plugin : BaseUnityPlugin
     {
         if (!MasterSwitch.Value || Player.m_localPlayer == null) return;
         Patches.EnvManPatches.ForceTerrainRefresh(force: true);
+    }
+
+    // Swap/tone knobs bake into the cached patched diffuse arrays, so those must be
+    // invalidated (cache-cleared, old clones stay tracked for restore) before the refresh.
+    private void OnBandArrayConfigChanged()
+    {
+        Patches.TerrainTransition.InvalidatePatchedArray();
+        OnTerrainTransitionChanged();
     }
 
     // Mode transitions between the legacy Charred Warrior swap and the Fable Warrior puppet
