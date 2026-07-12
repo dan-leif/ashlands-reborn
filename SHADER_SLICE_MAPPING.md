@@ -73,6 +73,23 @@ mid-fade - the yellow fringe, exactly.
 never touches the normal path, so an AshBlend-style slice swap needs no normal-array
 patch. Slice 3's alpha modulates the overlay strength (`mad_sat` with the weight).
 
+## v4.2 recon (2026-07-12, LegacySmooth plains line)
+
+Empirically confirmed via the `LegacySmoothDebugRamp` diagnostic (paints the raw
+(b,0,0,b) diagonal west→east across a chunk) + slice swaps:
+
+- The khaki **slice 8 IS the Plains overlay** that draws the "yellow line" on the
+  green→ash diagonal: mid-ramp (b≈128, Plains weight peak 0.5) renders a distinct
+  khaki band, and cloning the array with `8:0` (grass over plains) removes it
+  completely. Like the swamp overlay it needs no normal-array patch.
+- The line floats INSIDE green territory: the perceptual green/ash crossover sits
+  near the ash end of the ramp (dark ash only dominates at high b), so the ramp
+  reads green → khaki line → gray-green → ash. Both neighbors of the line are
+  green(ish) — which is exactly why hiding it under the grass texture works.
+- The swamp-mud overlay (slice 3) shares the mid-ramp window but its diagonal
+  weight is weak (gate >0.4, peak 0.5 → ~half-strength overlay): `8:0,3:0` is
+  visually indistinguishable from `8:0` in probes.
+
 ## Recommendations for Ashlands Reborn
 
 To fully replace Ashlands terrain with grass (Meadows), swap these slices with grass (e.g. slice 0):

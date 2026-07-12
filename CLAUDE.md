@@ -223,20 +223,30 @@ F1 dropdown, live rebuild via `SettingChanged` → `ForceTerrainRefresh`):
   paint over lava; G-ramp strip renders yellow-green, not clean gray, so a StoneAsh style
   was evaluated and rejected). Knobs: `TransitionAshHold`, `TransitionFadeWidth`,
   `TransitionNoiseScale/Strength`, `TransitionBlurRadius` — all live-refresh via F1.
-- **LegacySmooth (v4.1, TERRAIN_TRANSITION_V4_PLAN.md)**: Legacy's green↔full-ash look
-  (no mud stage) with MudBlend's curve quality: MudBlend's exact fade geometry — same
-  `[H−W, H]` anchors, same blurred+skirt+jitter field, same grass rule (shared code
+- **LegacySmooth (v4.1–4.2, TERRAIN_TRANSITION_V4_PLAN.md)**: Legacy's green↔full-ash
+  look (no mud stage) with MudBlend's curve quality: MudBlend's exact fade geometry —
+  same `[H−W, H]` anchors, same blurred+skirt+jitter field, same grass rule (shared code
   branch) — but R and A ramp TOGETHER along the `(t,0,0,t)` diagonal, i.e.
-  `BandColor(m, H−W, H, H−W, H)`. Mid-fade renders a soft warm tinge (the diagonal's
-  partial Plains/Swamp weights) — Legacy's hard yellow fringe spread gently along an
-  organic line; the A-ramp reaching 255 at H hides the AshHold gate like every band
-  style. Hard-won negative results (v4 runs 1–4, do NOT retry): a binary per-vertex
-  stamp, at ANY threshold, on ANY smooth field, with ANY jitter, renders
+  `BandColor(m, H−W, H, H−W, H)`; the A-ramp reaching 255 at H hides the AshHold gate
+  like every band style. Hard-won negative results (v4 runs 1–4, do NOT retry): a binary
+  per-vertex stamp, at ANY threshold, on ANY smooth field, with ANY jitter, renders
   lattice-quantized 90°/45° edges — stamping at the hold additionally exposes the raw
   gate's own lattice at mask cliffs; a narrow (~2-cell) AA ramp fails the same way
   because the full green/ash contrast compresses into ~1 vertex. Curves require the
   fade to span the whole band width (~4 vertices), which is why the final design is
   just MudBlend's geometry with a diagonal color path.
+- **LegacySmooth plains-line hiding (v4.2)**: the diagonal's mid-fade carries partial
+  Plains weight (`1 − max(t, 1−t)`, peak 0.5), which renders the khaki slice-8 overlay
+  as a yellow line floating INSIDE otherwise-green ground — green on BOTH sides, because
+  the perceptual green/ash crossover sits near the ash end of the ramp (empirically
+  charted with `LegacySmoothDebugRamp`, which paints the raw diagonal across each chunk;
+  it bypasses the hold gate, dev only). Since the line is bounded by meadows, it is
+  hidden UNDER meadows: `LegacySmoothSwapSlices` (default `8:0`) gives LegacySmooth its
+  own patched diffuse array with grass copied over the plains slice, so the plains
+  overlay renders as the grass that surrounds it. `8:0,3:0` also swaps the weak swamp-mud
+  overlay (same mid-fade window) — visually indistinguishable in probes, but slice 3
+  doubles as the hoe-path texture, so the targeted default preserves path visibility.
+  Empty spec = vanilla array = the yellow line returns.
 - **AshBlend (v3, TERRAIN_NO_MUD_PLAN.md)**: green fades directly into ash; identical to
   MudBlend in band/skirt/grass code (only the material differs). Do NOT re-attempt a
   direct green→ash fade in vertex-color space: biome weights are Chebyshev distances
