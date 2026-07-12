@@ -123,6 +123,18 @@ internal static class TerrainTransition
     internal static float LegacySmoothThreshold =>
         Mathf.Max(AshHold - 2.5f * SkirtDecayPerMeter(TransitionStyle.LegacySmooth), AshHold * 0.5f);
 
+    /// <summary>Width (mask units, ~2 field cells) of LegacySmooth's anti-aliasing
+    /// micro-ramp below the stamp threshold. A hard per-vertex stamp renders
+    /// lattice-quantized edges no matter how smooth the thresholded field is (runs 2-3:
+    /// jitter turns long straight runs into sawtooth, but every segment is still a 1m
+    /// lattice edge, and the fringe highlights it). The fix embraces the accepted
+    /// artifact: ramp R and A together across [t-w, t] - straight through the (t,0,0,t)
+    /// Plains diagonal - so the visible contour is the interpolated iso-line INSIDE
+    /// boundary triangles (sub-vertex smooth), and the yellow fringe becomes the ~1-2
+    /// triangle anti-aliasing gradient along it. Below ~1.5-2 cells the ramp re-shows
+    /// lattice steps (v2 finding).</summary>
+    internal static float LegacySmoothAAWidth => 2f * SkirtDecayPerMeter(TransitionStyle.LegacySmooth);
+
     internal static int SkirtRadiusCells(TransitionStyle style) =>
         Mathf.CeilToInt(UsesLavaRim(style) ? LavaSkirtMeters : MudSkirtMeters) + 1;
 
@@ -319,23 +331,28 @@ internal static class TerrainTransition
         var jitter = Jitter(wx, wz) * jf;
         var m = Mathf.Max(mask + jitter, skirt + jitter * 0.5f);
 
-        // LegacySmooth: the same binary stamp as Legacy, but on the smooth field at a
+        // LegacySmooth: Legacy's green/full-ash stamp on the smooth field at a
         // guard-margin threshold (see LegacySmoothThreshold) so the stamp region strictly
         // contains the raw AshHold gate region - no exposed 1m gate lattice. Two-octave
-        // jitter (see Jitter2) breaks the residual 1m quantization into irregular wander;
-        // the skirt term's jitter is positive-BIASED (never below the un-jittered skirt)
-        // because the gate-cover guarantee needs the blurred skirt alone to reach t over
-        // every raw>=hold vertex. The un-jittered last condition keeps extreme knob combos
-        // (low hold + high noise strength) from stamping stray ash speckles far from any
-        // lava; near the contour the smooth field is ~t, far above t/2.
+        // jitter (see Jitter2) makes the contour wander; the skirt term's jitter is
+        // positive-BIASED (never below the un-jittered skirt) because the gate-cover
+        // guarantee needs the blurred skirt alone to reach t over every raw>=hold vertex.
+        // The edge itself is anti-aliased by a ~2-cell micro-ramp straight through the
+        // (t,0,0,t) Plains diagonal (see LegacySmoothAAWidth) - the accepted yellow
+        // fringe becomes the smoothing gradient, and the visible contour is the
+        // interpolated iso-line inside boundary triangles instead of a lattice polyline.
+        // The un-jittered guard keeps extreme knob combos (low hold + high noise
+        // strength) from stamping stray ash speckles far from any lava; near the contour
+        // the smooth field is ~t, far above t/2.
         if (style == TransitionStyle.LegacySmooth)
         {
             var t = LegacySmoothThreshold;
             var j2 = jitter + Jitter2(wx, wz);
             var ms = Mathf.Max(mask + j2, skirt + (j2 + JitterAmplitude) * 0.5f);
-            return ms >= t && Mathf.Max(mask, skirt) >= t * 0.5f
-                ? new Color32(255, 0, 0, 255)
-                : new Color32(0, 0, 0, 0);
+            if (Mathf.Max(mask, skirt) < t * 0.5f) return new Color32(0, 0, 0, 0);
+            var f = Mathf.SmoothStep(0f, 255f, Mathf.InverseLerp(t - LegacySmoothAAWidth, t, ms));
+            var b = (byte)Mathf.RoundToInt(f);
+            return new Color32(b, 0, 0, b);
         }
 
         if (UsesLavaRim(style))
@@ -398,11 +415,11 @@ internal static class TerrainTransition
 
         if (style == TransitionStyle.LegacySmooth)
         {
-            // Mirror the binary stamp: same field, same two-octave jitter, same
-            // guard-margin threshold, stopping a small margin short of the line so
-            // grass never pokes through the ash edge.
+            // Mirror the stamp: same field, same two-octave jitter, stopping a small
+            // margin short of the AA ramp's outer (green) edge so grass never pokes
+            // through the fringe or the ash.
             return mask + Jitter(point.x, point.z) + Jitter2(point.x, point.z)
-                < LegacySmoothThreshold - LegacySmoothGrassMargin;
+                < LegacySmoothThreshold - LegacySmoothAAWidth - LegacySmoothGrassMargin;
         }
         if (UsesLavaRim(style))
         {
