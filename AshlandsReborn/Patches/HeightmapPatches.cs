@@ -85,13 +85,14 @@ internal static class HeightmapPatches
     {
         if (!Plugin.IsTerrainOverrideActive)
         {
-            // AshBlend patches the chunk material's diffuse array; chunks rebuilt while
-            // the override is off (MasterSwitch, or the photo harness's vanilla
-            // ground-truth pass) must render the true vanilla array again. No-op unless
-            // this session actually built a patched array.
+            // Chunks rebuilt while the override is off (MasterSwitch, or the photo
+            // harness's vanilla ground-truth pass) must render true vanilla again:
+            // restore the diffuse array (AshBlend's patch) and the vanilla
+            // _AshlandsVariationCol (the styled paths' olive tint - previously this
+            // lingered until relog). No-op on materials this mod never touched.
             var offMat = AccessTools.Field(typeof(Heightmap), "m_materialInstance").GetValue(__instance) as Material;
             if (offMat != null)
-                TerrainTransition.RestoreVanillaArray(offMat);
+                TerrainTransition.RestoreVanillaMaterial(offMat);
             return;
         }
         // Prefix sets corners to Meadows, so HasAshLands would be false here. Check if we saved corners instead.

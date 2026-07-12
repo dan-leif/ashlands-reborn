@@ -187,3 +187,10 @@ Post-ship hardening (same day, runs A–C):
   (390,-9430) with 23,995 — the invariants aren't specific to the historical test
   spot. (Run C teleported the player into open lava — photos unusable, checks valid;
   keep TerrainPhotoPos on green ground.)
+- **Override-off tint restore (run D)**: `RestoreVanillaMaterial` now also restores the
+  vanilla `_AshlandsVariationCol` on override-off rebuilds (the styled olive tint used
+  to linger until relog — pre-existing since v2). Verified: run D's vanilla pass shows
+  the variation patches in vanilla blue-gray vs the olive of every earlier session's
+  ground truth (guarded: only materials whose tint equals the exact OliveTint are
+  touched). NOTE: Vanilla ground-truth captures from run D onward have a slightly
+  truer (less olive) ash hue than the committed v2-era ones — expected, not drift.

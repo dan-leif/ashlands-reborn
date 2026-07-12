@@ -415,10 +415,23 @@ internal static class TerrainTransition
 
     /// <summary>Restore path for chunks rebuilt while the override is inactive
     /// (MasterSwitch off / the harness's vanilla ground-truth pass): if the material
-    /// still references a patched array, put the vanilla one back.</summary>
-    internal static void RestoreVanillaArray(Material mat)
+    /// still references a patched array or carries the styled olive variation tint,
+    /// put the vanilla state back. Both restores are no-ops on materials this mod
+    /// never touched (array must be a tracked patched clone; tint must equal the
+    /// exact OliveTint we set).</summary>
+    internal static void RestoreVanillaMaterial(Material mat)
     {
-        if (mat == null || _vanillaDiffuseArray == null || AllPatchedArrays.Count == 0) return;
+        if (mat == null) return;
+        RestoreVanillaArray(mat);
+
+        if (_vanillaVariationCol.HasValue && mat.HasProperty(ShaderAshlandsVariationCol)
+            && mat.GetColor(ShaderAshlandsVariationCol) == OliveTint)
+            mat.SetColor(ShaderAshlandsVariationCol, _vanillaVariationCol.Value);
+    }
+
+    private static void RestoreVanillaArray(Material mat)
+    {
+        if (_vanillaDiffuseArray == null || AllPatchedArrays.Count == 0) return;
         if (!mat.HasProperty(ShaderDiffuseArray)) return;
         if (mat.GetTexture(ShaderDiffuseArray) is Texture2DArray current && AllPatchedArrays.Contains(current))
         {
