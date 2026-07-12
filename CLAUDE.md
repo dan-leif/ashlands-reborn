@@ -217,11 +217,22 @@ F1 dropdown, live rebuild via `SettingChanged` → `ForceTerrainRefresh`):
   whose stride neighbor sample is ≤ 0.1 renders green); LAVACHECK reports it as
   `CONTRACT`, excluded from the aggregate. The styled paths are strictly safer.
 - Styles: `MudBlend` (default; scorched-mud fade), `AshBlend` (v3: MudBlend with NO mud —
-  see below), `GrassToLava` (green close to the lava rivers, tight rim), `DebugGradient`
-  (7 dev calibration strips; EXEMPT from the hold — strips must paint over lava; G-ramp
-  strip renders yellow-green, not clean gray, so a StoneAsh style was evaluated and
-  rejected). Knobs: `TransitionAshHold`, `TransitionFadeWidth`,
+  see below), `RockBlend` (v4: GrassToLava's tight rim rendered as gray rock — see below),
+  `GrassToLava` (green close to the lava rivers, tight rim), `LegacySmooth` (v4 — see
+  below), `DebugGradient` (7 dev calibration strips; EXEMPT from the hold — strips must
+  paint over lava; G-ramp strip renders yellow-green, not clean gray, so a StoneAsh style
+  was evaluated and rejected). Knobs: `TransitionAshHold`, `TransitionFadeWidth`,
   `TransitionNoiseScale/Strength`, `TransitionBlurRadius` — all live-refresh via F1.
+- **LegacySmooth (v4, TERRAIN_TRANSITION_V4_PLAN.md)**: Legacy's binary Meadows↔full-ash
+  stamp (no band; the ~1-triangle yellow interpolation fringe along the line is accepted)
+  thresholded on the styled `max(blurred+jitter, skirt+jitter/2)` field, so the contour
+  wanders organically. **The stamp threshold must sit BELOW the hold**
+  (`LegacySmoothThreshold` = hold − 2.5 cells of skirt decay ≈ 0.106 at defaults, ≈
+  Legacy's own 0.1): stamping at the hold itself exposed the raw AshHold gate as 1m
+  lattice stair-steps at raw-mask cliffs (v4 run-1) — band styles hide the gate behind
+  their A-ramp reaching 255 at H, a binary stamp has no partial alpha, so its region must
+  strictly contain the gate region. Un-jittered `max(mask, skirt) ≥ t/2` guard prevents
+  far-field jitter speckles at extreme knob settings.
 - **AshBlend (v3, TERRAIN_NO_MUD_PLAN.md)**: green fades directly into ash; identical to
   MudBlend in band/skirt/grass code (only the material differs). Do NOT re-attempt a
   direct green→ash fade in vertex-color space: biome weights are Chebyshev distances

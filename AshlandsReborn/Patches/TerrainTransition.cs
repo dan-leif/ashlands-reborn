@@ -281,6 +281,23 @@ internal static class TerrainTransition
         return (Mathf.PerlinNoise(wx * scale + 10000f, wz * scale + 10000f) - 0.5f) * strength;
     }
 
+    /// <summary>Second, higher-frequency jitter octave (4x base scale, 3/4 amplitude),
+    /// LegacySmooth only. A binary stamp renders lattice-quantized edges by construction;
+    /// the base ~12m-wavelength noise wanders the contour but leaves long straight
+    /// vertex-runs intact at 1m scale (v4 run-2 finding, worst along the skirt's
+    /// distance-field contours near thin lava channels). The short octave breaks those
+    /// runs into irregular single-vertex wander that reads as texture, not staircase.</summary>
+    internal static float Jitter2(float wx, float wz)
+    {
+        var strength = Plugin.TransitionNoiseStrength?.Value ?? 0.08f;
+        if (strength <= 0f) return 0f;
+        var scale = (Plugin.TransitionNoiseScale?.Value ?? 0.08f) * 4f;
+        return (Mathf.PerlinNoise(wx * scale + 20000f, wz * scale + 20000f) - 0.5f) * strength * 0.75f;
+    }
+
+    /// <summary>Maximum magnitude of Jitter + Jitter2, for positive-biasing.</summary>
+    private static float JitterAmplitude => (Plugin.TransitionNoiseStrength?.Value ?? 0.08f) * 0.875f;
+
     internal static Color32 EvaluateColor(TransitionStyle style, float rawMask, float mask,
         float skirt, float wx, float wz, int col, int row, int side)
     {
@@ -304,14 +321,19 @@ internal static class TerrainTransition
 
         // LegacySmooth: the same binary stamp as Legacy, but on the smooth field at a
         // guard-margin threshold (see LegacySmoothThreshold) so the stamp region strictly
-        // contains the raw AshHold gate region - no exposed 1m gate lattice. The
-        // un-jittered second condition keeps extreme knob combos (low hold + high noise
-        // strength) from stamping stray ash speckles far from any lava; near the contour
-        // the smooth field is ~t, far above t/2.
+        // contains the raw AshHold gate region - no exposed 1m gate lattice. Two-octave
+        // jitter (see Jitter2) breaks the residual 1m quantization into irregular wander;
+        // the skirt term's jitter is positive-BIASED (never below the un-jittered skirt)
+        // because the gate-cover guarantee needs the blurred skirt alone to reach t over
+        // every raw>=hold vertex. The un-jittered last condition keeps extreme knob combos
+        // (low hold + high noise strength) from stamping stray ash speckles far from any
+        // lava; near the contour the smooth field is ~t, far above t/2.
         if (style == TransitionStyle.LegacySmooth)
         {
             var t = LegacySmoothThreshold;
-            return m >= t && Mathf.Max(mask, skirt) >= t * 0.5f
+            var j2 = jitter + Jitter2(wx, wz);
+            var ms = Mathf.Max(mask + j2, skirt + (j2 + JitterAmplitude) * 0.5f);
+            return ms >= t && Mathf.Max(mask, skirt) >= t * 0.5f
                 ? new Color32(255, 0, 0, 255)
                 : new Color32(0, 0, 0, 0);
         }
@@ -376,10 +398,11 @@ internal static class TerrainTransition
 
         if (style == TransitionStyle.LegacySmooth)
         {
-            // Mirror the binary stamp: same field, same full-strength jitter, same
+            // Mirror the binary stamp: same field, same two-octave jitter, same
             // guard-margin threshold, stopping a small margin short of the line so
             // grass never pokes through the ash edge.
-            return mask + Jitter(point.x, point.z) < LegacySmoothThreshold - LegacySmoothGrassMargin;
+            return mask + Jitter(point.x, point.z) + Jitter2(point.x, point.z)
+                < LegacySmoothThreshold - LegacySmoothGrassMargin;
         }
         if (UsesLavaRim(style))
         {
