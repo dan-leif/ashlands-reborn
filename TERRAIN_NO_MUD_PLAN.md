@@ -150,3 +150,25 @@ present up close), but a safe shippable option if A and B both fail.
   SettingChanged wiring
 - `AshlandsReborn/Patches/TerrainPhotoPatches.cs` — Styles array + composite inputs
 - `scripts/extract_terrain_textures.py` — slice recon (run offline, no game needed)
+
+## Status appendix (2026-07-11): DONE — Approach A shipped
+
+Implemented and verified in commits `f7e26ac`..`4adb439` (see CLAUDE.md "Terrain
+transition styles" for the merged mechanics; recon in SHADER_SLICE_MAPPING.md).
+
+- Slice recon came back better than hoped: the swamp overlay is a single slice (3),
+  albedo-only, so the material patch is one GPU copy and no normal-array work.
+  Slices decoded by BC7-decompressing the bundle's `.resS` stream directly.
+- **Run 1 (`3:7`, main ash)**: LAVACHECK/GRASSCHECK PASS, no mud, no yellow — but the
+  near-black band made the binary AshHold gate read as high-contrast ~1m stair-steps
+  wherever a raw-mask cliff pokes gated (full-ash) vertices into the band. The same
+  geometry exists under MudBlend but hides in the tan/pale low contrast.
+- **Run 2 (`3:13`, light ash pair) — SHIPPED DEFAULT**: band and hold sit in one tonal
+  family; the gate vanishes into the ash mottling. All pass criteria met vs the
+  vanilla ground truth: identical lava edge/fissures/glow, no mud, no yellow, no
+  lattice steps, no chunk seams, no tiling mismatch, grass thins mid-fade.
+- Leak check: MudBlend/GrassToLava mud and DebugGradient calibration strips all render
+  on the vanilla array after AshBlend ran in the same session (per-chunk restore).
+- Evidence: `screenshots/terrain-transition/` (18 fresh shots + `compare_top.png` +
+  `compare_lavaedge.png` + `compare_ashblend_slice_probe.png`).
+- In-game default stays MudBlend until the user picks AshBlend (F1).
