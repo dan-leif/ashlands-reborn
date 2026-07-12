@@ -32,6 +32,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<int> TransitionBlurRadius { get; private set; } = null!;
     public static ConfigEntry<float> TransitionAshHold { get; private set; } = null!;
     public static ConfigEntry<float> TransitionFadeWidth { get; private set; } = null!;
+    public static ConfigEntry<string> AshBlendSwapSlices { get; private set; } = null!;
 
     // --- Trees ---
     public static ConfigEntry<bool> EnableTreeReplacement { get; private set; } = null!;
@@ -210,9 +211,11 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "How green terrain transitions into ash/lava. Legacy = original binary stamp (exact previous " +
                 "behavior). MudBlend = grass -> scorched mud -> ash -> lava multi-band fade with organic noisy " +
-                "edges. GrassToLava = grass runs almost to the lava rivers with a tight mud/ash rim. " +
-                "DebugGradient = dev calibration strips. Changing this live-rebuilds nearby terrain.",
-                new AcceptableValueList<string>("Legacy", "MudBlend", "GrassToLava", "DebugGradient")));
+                "edges. AshBlend = MudBlend's fade geometry but the mud renders as ash (green fades directly " +
+                "into ash - no swamp texture, no yellow). GrassToLava = grass runs almost to the lava rivers " +
+                "with a tight mud/ash rim. DebugGradient = dev calibration strips. Changing this live-rebuilds " +
+                "nearby terrain.",
+                new AcceptableValueList<string>("Legacy", "MudBlend", "AshBlend", "GrassToLava", "DebugGradient")));
 
         TransitionNoiseScale = Config.Bind(
             "Terrain",
@@ -259,6 +262,16 @@ public class Plugin : BaseUnityPlugin
                 "Width (lava-mask units) of the MudBlend green -> mud -> ash fade band below the ash hold. " +
                 "Smaller = narrower mud band. Ignored by the other styles.",
                 new AcceptableValueRange<float>(0.05f, 0.5f)));
+
+        AshBlendSwapSlices = Config.Bind(
+            "Terrain",
+            "AshBlendSwapSlices",
+            "3:7",
+            "AshBlend only (dev tuning): comma-separated dstSlice:srcSlice pairs copied inside the cloned " +
+            "terrain diffuse texture array, so the listed layers render as another layer's texture. Default " +
+            "3:7 = the swamp/mud overlay (slice 3) renders as main ash (slice 7); recon in " +
+            "SHADER_SLICE_MAPPING.md. Changing this rebuilds the patched array and refreshes nearby terrain."
+        );
 
         // --- Trees ---
         EnableTreeReplacement = Config.Bind(
@@ -1130,6 +1143,11 @@ public class Plugin : BaseUnityPlugin
         TransitionBlurRadius.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TransitionAshHold.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TransitionFadeWidth.SettingChanged += (_, _) => OnTerrainTransitionChanged();
+        AshBlendSwapSlices.SettingChanged += (_, _) =>
+        {
+            Patches.TerrainTransition.InvalidatePatchedArray();
+            OnTerrainTransitionChanged();
+        };
 
         try
         {

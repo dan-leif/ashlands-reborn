@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 
 namespace AshlandsReborn.Patches;
 
@@ -16,6 +17,13 @@ internal enum TransitionStyle
     /// <summary>Grass fades into scorched mud (Swamp channel), then mud fades into ash,
     /// with blurred mask + noise-jittered band edges for organic contours.</summary>
     MudBlend,
+
+    /// <summary>MudBlend's exact fade geometry, but the chunk material's diffuse texture
+    /// array is cloned with the swamp/mud slice overwritten by the main ash slice, so the
+    /// same vertex colors render green fading directly into ash - no mud terrain, and no
+    /// yellow either (alpha still stays 0 until red saturates). See TERRAIN_NO_MUD_PLAN.md
+    /// for why a direct green-to-ash vertex fade is impossible in color space alone.</summary>
+    AshBlend,
 
     /// <summary>Green runs almost to the molten lava; only a tight mud/ash rim at the edge.</summary>
     GrassToLava,
@@ -358,5 +366,138 @@ internal static class TerrainTransition
 
         mat.SetColor(ShaderAshlandsVariationCol,
             Current == TransitionStyle.DebugGradient ? _vanillaVariationCol.Value : OliveTint);
+    }
+
+    /// <summary>Per-style material state, applied per chunk per rebuild: the variation
+    /// tint plus, for AshBlend, the patched diffuse texture array (every other style must
+    /// get the vanilla array back - the F1 dropdown and the photo harness swap styles
+    /// live, so styles must not leak into each other).</summary>
+    internal static void ApplyStyleMaterial(Material mat)
+    {
+        if (mat == null) return;
+        ApplyVariationCol(mat);
+        ApplyDiffuseArray(mat);
+    }
+
+    // --- AshBlend diffuse-array patch ---
+    //
+    // The terrain shader picks _DiffuseArrayTex slices purely from vertex color; the
+    // swamp/mud overlay is slice 3, albedo-only (recon: SHADER_SLICE_MAPPING.md, asm
+    // lines 382-397), so a cloned array with the ash slice (7) copied over slice 3 turns
+    // MudBlend's mud band into a direct green->ash fade. Graphics.CopyTexture is GPU-side
+    // and ignores isReadable; the clone is built once per session (all chunks share it,
+    // so neighboring chunks agree - no seams) and cached along with the vanilla array
+    // reference for revert.
+    private static readonly int ShaderDiffuseArray = Shader.PropertyToID("_DiffuseArrayTex");
+    private static Texture2DArray? _vanillaDiffuseArray;
+    private static Texture2DArray? _patchedDiffuseArray;
+    private static string? _patchedSpec;
+    private static bool _patchFailedLogged;
+    private static readonly HashSet<Texture2DArray> AllPatchedArrays = new();
+
+    /// <summary>Drops the cached patched array so the next AshBlend rebuild reconstructs
+    /// it from the current AshBlendSwapSlices value. The old clone is intentionally not
+    /// destroyed - distant, not-yet-rebuilt chunks may still render it (it stays tracked
+    /// in AllPatchedArrays for RestoreVanillaArray); a dev tuning change leaks one 1 MB
+    /// GPU texture per change until session end, which is acceptable.</summary>
+    internal static void InvalidatePatchedArray()
+    {
+        _patchedDiffuseArray = null;
+        _patchedSpec = null;
+        _patchFailedLogged = false;
+    }
+
+    /// <summary>Restore path for chunks rebuilt while the override is inactive
+    /// (MasterSwitch off / the harness's vanilla ground-truth pass): if the material
+    /// still references a patched array, put the vanilla one back.</summary>
+    internal static void RestoreVanillaArray(Material mat)
+    {
+        if (mat == null || _vanillaDiffuseArray == null || AllPatchedArrays.Count == 0) return;
+        if (!mat.HasProperty(ShaderDiffuseArray)) return;
+        if (mat.GetTexture(ShaderDiffuseArray) is Texture2DArray current && AllPatchedArrays.Contains(current))
+            mat.SetTexture(ShaderDiffuseArray, _vanillaDiffuseArray);
+    }
+
+    private static void ApplyDiffuseArray(Material mat)
+    {
+        if (!mat.HasProperty(ShaderDiffuseArray)) return;
+        if (mat.GetTexture(ShaderDiffuseArray) is not Texture2DArray current) return;
+
+        // Material instances are fresh clones of the shared Heightmap material, so the
+        // first instance touched this session still references the vanilla array.
+        if (_vanillaDiffuseArray == null)
+        {
+            if (AllPatchedArrays.Contains(current)) return; // unreachable before capture; belt+suspenders
+            _vanillaDiffuseArray = current;
+        }
+
+        if (Current == TransitionStyle.AshBlend)
+        {
+            var patched = GetOrBuildPatchedArray();
+            if (patched != null && current != patched)
+                mat.SetTexture(ShaderDiffuseArray, patched);
+        }
+        else if (current != _vanillaDiffuseArray)
+        {
+            mat.SetTexture(ShaderDiffuseArray, _vanillaDiffuseArray);
+        }
+    }
+
+    private static Texture2DArray? GetOrBuildPatchedArray()
+    {
+        var spec = Plugin.AshBlendSwapSlices?.Value ?? "3:7";
+        if (_patchedDiffuseArray != null && _patchedSpec == spec) return _patchedDiffuseArray;
+        var src = _vanillaDiffuseArray;
+        if (src == null) return null;
+
+        try
+        {
+            // Recon: 256x256 x16, BC7 sRGB, single mip. Built generically anyway so a
+            // game update changing the format keeps working (CopyTexture only needs
+            // src/dst to match, which a same-format clone guarantees).
+            var flags = src.mipmapCount > 1 ? TextureCreationFlags.MipChain : TextureCreationFlags.None;
+            var clone = new Texture2DArray(src.width, src.height, src.depth, src.graphicsFormat, flags, src.mipmapCount)
+            {
+                name = src.name + "_AshBlend",
+                filterMode = src.filterMode,
+                wrapMode = src.wrapMode,
+                anisoLevel = src.anisoLevel,
+            };
+            for (var slice = 0; slice < src.depth; slice++)
+                for (var mip = 0; mip < src.mipmapCount; mip++)
+                    Graphics.CopyTexture(src, slice, mip, clone, slice, mip);
+
+            foreach (var pair in spec.Split(','))
+            {
+                var parts = pair.Split(':');
+                if (parts.Length != 2
+                    || !int.TryParse(parts[0].Trim(), out var dst)
+                    || !int.TryParse(parts[1].Trim(), out var srcSlice)
+                    || dst < 0 || dst >= src.depth || srcSlice < 0 || srcSlice >= src.depth)
+                {
+                    Plugin.Log?.LogWarning($"[Ashlands Reborn] AshBlendSwapSlices: ignoring bad pair '{pair}'");
+                    continue;
+                }
+                for (var mip = 0; mip < src.mipmapCount; mip++)
+                    Graphics.CopyTexture(src, srcSlice, mip, clone, dst, mip);
+            }
+
+            _patchedDiffuseArray = clone;
+            _patchedSpec = spec;
+            AllPatchedArrays.Add(clone);
+            Plugin.Log?.LogInfo($"[Ashlands Reborn] AshBlend: built patched diffuse array ({spec}) "
+                + $"{src.width}x{src.height}x{src.depth} {src.graphicsFormat}");
+            return clone;
+        }
+        catch (Exception e)
+        {
+            // Fail soft: AshBlend then renders exactly like MudBlend (vanilla array).
+            if (!_patchFailedLogged)
+            {
+                _patchFailedLogged = true;
+                Plugin.Log?.LogError($"[Ashlands Reborn] AshBlend: patched array build failed - falling back to vanilla array. {e}");
+            }
+            return null;
+        }
     }
 }

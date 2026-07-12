@@ -83,7 +83,17 @@ internal static class HeightmapPatches
     [HarmonyPostfix]
     private static void RebuildRenderMesh_Postfix(Heightmap __instance)
     {
-        if (!Plugin.IsTerrainOverrideActive) return;
+        if (!Plugin.IsTerrainOverrideActive)
+        {
+            // AshBlend patches the chunk material's diffuse array; chunks rebuilt while
+            // the override is off (MasterSwitch, or the photo harness's vanilla
+            // ground-truth pass) must render the true vanilla array again. No-op unless
+            // this session actually built a patched array.
+            var offMat = AccessTools.Field(typeof(Heightmap), "m_materialInstance").GetValue(__instance) as Material;
+            if (offMat != null)
+                TerrainTransition.RestoreVanillaArray(offMat);
+            return;
+        }
         // Prefix sets corners to Meadows, so HasAshLands would be false here. Check if we saved corners instead.
         if (!SavedCornerBiomes.ContainsKey(__instance)) return;
 
@@ -112,11 +122,12 @@ internal static class HeightmapPatches
         else
             ApplyStyled(__instance, mf, colors, vertices, side, style);
 
-        // Per-style Ashlands material tint (Legacy keeps the original olive green that
-        // reduced the yellow seams; DebugGradient restores vanilla).
+        // Per-style material state: Ashlands variation tint (Legacy keeps the original
+        // olive green that reduced the yellow seams; DebugGradient restores vanilla) and
+        // the AshBlend diffuse-array patch (vanilla array for every other style).
         var mat = AccessTools.Field(typeof(Heightmap), "m_materialInstance").GetValue(__instance) as Material;
         if (mat != null)
-            TerrainTransition.ApplyVariationCol(mat);
+            TerrainTransition.ApplyStyleMaterial(mat);
     }
 
     /// <summary>Original binary lava stamp, byte-identical - the user's revert path.

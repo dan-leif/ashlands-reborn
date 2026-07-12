@@ -26,7 +26,7 @@ namespace AshlandsReborn.Patches;
 /// </summary>
 internal static class TerrainPhotoPatches
 {
-    private static readonly string[] Styles = { "Legacy", "MudBlend", "GrassToLava", "DebugGradient" };
+    private static readonly string[] Styles = { "Legacy", "MudBlend", "AshBlend", "GrassToLava", "DebugGradient" };
     private const float RebuildWatchRadius = 160f;
 
     private static bool _running;
