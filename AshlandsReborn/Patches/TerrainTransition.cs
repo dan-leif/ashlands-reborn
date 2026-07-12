@@ -398,6 +398,7 @@ internal static class TerrainTransition
     private static Texture2DArray? _patchedDiffuseArray;
     private static string? _patchedSpec;
     private static bool _patchFailedLogged;
+    private static int _restoreLogCount;
     private static readonly HashSet<Texture2DArray> AllPatchedArrays = new();
 
     /// <summary>Drops the cached patched array so the next AshBlend rebuild reconstructs
@@ -420,7 +421,11 @@ internal static class TerrainTransition
         if (mat == null || _vanillaDiffuseArray == null || AllPatchedArrays.Count == 0) return;
         if (!mat.HasProperty(ShaderDiffuseArray)) return;
         if (mat.GetTexture(ShaderDiffuseArray) is Texture2DArray current && AllPatchedArrays.Contains(current))
+        {
             mat.SetTexture(ShaderDiffuseArray, _vanillaDiffuseArray);
+            if (_restoreLogCount++ < 3)
+                Plugin.Log?.LogInfo("[Ashlands Reborn] AshBlend: restored vanilla diffuse array on an override-off chunk rebuild");
+        }
     }
 
     private static void ApplyDiffuseArray(Material mat)

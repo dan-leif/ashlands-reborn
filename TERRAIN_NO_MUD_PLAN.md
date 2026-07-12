@@ -172,3 +172,18 @@ transition styles" for the merged mechanics; recon in SHADER_SLICE_MAPPING.md).
 - Evidence: `screenshots/terrain-transition/` (18 fresh shots + `compare_top.png` +
   `compare_lavaedge.png` + `compare_ashblend_slice_probe.png`).
 - In-game default stays MudBlend until the user picks AshBlend (F1).
+
+Post-ship hardening (same day, runs A–C):
+- **AshBlend-at-load lifecycle (run A)**: world loaded with `TerrainTransitionStyle =
+  AshBlend` (patched array built during world load, before the harness); full style
+  cycle green, and per-style tops pixel-match the never-patched baseline session
+  (mean diff 1–2/255 = lighting shimmer).
+- **`RestoreVanillaArray` proven live (run B)**: with the patched array active from
+  world load, the harness's vanilla pass logged
+  "restored vanilla diffuse array on an override-off chunk rebuild" (new counted log
+  line) — the override-off restore path is now exercised, not just reasoned about.
+- **Location robustness (runs B/C)**: LAVACHECK/GRASSCHECK PASS for all styled paths
+  at two additional Ashlands regions, (480,-9420) with 15,027 lava verts and
+  (390,-9430) with 23,995 — the invariants aren't specific to the historical test
+  spot. (Run C teleported the player into open lava — photos unusable, checks valid;
+  keep TerrainPhotoPos on green ground.)
