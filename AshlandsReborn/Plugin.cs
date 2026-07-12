@@ -363,12 +363,14 @@ public class Plugin : BaseUnityPlugin
         LegacySmoothSwapSlices = Config.Bind(
             "Terrain",
             "LegacySmoothSwapSlices",
-            "",
+            "8:0",
             "LegacySmooth only: comma-separated dstSlice:srcSlice pairs for the cloned terrain diffuse " +
             "array. The mid-fade of the green->ash diagonal carries partial Plains weight, which renders " +
-            "the khaki slice 8 as a yellow line floating inside otherwise-green ground; '8:0' overwrites " +
-            "it with the meadows grass texture that surrounds it (and '8:0,3:0' also hides the swamp mud " +
-            "overlay sharing the same window). Empty = vanilla array. Live rebuild.");
+            "the khaki slice 8 as a yellow line floating inside otherwise-green ground; the default '8:0' " +
+            "overwrites it with the meadows grass texture that surrounds it. '8:0,3:0' also renders the " +
+            "weak swamp-mud overlay (same mid-fade window) as grass - visually near-identical, but slice 3 " +
+            "doubles as the hoe-path texture, so paths would render grassy. Empty = vanilla array (the " +
+            "yellow line returns). Live rebuild.");
 
         TerrainArrayUncompressed = Config.Bind(
             "Terrain",
