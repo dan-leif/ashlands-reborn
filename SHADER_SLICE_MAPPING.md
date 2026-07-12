@@ -48,6 +48,31 @@ Analysis of how Valheim's terrain shader selects `_DiffuseArrayTex` slices from 
 2. **Lines 449–458**: Samples slice **15** for variation.
 3. **Base path**: Uses 5 and 14 like other biomes; vertex color `v5` drives `r2.w` and `r5.x/y/z` to select additional layers.
 
+## v3 recon (2026-07-11, decoded slices + full asm trace for AshBlend)
+
+Ground truth from BC7-decoding `terrain_d_array` out of bundle `c4210710`'s `.resS`
+stream (offsets via UnityPy; see `scripts/extract_terrain_textures.py` +
+`extracted_textures/terrain_d_array_slice_*.png`):
+
+- `terrain_d_array` (`_DiffuseArrayTex`, t14): 256x256, **16 slices, BC7 sRGB
+  (GraphicsFormat 108), mipCount 1**.
+- `terrain_n_array` (t15): 256x256, **4 slices only**, BC7 UNorm (109), linear.
+- Slice contents: 0=Meadows grass, 1=BlackForest forest floor, **3=Swamp/dirt brown
+  (also the paint-mask hoe-path texture, asm line ~702)**, 4=gray cliff, 5=base rock,
+  6=molten lava orange, **7=main ash (near-black)**, 8=Plains khaki, 9=beach sand,
+  10=cultivated soil, 11=shallow-moss, 12=snow, 13=ash pair, 14=dark cracked rock,
+  15=ash variation/glow veins.
+
+Biome weights are **Chebyshev distances** from the corner colors (asm lines 121-139),
+e.g. swamp = `1 - max(|R-1|,|G|,|B|,|A|)`, ashlands = `1 - max(|R-1|,|G|,|B|,|A-1|)`;
+the Legacy diagonal (t,0,0,t) gives Plains weight `1 - max(t, 1-t)` peaking 0.5 at
+mid-fade - the yellow fringe, exactly.
+
+**The swamp overlay (asm lines 382-397) samples t14 slice 3 gated on swamp weight
+> 0.4 (smoothstep to 0.6) and is ALBEDO-ONLY** - it writes the albedo register and
+never touches the normal path, so an AshBlend-style slice swap needs no normal-array
+patch. Slice 3's alpha modulates the overlay strength (`mad_sat` with the weight).
+
 ## Recommendations for Ashlands Reborn
 
 To fully replace Ashlands terrain with grass (Meadows), swap these slices with grass (e.g. slice 0):
