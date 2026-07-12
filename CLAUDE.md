@@ -415,10 +415,10 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 - Self-test additions: island teleport + solid-ground spawn probe + per-attack
   re-anchoring (rolls carry the Morgen off the platform), star-look cycling captures,
   `FreezeAI` for still tint shots, frustum-scan + EffectList-inventory recon dumps.
-- KNOWN OPEN BUG: the star-look gallery captures show no hare even though the capture-time
-  frustum scan reports the hare SMR in-frustum with `vis=True` and the Morgen properly
-  hidden; the same run's attack shots show the hare perfectly. Suspects and a decisive
-  next test are recorded in the plan file's status appendix.
+- Star-look capture bug: RESOLVED (user-verified in-game 2026-07-11). `FableBunnyStarLook`
+  rotates perfectly in-app (the 2★ white hare looks notably good); the empty star-look
+  GALLERY shots were a capture-harness artifact only. No code fix needed — don't reopen
+  unless in-game behavior regresses.
 
 ### Charred Warrior armor (LEGACY — active only when `EnableFableWarrior=false`)
 
