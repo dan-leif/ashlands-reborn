@@ -14,11 +14,11 @@ internal enum TransitionStyle
     /// stride-2 subsampled grid. Kept as the user's revert path.</summary>
     Legacy,
 
-    /// <summary>Legacy's look (binary Meadows/full-AshLands stamp, no fade band) but
-    /// thresholded on the styled path's blurred + skirted + Perlin-jittered field, so the
-    /// contour wanders as a smooth organic line instead of 90/45-degree lattice rectangles.
-    /// The thin (~1 triangle) yellow interpolation fringe along the line is accepted - it is
-    /// the GPU crossing the (t,0,0,t) diagonal, inherent to any binary stamp.</summary>
+    /// <summary>Legacy's look (green meets full ash directly, no mud stage) with MudBlend's
+    /// curve quality: the same [hold-W, hold] fade geometry and smooth field, but R and A
+    /// ramp together along the (t,0,0,t) diagonal. Mid-fade shows a soft warm tinge (the
+    /// diagonal's partial Plains/Swamp weights) - Legacy's hard yellow fringe spread gently
+    /// along an organic line.</summary>
     LegacySmooth,
 
     /// <summary>Grass fades into scorched mud (Swamp channel), then mud fades into ash,
@@ -83,8 +83,6 @@ internal static class TerrainTransition
     private const float LavaRimR = 0.06f, LavaRimAWidth = 0.035f;
     private const float LavaGrassFraction = 0.2f;
     private const float LavaJitterFactor = 0.5f;
-    // LegacySmooth: grass stops this far (mask units) short of the binary stamp line.
-    private const float LegacySmoothGrassMargin = 0.02f;
 
     internal static float AshHold => Mathf.Clamp(Plugin.TransitionAshHold?.Value ?? 0.2f, 0.05f, 0.55f);
     private static float FadeWidth => Mathf.Clamp(Plugin.TransitionFadeWidth?.Value ?? 0.15f, 0.05f, 0.5f);
@@ -107,33 +105,6 @@ internal static class TerrainTransition
 
     internal static float SkirtDecayPerMeter(TransitionStyle style) =>
         BandWidth(style) / (UsesLavaRim(style) ? LavaSkirtMeters : MudSkirtMeters);
-
-    /// <summary>LegacySmooth's stamp threshold sits a ~2.5-cell guard margin BELOW the ash
-    /// hold. Run-1 finding: stamping at the hold itself exposes the raw AshHold gate as 1m
-    /// lattice stair-steps wherever a raw-mask cliff (thin lava channel) pokes gated
-    /// vertices outside the smooth field's contour - the blur dilutes the field below the
-    /// hold right where raw is at/above it. Band styles hide the gate because their A-ramp
-    /// reaches 255 exactly at the hold; a binary stamp has no partial alpha to hide behind,
-    /// so its region must strictly CONTAIN the gate region: the blurred skirt droops at
-    /// most ~2 cells x decay below the hold over any raw>=hold vertex (worst case: isolated
-    /// single-cell feature under a radius-2 blur), hence the margin. Net effect at defaults
-    /// is a threshold of ~0.106 - almost exactly Legacy's own 0.1 stamp level. The hold/2
-    /// floor keeps extreme knob combos (min hold + max fade width) from stamping ash on
-    /// half the map.</summary>
-    internal static float LegacySmoothThreshold =>
-        Mathf.Max(AshHold - 2.5f * SkirtDecayPerMeter(TransitionStyle.LegacySmooth), AshHold * 0.5f);
-
-    /// <summary>Width (mask units, ~2 field cells) of LegacySmooth's anti-aliasing
-    /// micro-ramp below the stamp threshold. A hard per-vertex stamp renders
-    /// lattice-quantized edges no matter how smooth the thresholded field is (runs 2-3:
-    /// jitter turns long straight runs into sawtooth, but every segment is still a 1m
-    /// lattice edge, and the fringe highlights it). The fix embraces the accepted
-    /// artifact: ramp R and A together across [t-w, t] - straight through the (t,0,0,t)
-    /// Plains diagonal - so the visible contour is the interpolated iso-line INSIDE
-    /// boundary triangles (sub-vertex smooth), and the yellow fringe becomes the ~1-2
-    /// triangle anti-aliasing gradient along it. Below ~1.5-2 cells the ramp re-shows
-    /// lattice steps (v2 finding).</summary>
-    internal static float LegacySmoothAAWidth => 2f * SkirtDecayPerMeter(TransitionStyle.LegacySmooth);
 
     internal static int SkirtRadiusCells(TransitionStyle style) =>
         Mathf.CeilToInt(UsesLavaRim(style) ? LavaSkirtMeters : MudSkirtMeters) + 1;
@@ -293,23 +264,6 @@ internal static class TerrainTransition
         return (Mathf.PerlinNoise(wx * scale + 10000f, wz * scale + 10000f) - 0.5f) * strength;
     }
 
-    /// <summary>Second, higher-frequency jitter octave (4x base scale, 3/4 amplitude),
-    /// LegacySmooth only. A binary stamp renders lattice-quantized edges by construction;
-    /// the base ~12m-wavelength noise wanders the contour but leaves long straight
-    /// vertex-runs intact at 1m scale (v4 run-2 finding, worst along the skirt's
-    /// distance-field contours near thin lava channels). The short octave breaks those
-    /// runs into irregular single-vertex wander that reads as texture, not staircase.</summary>
-    internal static float Jitter2(float wx, float wz)
-    {
-        var strength = Plugin.TransitionNoiseStrength?.Value ?? 0.08f;
-        if (strength <= 0f) return 0f;
-        var scale = (Plugin.TransitionNoiseScale?.Value ?? 0.08f) * 4f;
-        return (Mathf.PerlinNoise(wx * scale + 20000f, wz * scale + 20000f) - 0.5f) * strength * 0.75f;
-    }
-
-    /// <summary>Maximum magnitude of Jitter + Jitter2, for positive-biasing.</summary>
-    private static float JitterAmplitude => (Plugin.TransitionNoiseStrength?.Value ?? 0.08f) * 0.875f;
-
     internal static Color32 EvaluateColor(TransitionStyle style, float rawMask, float mask,
         float skirt, float wx, float wz, int col, int row, int side)
     {
@@ -331,28 +285,20 @@ internal static class TerrainTransition
         var jitter = Jitter(wx, wz) * jf;
         var m = Mathf.Max(mask + jitter, skirt + jitter * 0.5f);
 
-        // LegacySmooth: Legacy's green/full-ash stamp on the smooth field at a
-        // guard-margin threshold (see LegacySmoothThreshold) so the stamp region strictly
-        // contains the raw AshHold gate region - no exposed 1m gate lattice. Two-octave
-        // jitter (see Jitter2) makes the contour wander; the skirt term's jitter is
-        // positive-BIASED (never below the un-jittered skirt) because the gate-cover
-        // guarantee needs the blurred skirt alone to reach t over every raw>=hold vertex.
-        // The edge itself is anti-aliased by a ~2-cell micro-ramp straight through the
-        // (t,0,0,t) Plains diagonal (see LegacySmoothAAWidth) - the accepted yellow
-        // fringe becomes the smoothing gradient, and the visible contour is the
-        // interpolated iso-line inside boundary triangles instead of a lattice polyline.
-        // The un-jittered guard keeps extreme knob combos (low hold + high noise
-        // strength) from stamping stray ash speckles far from any lava; near the contour
-        // the smooth field is ~t, far above t/2.
+        // LegacySmooth: MudBlend's exact fade geometry - same [hold-W, hold] anchors,
+        // same smooth field - but R and A ramp TOGETHER, so green blends straight into
+        // full ash along the (t,0,0,t) diagonal with no mud stage. Contour quality
+        // therefore matches MudBlend's curves by construction (v4 runs 1-4 lesson: any
+        // stamp or narrow ramp that compresses the green/ash contrast into <~3 vertices
+        // renders lattice-quantized edges; the fade must span the full band width). The
+        // A-ramp ending at 255 exactly at the hold hides the raw AshHold gate the same
+        // way every band style does. Mid-fade the diagonal crosses partial Plains/Swamp
+        // weights - a soft warm tinge that replaces Legacy's hard 1-triangle yellow
+        // fringe (the accepted artifact, now spread gently along a smooth line).
         if (style == TransitionStyle.LegacySmooth)
         {
-            var t = LegacySmoothThreshold;
-            var j2 = jitter + Jitter2(wx, wz);
-            var ms = Mathf.Max(mask + j2, skirt + (j2 + JitterAmplitude) * 0.5f);
-            if (Mathf.Max(mask, skirt) < t * 0.5f) return new Color32(0, 0, 0, 0);
-            var f = Mathf.SmoothStep(0f, 255f, Mathf.InverseLerp(t - LegacySmoothAAWidth, t, ms));
-            var b = (byte)Mathf.RoundToInt(f);
-            return new Color32(b, 0, 0, b);
+            var lw = FadeWidth;
+            return BandColor(m, hold - lw, hold, hold - lw, hold);
         }
 
         if (UsesLavaRim(style))
@@ -413,14 +359,6 @@ internal static class TerrainTransition
         // sprouting on the gray skirt around thin lava features.
         var mask = SkirtedMask(hmap, point, hold, SkirtDecayPerMeter(style));
 
-        if (style == TransitionStyle.LegacySmooth)
-        {
-            // Mirror the stamp: same field, same two-octave jitter, stopping a small
-            // margin short of the AA ramp's outer (green) edge so grass never pokes
-            // through the fringe or the ash.
-            return mask + Jitter(point.x, point.z) + Jitter2(point.x, point.z)
-                < LegacySmoothThreshold - LegacySmoothAAWidth - LegacySmoothGrassMargin;
-        }
         if (UsesLavaRim(style))
         {
             var cutoff = hold - LavaRimR + (LavaRimR - LavaRimAWidth) * LavaGrassFraction;

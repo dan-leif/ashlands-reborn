@@ -222,9 +222,9 @@ public class Plugin : BaseUnityPlugin
             "MudBlend",
             new ConfigDescription(
                 "How green terrain transitions into ash/lava. Legacy = original binary stamp (exact previous " +
-                "behavior). LegacySmooth = the same binary green/ash stamp on a smoothed+jittered field, so the " +
-                "contour is an organic line instead of lattice stair-steps (thin yellow interpolation fringe " +
-                "accepted). MudBlend = grass -> scorched mud -> ash -> lava multi-band fade with organic noisy " +
+                "behavior). LegacySmooth = green blends straight into ash across one smooth organic fade (no " +
+                "mud stage; a soft warm mid-fade tinge replaces Legacy's hard yellow fringe). MudBlend = " +
+                "grass -> scorched mud -> ash -> lava multi-band fade with organic noisy " +
                 "edges. AshBlend = MudBlend's fade geometry but the mud renders as ash (green fades directly " +
                 "into ash - no swamp texture, no yellow). RockBlend = GrassToLava's tight rim rendered as gray " +
                 "rock (the dug-rock-strip look). GrassToLava = grass runs almost to the lava rivers with a " +
