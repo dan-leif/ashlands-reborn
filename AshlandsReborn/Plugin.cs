@@ -922,16 +922,11 @@ public class Plugin : BaseUnityPlugin
             // under the old "Charred Warrior" / "Warrior General" sections.
             MigrateKey("Charred Warrior", "CharredWarriorKromScale", WarriorKromScale);
             MigrateKey("Warrior General", "WarriorKromScale", WarriorKromScale);
-            // DataDumpKey removed — just clean it up
-            var defDataDump = new ConfigDefinition("Charred Warrior", "DataDumpKey");
-            if (Config.ContainsKey(defDataDump)) Config.Remove(defDataDump);
-
-            // The legacy Charred Warrior system was removed (superseded by the Fable puppet).
-            // Purge its four config sections so no stale keys linger in saved cfg files.
-            // Once the binds are gone BepInEx keeps the old keys as "orphaned entries", which
-            // Config.Remove/ContainsKey do NOT touch - reach them via reflection and drop the
-            // whole section. (WarriorKromScale already migrated above to "Fable Warrior".)
-            System.Collections.IDictionary orphanedEntries = null;
+            // Dead config sections linger in saved cfg files because BepInEx keeps unbound keys
+            // as "orphaned entries" that Config.Remove/ContainsKey do NOT touch (which is also
+            // why the DataDumpKey and Valkyrie "Creatures"->"Valkyrie" migrations above could
+            // never actually delete the old keys). Reach the orphan store via reflection.
+            System.Collections.IDictionary? orphanedEntries = null;
             try
             {
                 var prop = typeof(ConfigFile).GetProperty("OrphanedEntries",
@@ -940,21 +935,28 @@ public class Plugin : BaseUnityPlugin
             }
             catch { /* internals unavailable on this BepInEx build - orphans stay (invisible in F1) */ }
 
-            void PurgeSection(string section)
+            // Remove ONLY orphaned (unbound) entries in a section. Live/bound keys are never in
+            // the orphan store, so this can never delete a key an active feature still uses -
+            // safe even for mixed sections. In particular the live Valkyrie keys are bound under
+            // the "Valkyrie" section, so purging "Creatures" leaves them completely untouched.
+            void PurgeOrphanedSection(string section)
             {
-                // Bound stragglers (defensive - all binds for these sections were deleted).
-                foreach (var def in Config.Keys.Where(d => d.Section == section).ToList())
-                    Config.Remove(def);
-                // Orphaned entries BepInEx preserved after the binds were removed.
-                if (orphanedEntries != null)
-                    foreach (var def in orphanedEntries.Keys.Cast<ConfigDefinition>()
-                                 .Where(d => d.Section == section).ToList())
-                        orphanedEntries.Remove(def);
+                if (orphanedEntries == null) return;
+                var dead = orphanedEntries.Keys.Cast<ConfigDefinition>()
+                    .Where(d => d.Section == section).ToList();
+                foreach (var def in dead)
+                    orphanedEntries.Remove(def);
             }
-            PurgeSection("Warrior General");
-            PurgeSection("Warrior Body");
-            PurgeSection("Warrior Player Armor");
-            PurgeSection("Warrior Vanilla Armor");
+            // The four legacy Warrior sections (all their binds were deleted this release) plus
+            // two ancient dead sections from long-superseded versions: "Charred Warrior" (fully
+            // dead) and "Creatures" (orphaned CharredWarrior/BodySwap leftovers + stale Valkyrie
+            // duplicates already migrated to "Valkyrie"). WarriorKromScale was migrated above.
+            PurgeOrphanedSection("Warrior General");
+            PurgeOrphanedSection("Warrior Body");
+            PurgeOrphanedSection("Warrior Player Armor");
+            PurgeOrphanedSection("Warrior Vanilla Armor");
+            PurgeOrphanedSection("Charred Warrior");
+            PurgeOrphanedSection("Creatures");
             Config.Save();
 
             // Removed: the Fable Warrior retarget now always copies Charred bone orientations
