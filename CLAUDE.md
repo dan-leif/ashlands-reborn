@@ -163,8 +163,7 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `ClutterSystemPatches.cs` | `ClutterSystem.GetGroundInfo` | Meadows grass on green terrain; excluded from lava/mud per the active transition style |
 | `TerrainPhotoPatches.cs` | None (no Harmony patches) | Dev harness: teleports to the transition test spot, cycles every transition style, captures top-down/oblique/close shots per style |
 | `ValkyriePatches.cs` | Creature spawn | Swaps Fallen Valkyrie prefab with Valkyrie mesh/animations |
-| `CharredWarriorPatches.cs` | Creature spawn | LEGACY (bypassed when `EnableFableWarrior=true`): equips armor/sword on Charred Melee via bind-pose math |
-| `FableWarriorPatches.cs` | `Humanoid.Awake`, `MonoUpdaters.LateUpdate`, `VisEquipment.Set*Equipped` | CURRENT Charred Warrior system: scaled Player-rig puppet dressed via native VisEquipment, driven by the Charred's animation (see below) |
+| `FableWarriorPatches.cs` | `Humanoid.Awake`, `MonoUpdaters.LateUpdate`, `VisEquipment.Set*Equipped` | Charred Warrior system: scaled Player-rig puppet dressed via native VisEquipment, driven by the Charred's animation (see below) |
 | `FableBunnyPatches.cs` | `Character.Awake`, `Humanoid.StartAttack`, `Ragdoll.Awake` (all manually applied with null-guards), `MonoUpdaters.LateUpdate` | Fable Bunny: replaces the Morgen's visuals with a giant self-animating Hare (+ optional hybrid Lox for bite/roll). See "Fable Bunny" below |
 | `PhotoModePatches.cs` | `GameCamera.LateUpdate` (prefix) | Dev verification harness: spawns a warrior, orbits the camera, captures full-body + close-up screenshots autonomously |
 | `LifecycleTestPatches.cs` | None (no Harmony patches) | Dev M4 self-test: spawns 3 warriors (incl. 2★), asserts toggle/refresh/sync/scale lifecycle invariants |
@@ -298,18 +297,18 @@ All `ConfigEntry` properties are `public static` so patch classes read them dire
 
 ### Fable Warrior puppet (CURRENT Charred Warrior system — covers all four charred creatures)
 
-`FableWarriorPatches.cs` replaces the legacy hodgepodge below. Core idea: player-authored
-meshes never leave the skeleton they were authored for. A stripped, visual-only Player
-prefab ("puppet") is instantiated as a child of the creature's `Visual` node, the
-Charred's own renderers are hidden, and every `MonoUpdaters.LateUpdate` the Charred bones'
-rotations are retargeted onto the matching puppet bones (shared Mixamo names) via
-deviation-from-rest transfer, with a computed rest-pose alignment baked in for the 6
-arm-chain bones (their rest poses differ by a ~28/48/59.5° constant). Globally active when
-`MasterSwitch && EnableFableWarrior` (`Plugin.IsFablePuppetActive`); the entire legacy
-`CharredWarriorPatches` path is bypassed via its `ShouldSwap()` guard.
+`FableWarriorPatches.cs` is the Charred Warrior visual system (the old legacy bind-pose
+armor swap has been removed). Core idea: player-authored meshes never leave the skeleton
+they were authored for. A stripped, visual-only Player prefab ("puppet") is instantiated
+as a child of the creature's `Visual` node, the Charred's own renderers are hidden, and
+every `MonoUpdaters.LateUpdate` the Charred bones' rotations are retargeted onto the
+matching puppet bones (shared Mixamo names) via deviation-from-rest transfer, with a
+computed rest-pose alignment baked in for the 6 arm-chain bones (their rest poses differ
+by a ~28/48/59.5° constant). Globally active when `MasterSwitch && EnableFableWarrior`
+(`Plugin.IsFablePuppetActive`).
 
 **Per-creature profile table** (`FableWarriorPatches.Profiles`): the same machinery covers
-`Charred_Melee` (Krom sword, right hand, legacy sizing + grip configs),
+`Charred_Melee` (Krom sword, right hand, `WarriorKromScale` sizing + grip configs),
 `Charred_Archer` (`FableArcherBow` bow, left hand, rig-normalized sizing),
 `Charred_Twitcher`/`Charred_Twitcher_Summoned` (bare hands), and
 `Charred_Mage` (`FableMageStaff` staff, right hand, rig-normalized). Each profile has its
@@ -385,9 +384,8 @@ the donor keeps its OWN Animator and is state-synced to the Morgen instead:
   concern is moot; `Ragdoll.Awake` postfix still hides any morgen-named ragdoll as
   insurance behind `FableBunnyHideRagdoll`.
 - **Lifecycle**: marker `AshlandsRebornFableBunny`, `RevertAll`/`RefreshAll` (one-frame
-  wait after revert, same as warrior), wired into `ApplyMasterSwitch`, F10, and
-  `SettingChanged` for `EnableFableBunny`/`FableBunnyDonor`/`FableBunnyHybridMode`
-  (donor/hybrid changes rebuild live via F1).
+  wait after revert, same as warrior), wired into `ApplyMasterSwitch` and `SettingChanged`
+  for every Fable Bunny config key (all changes rebuild live via F1).
 
 **Autonomous verification**: `FableBunnyReconDump=true` (Dev Automation) dumps rig/
 animator/attack recon for Morgen/Hare/Lox instances (`[AR BunnyRecon]` lines), then ~90s
@@ -454,41 +452,6 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
   GALLERY shots were a capture-harness artifact only. No code fix needed — don't reopen
   unless in-game behavior regresses.
 
-### Charred Warrior armor (LEGACY — active only when `EnableFableWarrior=false`)
-
-`CharredWarriorPatches.cs` (~1500 lines) is the most involved file. It:
-1. Clones armor item prefabs from `ObjectDB`
-2. Computes bind-pose bone transforms from the creature skeleton
-3. Attaches `SkinnedMeshRenderer` components with correct bone arrays and bind poses
-4. Applies per-piece scale, rotation, and offset config values at attach time
-
-**Chest armor Blender retargeting** (see `CHEST_RETARGET_PLAN.md`). Seven programmatic bind-pose approaches were exhausted; the fix required Blender-computed bind poses due to ~177° arm bone orientation mismatch between the Charred and Player skeletons.
-
-**Hybrid approach (current implementation):**
-
-The final design combines two layers to work around the ~177° arm bone orientation mismatch:
-
-1. **Body swap layer** (`EnableBodySwap = true`, default): The player body mesh (cached from the local Player's `VisEquipment.m_bodyModel` on first Awake) is placed on the Charred skeleton with the player's original bind poses intact. Because both skeletons share Mixamo bone names, GPU skinning deforms it via Charred bones, giving volumetric deforming arms. Color/emission/scale/offset are configurable.
-
-2. **Approach A armor on top** (unchanged): SouthsilArmor pieces attached via Blender-retargeted bind poses. Torso/legs/helm/cape look great. Arm geometry from the chest armor is hidden via `TrimChestArms = true` (default) by truncating `subMeshCount` from 10 to 7 on the cloned mesh (submeshes 7-9 are 100% arm/hand geometry). This modifies only the submesh descriptor table, not vertex/index buffers, bypassing the `isReadable=false` constraint. The body swap arms show through instead. Correct textures are preserved because the original Unity mesh is used (`UObject.Instantiate` of prefab mesh) rather than a rebuilt binary.
-
-**SouthsilArmor mesh `isReadable=false` constraint**: All SouthsilArmor meshes have `isReadable=false` baked into the asset bundle. This blocks `SetTriangles`, `GetTriangles`, `GetVertices`, and all other mesh data APIs at runtime — even on `UObject.Instantiate()` clones. There is no public Unity API to flip this flag at runtime, and we cannot change import settings on a third-party mod's pre-built bundles. `Mesh.AcquireReadOnlyMeshData()` (Unity 2020.1+) can bypass `isReadable` for reading, but writing requires building a new mesh from scratch.
-
-**Key config toggles:**
-- `EnableBodySwap` (bool, default true) — adds the player body mesh layer
-- `TrimChestArms` (bool, default true) — hides arm submeshes (7-9) via subMeshCount truncation
-- `ShowVanillaChest / ShowVanillaShoulders` (bool, default false) — overlay vanilla pieces for comparison
-- `BodySwapColorR/G/B`, `BodySwapEmissionR/G/B` — material color/emission of the body layer
-- `BodySwapScale`, `BodySwapYOffset` — size and vertical position of the body layer
-
-**MasterSwitch toggle revert/refresh cycle:**
-
-`RevertAllCharredWarriors()` (OFF) must call Valheim's `Set*Item()` methods (not just set fields via reflection) so that Valheim updates its internal ZDO hashes. Without this, `RefreshCharredWarriors()` (ON) fails because Valheim sees the ZDO hash already matches the target item and skips instance creation. After the `Set*Item()` calls, leftover instances are explicitly destroyed as a safety net via `DestroyAndClearField`/`DestroyListInstances`.
-
-**`m_current*ItemHash` must also be reset to 0 after revert and before refresh:** `DestroyAndClearField`/`DestroyListInstances` destroy visual GameObjects but do NOT reset `VisEquipment`'s internal `m_currentHelmetItemHash`, `m_currentChestItemHash`, `m_currentLegItemHash`, `m_currentShoulderItemHash` fields. `Set*Equipped(hash)` returns false immediately when its slot's hash matches — so if the hash was never cleared, the destroyed instances are never recreated. Fix: after destroying instances in `RevertAllCharredWarriors()` and before calling `Set*Item()` in `RefreshCharredWarriors()`, set all four fields to `0` via reflection (`FCurrentHelmetItemHash?.SetValue(vis, 0)` etc.). These fields are declared as `private static readonly FieldInfo?` alongside the other VisEquipment field accessors.
-
-**Helmet scale/rotation must be absolute, not additive:** `ScaleHelmetAfterAttach` sets `localScale`, `localRotation`, and `localPosition` to absolute values (not `*=` or `+=`). The prefab's original scale is cached in a static `_cachedHelmetPrefabScale` field (not on the marker, which is destroyed during revert). Config scale is applied as `_cachedHelmetPrefabScale * configScale`.
-
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 
 | Config key | Default hotkey | Effect |
@@ -496,8 +459,7 @@ The final design combines two layers to work around the ~177° arm bone orientat
 | `MasterSwitch` | Backspace | Toggle all features |
 | `TerrainPhotoKey` | F7 | Run the terrain transition photo harness on demand |
 | `TreeRefreshKey` | F8 | Respawn tree replacements |
-| `CharredWarriorRefreshKey` | F10 | Dump chest matrices + re-apply Charred Warrior armor |
-| `DataDumpKey` | F11 | Dump player body mesh + charred sinew positioning data |
+| `ValkyrieRefreshKey` | F9 | Re-apply the Valkyrie swap to nearby Fallen Valkyries |
 
 ### Dev Automation config (section "Dev Automation")
 
@@ -520,12 +482,16 @@ The final design combines two layers to work around the ~177° arm bone orientat
 
 | Config key | Default | Effect |
 |---|---|---|
-| `EnableFableWarrior` | true | Global gate: bypass ALL legacy warrior mods in favor of the puppet system (all creatures) |
+| `EnableFableWarrior` | true | Global gate for the puppet system across all charred creatures |
 | `ClonePlayerToWarrior` | true | Build the player puppet on every Charred_Melee |
 | `FableWarriorScale` | 1.0 | Multiplier on the auto-computed height-match scale |
 | `FableHelmetScale` / `FableHelmetYOffset` | 1.0 / 0 | Fine-tune the (already scale-normalized) puppet helmet (all creatures) |
 | `FableKromGripRotX/Y/Z` | 12 / 0 / 0 | Krom grip rotation (deg, hand-attach frame); RotX=12 calibrates the shoulder rest |
 | `FableKromGripOffX/Y/Z` | 0 | Krom grip position offset (m, hand-attach frame) |
+| `WarriorKromScale` | 1.16 | Krom sword size for the puppet (moved here from the removed legacy Warrior sections) |
+
+Every key in the Fable Warrior/Archer/Twitcher/Mage sections applies **instantly** via
+`SettingChanged` (rebuilds the affected puppets live) — there is no manual refresh hotkey.
 
 Sections "Fable Archer" (`ClonePlayerToArcher`, `FableArcherScale`, `FableArcherBow` =
 "BowAshlands", `FableArcherBowScale`), "Fable Twitcher" (`ClonePlayerToTwitcher`,
