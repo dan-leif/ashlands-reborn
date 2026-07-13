@@ -927,43 +927,35 @@ public class Plugin : BaseUnityPlugin
             if (Config.ContainsKey(defDataDump)) Config.Remove(defDataDump);
 
             // The legacy Charred Warrior system was removed (superseded by the Fable puppet).
-            // Purge its four config sections from saved cfg files so no orphaned keys linger.
-            // (WarriorKromScale is intentionally excluded — it moved to "Fable Warrior".)
-            void PurgeSection(string section, string[] keys)
+            // Purge its four config sections so no stale keys linger in saved cfg files.
+            // Once the binds are gone BepInEx keeps the old keys as "orphaned entries", which
+            // Config.Remove/ContainsKey do NOT touch - reach them via reflection and drop the
+            // whole section. (WarriorKromScale already migrated above to "Fable Warrior".)
+            System.Collections.IDictionary orphanedEntries = null;
+            try
             {
-                foreach (var dead in keys)
-                {
-                    var def = new ConfigDefinition(section, dead);
-                    if (Config.ContainsKey(def)) Config.Remove(def);
-                }
+                var prop = typeof(ConfigFile).GetProperty("OrphanedEntries",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                orphanedEntries = prop?.GetValue(Config) as System.Collections.IDictionary;
             }
-            PurgeSection("Warrior General", new[] { "EnableWarriorSwap", "WarriorRefreshKey" });
-            PurgeSection("Warrior Body", new[]
+            catch { /* internals unavailable on this BepInEx build - orphans stay (invisible in F1) */ }
+
+            void PurgeSection(string section)
             {
-                "EnableWarriorBodySwap", "WarriorChestGlow", "WarriorBodySwapScale",
-                "WarriorBodySwapThickness", "WarriorBodySwapTextureSubmesh",
-                "WarriorBodySwapHideHead", "WarriorBodySwapHeadCutoffY", "WarriorEyeGlowColor",
-                "WarriorEyeGlowIntensity", "WarriorEyeGlowOffsetX", "WarriorEyeGlowOffsetY",
-                "WarriorEyeGlowOffsetZ",
-            });
-            PurgeSection("Warrior Player Armor", new[]
-            {
-                "EnableWarriorPlayerArmor", "WarriorChestName", "WarriorChestScale",
-                "WarriorChestCollapseArmBones", "WarriorChestCollapseForeArmBones",
-                "WarriorChestSubmeshesHidden", "WarriorChestTrimArms", "WarriorLegsName",
-                "WarriorLegsScale", "WarriorHelmetName", "WarriorHelmetScale",
-                "WarriorHelmetYaw", "WarriorHelmetYOffset", "WarriorHelmetZOffset",
-            });
-            PurgeSection("Warrior Vanilla Armor", new[]
-            {
-                "ShowWarriorVanillaHelmet", "ShowWarriorVanillaBodyArmor",
-                "WarriorVanillaVisibleSubmeshes", "WarriorVanillaCollapseBones",
-                "WarriorVanillaScaleBones", "WarriorVanillaDumpSubmeshesKey",
-                // dead keys from earlier "Warrior Vanilla Armor" iterations
-                "ForceWarriorVanillaArmor", "ForceWarriorVanillaArmorAll",
-                "ShowWarriorVanillaChest", "ShowWarriorVanillaShoulders",
-                "ShowWarriorVanillaBracers", "WarriorVanillaBracersScale",
-            });
+                // Bound stragglers (defensive - all binds for these sections were deleted).
+                foreach (var def in Config.Keys.Where(d => d.Section == section).ToList())
+                    Config.Remove(def);
+                // Orphaned entries BepInEx preserved after the binds were removed.
+                if (orphanedEntries != null)
+                    foreach (var def in orphanedEntries.Keys.Cast<ConfigDefinition>()
+                                 .Where(d => d.Section == section).ToList())
+                        orphanedEntries.Remove(def);
+            }
+            PurgeSection("Warrior General");
+            PurgeSection("Warrior Body");
+            PurgeSection("Warrior Player Armor");
+            PurgeSection("Warrior Vanilla Armor");
+            Config.Save();
 
             // Removed: the Fable Warrior retarget now always copies Charred bone orientations
             // directly (no rest-pose "source" choice), so this dev knob is obsolete.
