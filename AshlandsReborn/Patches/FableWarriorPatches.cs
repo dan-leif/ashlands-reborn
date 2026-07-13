@@ -9,6 +9,10 @@ using UObject = UnityEngine.Object;
 
 namespace AshlandsReborn.Patches;
 
+/// <summary>How the Fable Warrior (Charred_Melee) puppet is dressed. Parsed from the
+/// FableWarriorSwitch config string.</summary>
+internal enum FableWarriorMode { Vanilla, ClonePlayer, CustomEquipment }
+
 /// <summary>
 /// Fable Warrior: replaces the legacy Charred Warrior body/armor hodgepodge (removed)
 /// with a scaled Player-rig "puppet" driven by the Charred's own animation.
@@ -52,8 +56,22 @@ internal static class FableWarriorPatches
         public Func<string> LeftItem = () => "";
         public Func<float> WeaponScale = () => 1f;
         public Func<float> BodyScale = () => 1f;
-        /// <summary>Warrior only: legacy Krom sizing (no rig normalization) + grip rot/offset configs.</summary>
-        public bool KromGrip;
+        /// <summary>Multiplier on the (already rig-normalized) helmet size. Warrior reads its own
+        /// config; the other classes default to 1.0 (rig-normalize only).</summary>
+        public Func<float> HelmetScale = () => 1f;
+        /// <summary>Warrior CustomEquipment only: replace the cloned player armor slots with the
+        /// configured helmet/chest/legs/shoulder item IDs after SetupVisEquipment.</summary>
+        public Func<bool> OverrideArmor = () => false;
+        public Func<string> HelmetItem = () => "";
+        public Func<string> ChestItem = () => "";
+        public Func<string> LegItem = () => "";
+        public Func<string> ShoulderItem = () => "";
+        /// <summary>Warrior ClonePlayer only: keep the player's cloned hand/back items instead of
+        /// overriding them with RightItem/LeftItem (so the puppet mirrors the player's weapon).</summary>
+        public Func<bool> KeepClonedHands = () => false;
+        /// <summary>Warrior CustomEquipment only: apply the configured weapon grip rot/offset
+        /// (hand-attach frame) + WeaponScale to the right-hand item instead of rig-normalizing it.</summary>
+        public Func<bool> WeaponGrip = () => false;
     }
 
     private static readonly CreatureProfile[] Profiles =
@@ -62,11 +80,20 @@ internal static class FableWarriorPatches
         {
             Label = "Warrior",
             Prefabs = new[] { CharredMeleePrefab },
-            Enabled = () => Plugin.ClonePlayerToWarrior?.Value == true,
-            RightItem = () => KromPrefabName,
-            WeaponScale = () => Plugin.WarriorKromScale?.Value ?? 1.16f,
+            Enabled = () => WarriorMode() != FableWarriorMode.Vanilla,
+            RightItem = () => Plugin.FableWarriorWeapon?.Value ?? KromPrefabName,
+            LeftItem = () => "",
+            WeaponScale = () => WarriorMode() == FableWarriorMode.CustomEquipment
+                ? (Plugin.FableWarriorWeaponScale?.Value ?? 1.16f) : 1f,
             BodyScale = () => Plugin.FableWarriorScale?.Value ?? 1f,
-            KromGrip = true,
+            HelmetScale = () => Plugin.FableWarriorHelmetScale?.Value ?? 1f,
+            OverrideArmor = () => WarriorMode() == FableWarriorMode.CustomEquipment,
+            HelmetItem = () => Plugin.FableWarriorHelmet?.Value ?? "",
+            ChestItem = () => Plugin.FableWarriorChest?.Value ?? "",
+            LegItem = () => Plugin.FableWarriorLegs?.Value ?? "",
+            ShoulderItem = () => Plugin.FableWarriorShoulders?.Value ?? "",
+            KeepClonedHands = () => WarriorMode() == FableWarriorMode.ClonePlayer,
+            WeaponGrip = () => WarriorMode() == FableWarriorMode.CustomEquipment,
         },
         new()
         {
@@ -94,6 +121,18 @@ internal static class FableWarriorPatches
             BodyScale = () => Plugin.FableMageScale?.Value ?? 1f,
         },
     };
+
+    /// <summary>Parse the FableWarriorSwitch config string into the mode enum (defaults to
+    /// CustomEquipment on an unrecognized/empty value).</summary>
+    internal static FableWarriorMode WarriorMode()
+    {
+        var raw = Plugin.FableWarriorSwitch?.Value?.Trim();
+        if (string.Equals(raw, "Vanilla", StringComparison.OrdinalIgnoreCase))
+            return FableWarriorMode.Vanilla;
+        if (string.Equals(raw, "ClonePlayer", StringComparison.OrdinalIgnoreCase))
+            return FableWarriorMode.ClonePlayer;
+        return FableWarriorMode.CustomEquipment;
+    }
 
     internal static CreatureProfile? FindProfile(string prefabName)
     {
@@ -186,8 +225,10 @@ internal static class FableWarriorPatches
     };
 
     // Fields hashed into the player-equipment signature for the ~2s live sync. Hand/back items
-    // are deliberately excluded: the puppet always carries the Krom regardless of what the
-    // player draws or sheathes, so weapon switches must not trigger pointless re-applies.
+    // are INCLUDED so a warrior ClonePlayer puppet (which mirrors the player's real weapon)
+    // re-syncs when the player swaps or sheathes a weapon. For the other classes and warrior
+    // CustomEquipment the hands are config/loadout-driven, so a re-apply just re-sets the same
+    // items (idempotent) - the extra churn on a weapon switch is negligible at the ~2s cadence.
     private static readonly FieldInfo?[] SignatureFields =
     {
         AccessTools.Field(typeof(VisEquipment), "m_chestItem"),
@@ -201,6 +242,11 @@ internal static class FableWarriorPatches
         AccessTools.Field(typeof(VisEquipment), "m_modelIndex"),
         AccessTools.Field(typeof(VisEquipment), "m_skinColor"),
         AccessTools.Field(typeof(VisEquipment), "m_hairColor"),
+        AccessTools.Field(typeof(VisEquipment), "m_rightItem"),
+        AccessTools.Field(typeof(VisEquipment), "m_leftItem"),
+        AccessTools.Field(typeof(VisEquipment), "m_leftItemVariant"),
+        AccessTools.Field(typeof(VisEquipment), "m_rightBackItem"),
+        AccessTools.Field(typeof(VisEquipment), "m_leftBackItem"),
     };
 
     // ---- registry ----------------------------------------------------------------------
@@ -484,10 +530,14 @@ internal static class FableWarriorPatches
 
     /// <summary>
     /// Clone the local player's full appearance onto the puppet (armor, beard/hair, model,
-    /// skin/hair color) via vanilla SetupVisEquipment, then override the hands with the
-    /// profile's loadout (Krom for the warrior, bow for the archer, staff for the mage,
-    /// nothing for the twitcher), clearing back slots. Defers via EquipPending when no local
-    /// player exists yet.
+    /// skin/hair color) via vanilla SetupVisEquipment, then apply the profile's loadout:
+    /// - OverrideArmor (warrior CustomEquipment): replace the cloned armor slots with configured
+    ///   item IDs (empty = bare) and clear the belt, so only the puppet's BODY comes from the
+    ///   player - "as if the player wore no armor".
+    /// - Hands: unless KeepClonedHands (warrior ClonePlayer - keep the player's real weapon +
+    ///   back items), override with RightItem/LeftItem (Krom/configured weapon for the warrior,
+    ///   bow for the archer, staff for the mage, nothing for the twitcher) and clear back slots.
+    /// Defers via EquipPending when no local player exists yet.
     /// </summary>
     internal static void TryApplyAppearance(AshlandsRebornFableWarrior marker)
     {
@@ -503,13 +553,26 @@ internal static class FableWarriorPatches
     private static void ApplyAppearance(AshlandsRebornFableWarrior marker, Player player, string signature)
     {
         if (marker.PuppetVis == null) return;
+        var profile = marker.Profile;
         try
         {
             MSetupVisEquipment?.Invoke(player, new object[] { marker.PuppetVis, false });
-            marker.PuppetVis.SetRightItem(marker.Profile?.RightItem() ?? "");
-            marker.PuppetVis.SetLeftItem(marker.Profile?.LeftItem() ?? "", 0);
-            marker.PuppetVis.SetLeftBackItem("", 0);
-            marker.PuppetVis.SetRightBackItem("");
+            if (profile?.OverrideArmor() == true)
+            {
+                // Body from the player, armor from config: empty IDs render a bare slot.
+                marker.PuppetVis.SetHelmetItem(profile.HelmetItem());
+                marker.PuppetVis.SetChestItem(profile.ChestItem());
+                marker.PuppetVis.SetLegItem(profile.LegItem());
+                marker.PuppetVis.SetShoulderItem(profile.ShoulderItem(), 0);
+                marker.PuppetVis.SetUtilityItem(""); // "no player armor" baseline: no belt
+            }
+            if (profile?.KeepClonedHands() != true)
+            {
+                marker.PuppetVis.SetRightItem(profile?.RightItem() ?? "");
+                marker.PuppetVis.SetLeftItem(profile?.LeftItem() ?? "", 0);
+                marker.PuppetVis.SetLeftBackItem("", 0);
+                marker.PuppetVis.SetRightBackItem("");
+            }
             marker.PuppetVis.CustomUpdate(0f, 0f); // attach now (no one-frame naked flash)
             marker.EquipPending = false;
             marker.AppliedEquipSignature = signature;
@@ -535,10 +598,11 @@ internal static class FableWarriorPatches
     /// re-scaled by the puppet-vs-prefab joint lossyScale ratio so they fit the scaled rig
     /// exactly as they fit the player, x their config multiplier.
     ///
-    /// The warrior's Krom instead keeps the legacy WarriorKromScale sizing (user-approved
-    /// look), plus a config-tunable grip rotation/offset in the hand-attach frame so the idle
-    /// sword-on-shoulder rest lays the blade beside the trapezius instead of through it
-    /// (M3.1 sword defect).
+    /// The warrior in CustomEquipment mode instead keeps the configured FableWarriorWeaponScale
+    /// sizing (user-approved Krom look), plus a config-tunable grip rotation/offset in the
+    /// hand-attach frame so the idle sword-on-shoulder rest lays the blade beside the trapezius
+    /// instead of through it (M3.1 sword defect). Warrior ClonePlayer (a cloned player weapon of
+    /// arbitrary type) uses the rig-normalize path at natural size like the other classes.
     /// </summary>
     private static IEnumerator FixupPuppetAttaches(AshlandsRebornFableWarrior marker)
     {
@@ -553,17 +617,17 @@ internal static class FableWarriorPatches
             && !ReferenceEquals(rightGo, marker.LastFixedRightItem))
         {
             var t = rightGo.transform;
-            if (profile?.KromGrip == true)
+            if (profile?.WeaponGrip() == true)
             {
                 t.localScale *= profile.WeaponScale();
                 t.localRotation *= Quaternion.Euler(
-                    Plugin.FableKromGripRotX?.Value ?? 0f,
-                    Plugin.FableKromGripRotY?.Value ?? 0f,
-                    Plugin.FableKromGripRotZ?.Value ?? 0f);
+                    Plugin.FableWarriorWeaponGripRotX?.Value ?? 0f,
+                    Plugin.FableWarriorWeaponGripRotY?.Value ?? 0f,
+                    Plugin.FableWarriorWeaponGripRotZ?.Value ?? 0f);
                 t.localPosition += new Vector3(
-                    Plugin.FableKromGripOffX?.Value ?? 0f,
-                    Plugin.FableKromGripOffY?.Value ?? 0f,
-                    Plugin.FableKromGripOffZ?.Value ?? 0f);
+                    Plugin.FableWarriorWeaponGripOffX?.Value ?? 0f,
+                    Plugin.FableWarriorWeaponGripOffY?.Value ?? 0f,
+                    Plugin.FableWarriorWeaponGripOffZ?.Value ?? 0f);
             }
             else
             {
@@ -591,12 +655,11 @@ internal static class FableWarriorPatches
             var ratio = JointLossyRatio(marker.PuppetVis.m_helmet, prefabVis != null ? prefabVis.m_helmet : null);
             var t = helmetGo.transform;
             var before = t.localScale;
-            t.localScale = before * ratio * (Plugin.FableHelmetScale?.Value ?? 1f);
-            t.localPosition += new Vector3(0f, Plugin.FableHelmetYOffset?.Value ?? 0f, 0f);
+            t.localScale = before * ratio * (profile?.HelmetScale() ?? 1f);
             marker.LastFixedHelmet = helmetGo;
             Plugin.Log?.LogInfo(
-                $"[Fable Warrior] Helmet fixed on {marker.gameObject.name}: jointLossyRatio={ratio:F3}, " +
-                $"localScale {before:F3} -> {t.localScale:F3}, yOffset={Plugin.FableHelmetYOffset?.Value ?? 0f:F3}");
+                $"[Fable Warrior] Helmet fixed on {marker.gameObject.name} ({profile?.Label}): jointLossyRatio={ratio:F3}, " +
+                $"localScale {before:F3} -> {t.localScale:F3}");
         }
     }
 

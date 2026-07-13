@@ -304,17 +304,30 @@ as a child of the creature's `Visual` node, the Charred's own renderers are hidd
 every `MonoUpdaters.LateUpdate` the Charred bones' rotations are retargeted onto the
 matching puppet bones (shared Mixamo names) via deviation-from-rest transfer, with a
 computed rest-pose alignment baked in for the 6 arm-chain bones (their rest poses differ
-by a ~28/48/59.5° constant). Globally active when `MasterSwitch && EnableFableWarrior`
-(`Plugin.IsFablePuppetActive`).
+by a ~28/48/59.5° constant). Globally active when `MasterSwitch` is on
+(`Plugin.IsFablePuppetActive`); per-creature enablement is the warrior's `FableWarriorSwitch`
+(Vanilla = off) and the other classes' `ClonePlayerTo*` toggles.
 
 **Per-creature profile table** (`FableWarriorPatches.Profiles`): the same machinery covers
-`Charred_Melee` (Krom sword, right hand, `WarriorKromScale` sizing + grip configs),
+`Charred_Melee` (warrior — see `FableWarriorSwitch` below),
 `Charred_Archer` (`FableArcherBow` bow, left hand, rig-normalized sizing),
 `Charred_Twitcher`/`Charred_Twitcher_Summoned` (bare hands), and
-`Charred_Mage` (`FableMageStaff` staff, right hand, rig-normalized). Each profile has its
-own enable toggle (`ClonePlayerTo*`), body-scale multiplier, and weapon-scale config in its
-own config section. Retarget offsets are computed and cached PER charred prefab (the
-variants share bone names, and empirically the same rest poses, but this is not assumed).
+`Charred_Mage` (`FableMageStaff` staff, right hand, rig-normalized). Archer/Twitcher/Mage
+each have their own enable toggle (`ClonePlayerTo*`), body-scale multiplier, and weapon-scale
+config in their own config section, and clone the player's body + armor + a fixed class
+weapon. Retarget offsets are computed and cached PER charred prefab (the variants share bone
+names, and empirically the same rest poses, but this is not assumed).
+
+**Warrior modes** (`FableWarriorSwitch`, parsed by `FableWarriorPatches.WarriorMode()`,
+Warrior-only): `Vanilla` = profile disabled, no puppet, 100% vanilla Charred; `ClonePlayer`
+= clone the player's body + armor AND the player's real equipped weapon (attached even if
+it's a non-warrior weapon; kept in sync via the resync signature), rig-normalized at natural
+size; `CustomEquipment` (default) = clone the player's BODY only, then override the armor
+slots + weapon with the `FableWarrior Helmet/Chest/Legs/Shoulders/Weapon` item IDs (empty =
+bare slot; default Knight set + Krom) and apply the weapon-grip/scale tuning. The mode is
+routed through per-profile `Func<>`s on `CreatureProfile` (`OverrideArmor`, `Helmet/Chest/
+Leg/ShoulderItem`, `KeepClonedHands`, `WeaponGrip`, `HelmetScale`), all defaulted so the
+other three classes are unaffected.
 
 Key mechanics (details in the file's doc comments):
 - **Inactive strip**: the puppet is instantiated under an inactive holder so no gameplay
@@ -323,16 +336,22 @@ Key mechanics (details in the file's doc comments):
 - **No-ZDO VisEquipment**: `m_nViewOverride` is set to a session-static ZNetView on an
   inactive GameObject (its `GetZDO()` stays null), so all `Set*Item` calls run in local mode.
 - **Appearance**: `Humanoid.SetupVisEquipment` (reflection) clones the local player's full
-  gear/beard/hair/skin onto the puppet; Krom sword forced into the right hand; a ~2s
-  signature diff in `PeriodicUpdate` re-clones on real player equip changes.
+  gear/beard/hair/skin onto the puppet; then per the profile the hands (and, for warrior
+  CustomEquipment, the armor slots) are overridden by name via the vanilla public
+  `VisEquipment.Set{Helmet,Chest,Leg,Shoulder,Right,Left}Item` API (item IDs resolve against
+  ObjectDB — no manual prefab lookup). A ~2s signature diff in `PeriodicUpdate` re-clones on
+  real player equip changes; the signature now includes hand/back items so a warrior
+  ClonePlayer puppet tracks the player's weapon.
 - **Rigid-attach scale gotcha**: vanilla `AttachItem` parents rigid attaches (helmet, sword)
   with `worldPositionStays=true`, which back-compensates `localScale` by the joint's
   `lossyScale` — on the ~1.4× scaled puppet rig, helmets rendered player-sized ("too small,
   perched on the crown"). `FixupPuppetAttaches` re-scales the helmet instance by the
-  puppet-vs-prefab helmet-joint lossy ratio (`FableHelmetScale`/`FableHelmetYOffset` on
-  top); the Krom keeps `WarriorKromScale` sizing plus `FableKromGripRot*/Off*` grip tuning
-  (RotX=12 calibrated so the resting blade lies on the shoulder, not through the trapezius).
-  Skinned attaches (`attach_skin` armor) are immune — bones + bind poses drive them.
+  puppet-vs-prefab helmet-joint lossy ratio × the profile's `HelmetScale()` (warrior =
+  `FableWarriorHelmetScale`, other classes = 1.0 — the helmet scale is now Warrior-scoped, no
+  Y-offset). The warrior's CustomEquipment weapon keeps `FableWarriorWeaponScale` sizing plus
+  `FableWarriorWeaponGripRot*/Off*` grip tuning (RotX=12 calibrated so the resting blade lies
+  on the shoulder, not through the trapezius); ClonePlayer weapons rig-normalize at natural
+  size. Skinned attaches (`attach_skin` armor) are immune — bones + bind poses drive them.
 - **Charred suppression**: pure-skip prefixes on the 7 private `VisEquipment.Set*Equipped`
   methods, gated on the `AshlandsRebornFableWarrior` marker; glow FX (EyeGlow ×2,
   chestglow) disabled; charred Animator set to `AlwaysAnimate` so the hidden source keeps
@@ -482,16 +501,20 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 
 | Config key | Default | Effect |
 |---|---|---|
-| `EnableFableWarrior` | true | Global gate for the puppet system across all charred creatures |
-| `ClonePlayerToWarrior` | true | Build the player puppet on every Charred_Melee |
+| `FableWarriorSwitch` | "CustomEquipment" | Warrior mode dropdown AND on/off switch: `Vanilla` (no puppet) / `ClonePlayer` (player body+armor+weapon) / `CustomEquipment` (player body + configured armor/weapon). Replaced the removed `EnableFableWarrior` toggle |
 | `FableWarriorScale` | 1.0 | Multiplier on the auto-computed height-match scale |
-| `FableHelmetScale` / `FableHelmetYOffset` | 1.0 / 0 | Fine-tune the (already scale-normalized) puppet helmet (all creatures) |
-| `FableKromGripRotX/Y/Z` | 12 / 0 / 0 | Krom grip rotation (deg, hand-attach frame); RotX=12 calibrates the shoulder rest |
-| `FableKromGripOffX/Y/Z` | 0 | Krom grip position offset (m, hand-attach frame) |
-| `WarriorKromScale` | 1.16 | Krom sword size for the puppet (moved here from the removed legacy Warrior sections) |
+| `FableWarriorHelmet` / `Chest` / `Legs` / `Shoulders` | "knighthelm" / "knightchest" / "knightlegs" / "" | CustomEquipment armor slot item IDs (empty = bare); Knight IDs are SouthsilArmor |
+| `FableWarriorHelmetScale` | 1.0 | Fine-tune the (already scale-normalized) warrior puppet helmet; **Warrior-only** now (Archer/Twitcher/Mage helmets normalize at a fixed 1.0) |
+| `FableWarriorWeapon` | "THSwordKrom" | CustomEquipment right-hand weapon item ID (empty = bare hand); default Krom |
+| `FableWarriorWeaponScale` | 1.16 | CustomEquipment weapon size (ClonePlayer weapons keep natural size) |
+| `FableWarriorWeaponGripRotX/Y/Z` | 12 / 0 / 0 | CustomEquipment weapon grip rotation (deg, hand-attach frame); RotX=12 calibrates the shoulder rest (grip tuning WIP) |
+| `FableWarriorWeaponGripOffX/Y/Z` | 0 | CustomEquipment weapon grip position offset (m, hand-attach frame) |
 
 Every key in the Fable Warrior/Archer/Twitcher/Mage sections applies **instantly** via
 `SettingChanged` (rebuilds the affected puppets live) — there is no manual refresh hotkey.
+Old keys (`ClonePlayerToWarrior`, `FableHelmetScale`/`FableHelmetYOffset`, `WarriorKromScale`,
+`FableKromGrip*`) auto-migrate on first load into the new names (bool→enum: `true`→ClonePlayer)
+and are purged from the cfg orphan store.
 
 Sections "Fable Archer" (`ClonePlayerToArcher`, `FableArcherScale`, `FableArcherBow` =
 "BowAshlands", `FableArcherBowScale`), "Fable Twitcher" (`ClonePlayerToTwitcher`,
