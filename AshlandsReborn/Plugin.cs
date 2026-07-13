@@ -986,17 +986,46 @@ public class Plugin : BaseUnityPlugin
         Config.Save();
         Config.SaveOnConfigSet = true;
 
+        // Every Fable Bunny config applies instantly (OnFableBunnyChanged rebuilds swapped
+        // Morgens, re-reading all bunny config).
         EnableFableBunny.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyDonor.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyStarLook.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyLashStyle.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyMode.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyHeight.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyScale.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyYOffset.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyPounceAmplitude.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyMoveAnimSpeed.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyRollStyle.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyHideRagdoll.SettingChanged += (_, _) => OnFableBunnyChanged();
 
+        // Every Fable Warrior/Archer/Twitcher/Mage config applies instantly
+        // (OnFableWarriorModeChanged rebuilds the puppets, re-reading all config getters).
+        // This replaces the removed F10 manual-refresh hotkey.
         EnableFableWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToArcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToTwitcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToMage.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableWarriorScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableHelmetScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableHelmetYOffset.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableKromGripRotX.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableKromGripRotY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableKromGripRotZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableKromGripOffX.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableKromGripOffY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableKromGripOffZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        WarriorKromScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherBow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherBowScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageStaff.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageStaffScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
 
         TerrainTransitionStyle.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TransitionNoiseScale.SettingChanged += (_, _) => OnTerrainTransitionChanged();
