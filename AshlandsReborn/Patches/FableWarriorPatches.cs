@@ -589,6 +589,18 @@ internal static class FableWarriorPatches
         try
         {
             MSetupVisEquipment?.Invoke(player, new object[] { marker.PuppetVis, false });
+            // Fable Race: in CustomRace mode, overwrite the just-cloned player body features
+            // with the configured fixed race. ClonePlayer leaves the player clone as-is;
+            // Vanilla never reaches here (no puppet is built - IsFablePuppetActive is false).
+            if (string.Equals(Plugin.FableRaceMode.Value, "CustomRace", StringComparison.OrdinalIgnoreCase))
+            {
+                var vis = marker.PuppetVis;
+                vis.SetModel(string.Equals(Plugin.FableRaceSex.Value, "Female", StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+                vis.SetHairItem(Plugin.FableRaceHair.Value ?? "");
+                vis.SetBeardItem(Plugin.FableRaceBeard.Value ?? "BeardNone");
+                vis.SetSkinColor(ComputeRaceSkinColor());
+                vis.SetHairColor(ComputeRaceHairColor());
+            }
             if (profile?.OverrideArmor() == true)
             {
                 // Body from the player, armor from config: empty IDs render a bare slot.
@@ -614,6 +626,33 @@ internal static class FableWarriorPatches
         {
             Plugin.Log?.LogWarning($"[Fable Warrior] ApplyAppearance failed: {ex.Message}");
         }
+    }
+
+    // --- Fable Race color model ---------------------------------------------------------
+    // Valheim's character-creation screen interpolates skin/hair colors between endpoint
+    // Colors serialized on the FejdStartup prefab (not exposed in code), then scales hair by
+    // a "blondness"/level brightness. We reproduce the same Lerp shape with hardcoded
+    // endpoints (tuned in-game via the live F1 sliders). SetSkinColor/SetHairColor accept any
+    // Vector3, so these need only look right, not match the game's exact serialized gamut.
+    private static readonly Vector3 SkinLight = new Vector3(0.95f, 0.79f, 0.66f); // slider 0
+    private static readonly Vector3 SkinDark = new Vector3(0.42f, 0.30f, 0.22f);  // slider 1
+    private static readonly Vector3 HairLight = new Vector3(0.80f, 0.63f, 0.38f); // slider 0
+    private static readonly Vector3 HairDark = new Vector3(0.18f, 0.12f, 0.08f);  // slider 1
+    private const float BlondnessDarkMul = 0.35f; // blondness 0 -> dims the toned hair
+    private const float BlondnessBrightMul = 1.0f; // blondness 1 -> full brightness
+
+    private static Vector3 ComputeRaceSkinColor()
+    {
+        var t = Mathf.Clamp01(Plugin.FableRaceSkinTone.Value);
+        return Vector3.Lerp(SkinLight, SkinDark, t);
+    }
+
+    private static Vector3 ComputeRaceHairColor()
+    {
+        var tone = Mathf.Clamp01(Plugin.FableRaceHairTone.Value);
+        var blond = Mathf.Clamp01(Plugin.FableRaceBlondness.Value);
+        var toned = Vector3.Lerp(HairLight, HairDark, tone);
+        return toned * Mathf.Lerp(BlondnessDarkMul, BlondnessBrightMul, blond);
     }
 
     /// <summary>

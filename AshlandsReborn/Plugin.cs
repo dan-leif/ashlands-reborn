@@ -100,6 +100,18 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableMageWeapon { get; private set; } = null!;
     public static ConfigEntry<float> FableMageWeaponScale { get; private set; } = null!;
 
+    // --- Fable Race ---
+    // Global body mode for ALL Fable Charred puppets (Warrior/Archer/Twitcher/Mage; NOT the
+    // Fable Bunny). Vanilla | ClonePlayer | CustomRace. Vanilla is a master-off that folds
+    // into IsFablePuppetActive and overrides every class's EnableFable[Class].
+    public static ConfigEntry<string> FableRaceMode { get; private set; } = null!;
+    public static ConfigEntry<string> FableRaceSex { get; private set; } = null!;
+    public static ConfigEntry<string> FableRaceHair { get; private set; } = null!;
+    public static ConfigEntry<string> FableRaceBeard { get; private set; } = null!;
+    public static ConfigEntry<float> FableRaceSkinTone { get; private set; } = null!;
+    public static ConfigEntry<float> FableRaceHairTone { get; private set; } = null!;
+    public static ConfigEntry<float> FableRaceBlondness { get; private set; } = null!;
+
     // --- Fable Bunny ---
     public static ConfigEntry<bool> EnableFableBunny { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyDonor { get; private set; } = null!;
@@ -137,11 +149,14 @@ public class Plugin : BaseUnityPlugin
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
-    // Global gate for the Fable puppet system: just the master switch now (the old
-    // EnableFableWarrior toggle was removed). Per-creature enablement lives in
+    // Global gate for the Fable puppet system: master switch AND FableRaceMode != Vanilla.
+    // FableRaceMode = "Vanilla" is a global master-off that renders all Charred natively,
+    // overriding every class's EnableFable[Class]. Per-creature enablement otherwise lives in
     // FableWarriorPatches' profile table (EnableFableWarrior != Disabled for the warrior,
-    // ClonePlayerToArcher/Twitcher/Mage for the others).
-    public static bool IsFablePuppetActive => MasterSwitch?.Value == true;
+    // the other classes' EnableFable[Class] enums).
+    public static bool IsFablePuppetActive =>
+        MasterSwitch?.Value == true &&
+        !string.Equals(FableRaceMode?.Value, "Vanilla", System.StringComparison.OrdinalIgnoreCase);
     // Global gate for the Fable Bunny (Morgen -> donor creature) swap.
     public static bool IsFableBunnyActive =>
         MasterSwitch?.Value == true && EnableFableBunny?.Value == true;
@@ -748,6 +763,76 @@ public class Plugin : BaseUnityPlugin
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
 
+        // --- Fable Race ---
+        // Fixed body appearance shared by all four Fable Charred puppets (not the Fable Bunny).
+        FableRaceMode = Config.Bind(
+            "Fable Race",
+            "FableRaceMode",
+            "CustomRace",
+            new ConfigDescription(
+                "Body treatment for ALL Fable Charred puppets (Warrior/Archer/Twitcher/Mage):\n" +
+                "Vanilla = no puppets at all, every Charred renders 100% native (overrides the " +
+                "per-class EnableFable[Class] settings).\n" +
+                "ClonePlayer = puppet bodies copy the local player's sex/skin/hair/beard (legacy).\n" +
+                "CustomRace = puppet bodies use the Fable Race settings below.\n" +
+                "The class's own EnableFable[Class] still chooses whether it gets a puppet and its " +
+                "armor/weapon; this key only drives the body.",
+                new AcceptableValueList<string>("Vanilla", "ClonePlayer", "CustomRace")));
+
+        FableRaceSex = Config.Bind(
+            "Fable Race",
+            "FableRaceSex",
+            "Male",
+            new ConfigDescription(
+                "CustomRace only: body model for the Fable race. Note: beards only render on Male.",
+                new AcceptableValueList<string>("Male", "Female")));
+
+        FableRaceHair = Config.Bind(
+            "Fable Race",
+            "FableRaceHair",
+            "Hair5",
+            new ConfigDescription(
+                "CustomRace only: hair style item. HairNone = bald. Hair5/Hair8 are short styles.",
+                new AcceptableValueList<string>(
+                    "HairNone", "Hair1", "Hair2", "Hair3", "Hair4", "Hair5", "Hair6", "Hair7",
+                    "Hair8", "Hair9", "Hair10", "Hair11", "Hair12", "Hair13", "Hair14", "Hair15",
+                    "Hair16", "Hair17", "Hair18", "Hair19", "Hair20", "Hair21", "Hair22", "Hair23")));
+
+        FableRaceBeard = Config.Bind(
+            "Fable Race",
+            "FableRaceBeard",
+            "BeardNone",
+            new ConfigDescription(
+                "CustomRace only: beard item. BeardNone = clean-shaven. Only renders when Sex = Male.",
+                new AcceptableValueList<string>(
+                    "BeardNone", "Beard1", "Beard2", "Beard3", "Beard4", "Beard5", "Beard6",
+                    "Beard7", "Beard8", "Beard9", "Beard10", "Beard11", "Beard12", "Beard13",
+                    "Beard14", "Beard15", "Beard16")));
+
+        FableRaceSkinTone = Config.Bind(
+            "Fable Race",
+            "FableRaceSkinTone",
+            1.0f,
+            new ConfigDescription(
+                "CustomRace only: skin tone. 0 = lightest, 1 = darkest.",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        FableRaceHairTone = Config.Bind(
+            "Fable Race",
+            "FableRaceHairTone",
+            1.0f,
+            new ConfigDescription(
+                "CustomRace only: hair color tone along the gradient. 0 = lightest, 1 = darkest.",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        FableRaceBlondness = Config.Bind(
+            "Fable Race",
+            "FableRaceBlondness",
+            0.0f,
+            new ConfigDescription(
+                "CustomRace only: hair brightness/blondness multiplier. 0 = darkest, 1 = brightest/most blonde.",
+                new AcceptableValueRange<float>(0f, 1f)));
+
         // --- Fable Bunny ---
         EnableFableBunny = Config.Bind(
             "Fable Bunny",
@@ -1318,6 +1403,14 @@ public class Plugin : BaseUnityPlugin
         FableMageShoulders.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        // Fable Race (global body mode) - also rebuilds all puppets live (Vanilla reverts them).
+        FableRaceMode.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableRaceSex.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableRaceHair.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableRaceBeard.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableRaceSkinTone.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableRaceHairTone.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableRaceBlondness.SettingChanged += (_, _) => OnFableWarriorModeChanged();
 
         TerrainTransitionStyle.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TransitionNoiseScale.SettingChanged += (_, _) => OnTerrainTransitionChanged();

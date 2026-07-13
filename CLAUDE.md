@@ -304,9 +304,14 @@ as a child of the creature's `Visual` node, the Charred's own renderers are hidd
 every `MonoUpdaters.LateUpdate` the Charred bones' rotations are retargeted onto the
 matching puppet bones (shared Mixamo names) via deviation-from-rest transfer, with a
 computed rest-pose alignment baked in for the 6 arm-chain bones (their rest poses differ
-by a ~28/48/59.5° constant). Globally active when `MasterSwitch` is on
-(`Plugin.IsFablePuppetActive`); per-creature enablement is the warrior's `EnableFableWarrior`
-(Disabled = off) and the other classes' `ClonePlayerTo*` toggles.
+by a ~28/48/59.5° constant). Globally active when `MasterSwitch` is on AND
+`FableRaceMode != "Vanilla"` (`Plugin.IsFablePuppetActive`); per-creature enablement is the
+warrior's `EnableFableWarrior` (Disabled = off) and the other classes' `EnableFable[Class]`
+enums. The puppet **body** is driven by the global `FableRaceMode` (Fable Race section):
+`Vanilla` = master-off (all Charred native, overrides `EnableFable[Class]`), `ClonePlayer` =
+copy the local player's sex/skin/hair/beard (legacy), `CustomRace` (default) = a fixed race
+from the Fable Race config, applied in `ApplyAppearance` right after the player clone via
+`VisEquipment.SetModel/SetHairItem/SetBeardItem/SetSkinColor/SetHairColor`.
 
 **Per-creature profile table** (`FableWarriorPatches.Profiles`): the same machinery covers
 `Charred_Melee` (warrior, weapon right hand), `Charred_Archer` (weapon LEFT hand — bow),
@@ -526,6 +531,26 @@ Legs/Shoulders`, `Fable[Class]Weapon`, `Fable[Class]WeaponScale`) — but with *
 `BowAshlands` (LEFT hand); Mage = `runeknighthelm`/`runeknightchest`/`runeknightlegs` +
 `StaffFireball` (right hand); Twitcher = `HelmetFenring`/`ArmorFenringChest`/`ArmorFenringLegs`
 + `FistFenrirClaw` (right hand). Shoulders empty for all.
+
+### Fable Race config (section "Fable Race")
+
+A single global section that defines the **body** of all four Fable Charred puppets (NOT the
+Fable Bunny). Overrides the per-puppet player-clone in `ApplyAppearance`.
+
+| Config key | Default | Effect |
+|---|---|---|
+| `FableRaceMode` | "CustomRace" | `Vanilla` = no puppets, all Charred native (overrides every `EnableFable[Class]`; folded into `IsFablePuppetActive`) / `ClonePlayer` = bodies copy the player (legacy) / `CustomRace` = bodies use the settings below |
+| `FableRaceSex` | "Male" | `SetModel(0/1)`; beards render only on Male |
+| `FableRaceHair` | "Hair5" | hair item (`HairNone`, `Hair1`..`Hair23`); `Hair5`/`Hair8` are short |
+| `FableRaceBeard` | "BeardNone" | beard item (`BeardNone`, `Beard1`..`Beard16`) |
+| `FableRaceSkinTone` | 1.0 | 0 = lightest, 1 = darkest; Lerp between hardcoded skin endpoints |
+| `FableRaceHairTone` | 1.0 | 0 = lightest, 1 = darkest; Lerp along the hair gradient |
+| `FableRaceBlondness` | 0.0 | 0 = darkest, 1 = brightest; brightness multiplier on the toned hair |
+
+Skin/hair Vector3s come from `ComputeRaceSkinColor`/`ComputeRaceHairColor` in
+`FableWarriorPatches.cs` (hardcoded endpoint constants approximating Valheim's char-creation
+gradients — the game's real endpoints are serialized on the FejdStartup prefab, not in code).
+Every key live-rebuilds all puppets via `SettingChanged` → `OnFableWarriorModeChanged`.
 
 ## Asset Extraction Scripts
 
