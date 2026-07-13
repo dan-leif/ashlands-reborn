@@ -62,8 +62,16 @@ for i in $(seq 1 90); do
 done
 ```
 
-**Step 4 — Wait 15s for world render**
-After "starting game" appears, sleep 15 seconds for terrain, trees, and creatures to fully load.
+**Step 4 — Wait 15s for world render, then force a clear sky**
+After "starting game" appears, sleep 15 seconds for terrain, trees, and creatures to fully
+load. **Then force clear weather before any screenshot** — overcast/rain wrecks the lighting
+(e.g. dark, hard-to-read subjects). Bake this into *every* test:
+- The autonomous harnesses do it in code: `PhotoModePatches.ForceClearSkyRoutine()` runs
+  `EnvMan.SetForceEnvironment("Clear")` and waits for the sky to actually clear before
+  capturing. Reuse that helper in any new harness.
+- For manual/live screenshots (the Alt+PrintScreen path below), open the console (F5) and run
+  `env clear`, then **wait ~15–20 s for the sky to visibly clear** — the fog/sky/sun transition
+  lerps in over several seconds; capturing immediately still shows the old weather.
 
 **Step 5 — Take screenshot**
 Focus the Valheim window, send Alt+PrintScreen, save clipboard to PNG. Use `SW_RESTORE` (9) before `SetForegroundWindow` so the window is not minimized:
@@ -543,7 +551,8 @@ Fable Bunny). Overrides the per-puppet player-clone in `ApplyAppearance`.
 | `FableRaceSex` | "Male" | `SetModel(0/1)`; beards render only on Male |
 | `FableRaceHair` | "Hair5" | hair item (`HairNone`, `Hair1`..`Hair23`); `Hair5`/`Hair8` are short |
 | `FableRaceBeard` | "BeardNone" | beard item (`BeardNone`, `Beard1`..`Beard16`) |
-| `FableRaceSkinTone` | 1.0 | 0 = lightest, 1 = darkest; Lerp between hardcoded skin endpoints |
+| `FableRaceSkinTone` | 1.0 | 0 = lightest, 1 = darkest; Lerp between hardcoded skin endpoints (vanilla gamut bottoms out ~70% grey) |
+| `FableRacePureBlackSkin` | false | Force skin to pure black (0,0,0), darker than the slider reaches; overrides `FableRaceSkinTone`. Eyes keep their color; the lit shader still shows form (specular/rim/shadow) at true black |
 | `FableRaceHairTone` | 1.0 | 0 = lightest, 1 = darkest; Lerp along the hair gradient |
 | `FableRaceBlondness` | 0.0 | 0 = darkest, 1 = brightest; brightness multiplier on the toned hair |
 

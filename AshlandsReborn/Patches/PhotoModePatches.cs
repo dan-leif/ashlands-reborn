@@ -100,6 +100,7 @@ internal static class PhotoModePatches
             if (prefabNames.Count == 0) prefabNames.Add(CharredMeleePrefab);
 
             yield return TeleportToIslandRoutine(player);
+            yield return ForceClearSkyRoutine();
 
             var dir = Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location) ?? ".", "AR_PhotoMode");
             Directory.CreateDirectory(dir);
@@ -284,6 +285,35 @@ internal static class PhotoModePatches
         if (!accepted || player.IsTeleporting())
             Plugin.Log?.LogWarning("[AR PhotoMode] Teleport incomplete - continuing at current position");
         yield return new WaitForSeconds(3f); // let terrain/objects around the target settle
+    }
+
+    /// <summary>
+    /// Force the weather to Clear and wait for the sky to actually clear before capturing, so
+    /// screenshots get consistent bright lighting instead of whatever overcast/rain the test
+    /// island happens to have. Uses the same SetForceEnvironment("Clear") API as the `env`
+    /// console command; the visual transition (fog/sky/sun) lerps over several seconds, so we
+    /// poll until the active environment is Clear and then let the transition settle. Shared by
+    /// every harness (photo shoot, M4, terrain, bunny) - bake a clear sky into all tests.
+    /// </summary>
+    internal static IEnumerator ForceClearSkyRoutine()
+    {
+        var envMan = EnvMan.instance;
+        if (envMan == null) yield break;
+
+        Plugin.Log?.LogInfo("[AR PhotoMode] Forcing Clear weather - waiting for the sky to clear");
+        var timeout = Time.time + 30f;
+        while (Time.time < timeout)
+        {
+            // Re-assert each poll: EnvManPatches can clear the force on an Ashlands boundary edge.
+            envMan.SetForceEnvironment("Clear");
+            var env = envMan.GetCurrentEnvironment();
+            if (env != null && string.Equals(env.m_name, "Clear", StringComparison.OrdinalIgnoreCase))
+                break;
+            yield return new WaitForSeconds(0.5f);
+        }
+        // The environment is "Clear" now, but fog/sky/sun colors are still lerping toward it.
+        yield return new WaitForSeconds(10f);
+        Plugin.Log?.LogInfo("[AR PhotoMode] Sky cleared - proceeding with capture");
     }
 
     // Camera-override access for the M4 lifecycle self-test (reuses this class's

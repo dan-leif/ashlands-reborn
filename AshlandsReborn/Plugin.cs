@@ -109,6 +109,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableRaceHair { get; private set; } = null!;
     public static ConfigEntry<string> FableRaceBeard { get; private set; } = null!;
     public static ConfigEntry<float> FableRaceSkinTone { get; private set; } = null!;
+    public static ConfigEntry<bool> FableRacePureBlackSkin { get; private set; } = null!;
     public static ConfigEntry<float> FableRaceHairTone { get; private set; } = null!;
     public static ConfigEntry<float> FableRaceBlondness { get; private set; } = null!;
 
@@ -814,8 +815,18 @@ public class Plugin : BaseUnityPlugin
             "FableRaceSkinTone",
             1.0f,
             new ConfigDescription(
-                "CustomRace only: skin tone. 0 = lightest, 1 = darkest.",
+                "CustomRace only: skin tone. 0 = lightest, 1 = darkest. The vanilla gamut stops " +
+                "around 70% grey; for a true-black skin use FableRacePureBlackSkin.",
                 new AcceptableValueRange<float>(0f, 1f)));
+
+        FableRacePureBlackSkin = Config.Bind(
+            "Fable Race",
+            "FableRacePureBlackSkin",
+            false,
+            "CustomRace only: force the skin to pure black (0,0,0), darker than the FableRaceSkinTone " +
+            "slider can reach. Overrides FableRaceSkinTone when on. The eyes keep their own color and " +
+            "the body is still lit by the scene (highlights/shadows read the form) - only the skin " +
+            "albedo goes black.");
 
         FableRaceHairTone = Config.Bind(
             "Fable Race",
@@ -1409,6 +1420,7 @@ public class Plugin : BaseUnityPlugin
         FableRaceHair.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableRaceBeard.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableRaceSkinTone.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableRacePureBlackSkin.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableRaceHairTone.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableRaceBlondness.SettingChanged += (_, _) => OnFableWarriorModeChanged();
 

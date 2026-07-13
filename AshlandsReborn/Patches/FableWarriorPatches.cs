@@ -643,6 +643,11 @@ internal static class FableWarriorPatches
 
     private static Vector3 ComputeRaceSkinColor()
     {
+        // Pure black is darker than the vanilla skin gamut (which bottoms out ~70% grey), so it
+        // is an explicit override rather than the slider's dark end. SetSkinColor multiplies the
+        // skin albedo only - eyes keep their own color, and the lit shader still shows form via
+        // highlights/shadows even at (0,0,0).
+        if (Plugin.FableRacePureBlackSkin.Value) return Vector3.zero;
         var t = Mathf.Clamp01(Plugin.FableRaceSkinTone.Value);
         return Vector3.Lerp(SkinLight, SkinDark, t);
     }
