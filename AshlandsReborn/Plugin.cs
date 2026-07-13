@@ -71,16 +71,34 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableWarriorWeaponGripOffX { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorWeaponGripOffY { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorWeaponGripOffZ { get; private set; } = null!;
-    public static ConfigEntry<bool> ClonePlayerToArcher { get; private set; } = null!;
+    // Archer/Twitcher/Mage mirror the Fable Warrior tri-state (Disabled/ClonePlayer/CustomEquipment).
+    public static ConfigEntry<string> EnableFableArcher { get; private set; } = null!;
     public static ConfigEntry<float> FableArcherScale { get; private set; } = null!;
-    public static ConfigEntry<string> FableArcherBow { get; private set; } = null!;
-    public static ConfigEntry<float> FableArcherBowScale { get; private set; } = null!;
-    public static ConfigEntry<bool> ClonePlayerToTwitcher { get; private set; } = null!;
+    public static ConfigEntry<string> FableArcherHelmet { get; private set; } = null!;
+    public static ConfigEntry<float> FableArcherHelmetScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableArcherChest { get; private set; } = null!;
+    public static ConfigEntry<string> FableArcherLegs { get; private set; } = null!;
+    public static ConfigEntry<string> FableArcherShoulders { get; private set; } = null!;
+    public static ConfigEntry<string> FableArcherWeapon { get; private set; } = null!;
+    public static ConfigEntry<float> FableArcherWeaponScale { get; private set; } = null!;
+    public static ConfigEntry<string> EnableFableTwitcher { get; private set; } = null!;
     public static ConfigEntry<float> FableTwitcherScale { get; private set; } = null!;
-    public static ConfigEntry<bool> ClonePlayerToMage { get; private set; } = null!;
+    public static ConfigEntry<string> FableTwitcherHelmet { get; private set; } = null!;
+    public static ConfigEntry<float> FableTwitcherHelmetScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableTwitcherChest { get; private set; } = null!;
+    public static ConfigEntry<string> FableTwitcherLegs { get; private set; } = null!;
+    public static ConfigEntry<string> FableTwitcherShoulders { get; private set; } = null!;
+    public static ConfigEntry<string> FableTwitcherWeapon { get; private set; } = null!;
+    public static ConfigEntry<float> FableTwitcherWeaponScale { get; private set; } = null!;
+    public static ConfigEntry<string> EnableFableMage { get; private set; } = null!;
     public static ConfigEntry<float> FableMageScale { get; private set; } = null!;
-    public static ConfigEntry<string> FableMageStaff { get; private set; } = null!;
-    public static ConfigEntry<float> FableMageStaffScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableMageHelmet { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageHelmetScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableMageChest { get; private set; } = null!;
+    public static ConfigEntry<string> FableMageLegs { get; private set; } = null!;
+    public static ConfigEntry<string> FableMageShoulders { get; private set; } = null!;
+    public static ConfigEntry<string> FableMageWeapon { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageWeaponScale { get; private set; } = null!;
 
     // --- Fable Bunny ---
     public static ConfigEntry<bool> EnableFableBunny { get; private set; } = null!;
@@ -509,12 +527,17 @@ public class Plugin : BaseUnityPlugin
                 new AcceptableValueRange<float>(-0.5f, 0.5f)));
 
         // --- Fable Archer ---
-        ClonePlayerToArcher = Config.Bind(
+        EnableFableArcher = Config.Bind(
             "Fable Archer",
-            "ClonePlayerToArcher",
-            true,
-            "Build a player-rig puppet on every Charred_Archer, driven by the archer's own animation, " +
-            "carrying FableArcherBow in its left hand. Requires MasterSwitch.");
+            "EnableFableArcher",
+            "CustomEquipment",
+            new ConfigDescription(
+                "How the Charred_Archer is dressed (also the archer's on/off switch):\n" +
+                "Disabled = no puppet, the Charred renders 100% vanilla.\n" +
+                "ClonePlayer = copy the player's body + armor AND the player's equipped weapon.\n" +
+                "CustomEquipment = copy the player's body only and equip the FableArcher " +
+                "Helmet/Chest/Legs/Shoulders/Weapon item IDs from this section.",
+                new AcceptableValueList<string>("Disabled", "ClonePlayer", "CustomEquipment")));
 
         FableArcherScale = Config.Bind(
             "Fable Archer",
@@ -524,28 +547,71 @@ public class Plugin : BaseUnityPlugin
                 "Multiplier on the auto-computed height-match scale for the Fable Archer puppet. 1.0 = auto scale.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
 
-        FableArcherBow = Config.Bind(
+        FableArcherHelmet = Config.Bind(
             "Fable Archer",
-            "FableArcherBow",
-            "BowAshlands",
-            "Item prefab name of the bow the Fable Archer carries (left hand). Must exist in ObjectDB.");
+            "FableArcherHelmet",
+            "knighthelm",
+            "CustomEquipment only: item prefab name equipped in the archer's helmet slot " +
+            "(empty = bare head). Must exist in ObjectDB.");
 
-        FableArcherBowScale = Config.Bind(
+        FableArcherHelmetScale = Config.Bind(
             "Fable Archer",
-            "FableArcherBowScale",
+            "FableArcherHelmetScale",
             1.0f,
             new ConfigDescription(
-                "Multiplier on the archer's bow size, applied after the bow is normalized to scale with " +
-                "the puppet rig (1.0 = the bow fits the puppet's hands/draw exactly like it fits the player).",
+                "Fine-tune multiplier on the archer puppet's helmet size (on top of the rig normalization). " +
+                "1.0 = exact fit at puppet scale.",
+                new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        FableArcherChest = Config.Bind(
+            "Fable Archer",
+            "FableArcherChest",
+            "knightchest",
+            "CustomEquipment only: item prefab name equipped in the archer's chest slot " +
+            "(empty = bare chest). Must exist in ObjectDB.");
+
+        FableArcherLegs = Config.Bind(
+            "Fable Archer",
+            "FableArcherLegs",
+            "knightlegs",
+            "CustomEquipment only: item prefab name equipped in the archer's legs slot " +
+            "(empty = bare legs). Must exist in ObjectDB.");
+
+        FableArcherShoulders = Config.Bind(
+            "Fable Archer",
+            "FableArcherShoulders",
+            "",
+            "CustomEquipment only: item prefab name equipped in the archer's shoulder/cape slot " +
+            "(empty = none). Must exist in ObjectDB.");
+
+        FableArcherWeapon = Config.Bind(
+            "Fable Archer",
+            "FableArcherWeapon",
+            "BowAshlands",
+            "CustomEquipment only: item prefab name the Fable Archer carries in its LEFT hand " +
+            "(empty = empty hand). Default BowAshlands. Must exist in ObjectDB.");
+
+        FableArcherWeaponScale = Config.Bind(
+            "Fable Archer",
+            "FableArcherWeaponScale",
+            1.0f,
+            new ConfigDescription(
+                "CustomEquipment only: multiplier on the archer's weapon size, applied after the weapon is " +
+                "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
 
         // --- Fable Twitcher ---
-        ClonePlayerToTwitcher = Config.Bind(
+        EnableFableTwitcher = Config.Bind(
             "Fable Twitcher",
-            "ClonePlayerToTwitcher",
-            true,
-            "Build a player-rig puppet on every Charred_Twitcher (and Charred_Twitcher_Summoned), driven " +
-            "by the twitcher's own animation. Bare hands - no weapon. Requires MasterSwitch.");
+            "EnableFableTwitcher",
+            "CustomEquipment",
+            new ConfigDescription(
+                "How the Charred_Twitcher (and Charred_Twitcher_Summoned) is dressed (also its on/off switch):\n" +
+                "Disabled = no puppet, the Charred renders 100% vanilla.\n" +
+                "ClonePlayer = copy the player's body + armor AND the player's equipped weapon.\n" +
+                "CustomEquipment = copy the player's body only and equip the FableTwitcher " +
+                "Helmet/Chest/Legs/Shoulders/Weapon item IDs from this section.",
+                new AcceptableValueList<string>("Disabled", "ClonePlayer", "CustomEquipment")));
 
         FableTwitcherScale = Config.Bind(
             "Fable Twitcher",
@@ -555,13 +621,71 @@ public class Plugin : BaseUnityPlugin
                 "Multiplier on the auto-computed height-match scale for the Fable Twitcher puppet. 1.0 = auto scale.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
 
+        FableTwitcherHelmet = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherHelmet",
+            "HelmetFenring",
+            "CustomEquipment only: item prefab name equipped in the twitcher's helmet slot " +
+            "(empty = bare head). Must exist in ObjectDB.");
+
+        FableTwitcherHelmetScale = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherHelmetScale",
+            1.0f,
+            new ConfigDescription(
+                "Fine-tune multiplier on the twitcher puppet's helmet size (on top of the rig normalization). " +
+                "1.0 = exact fit at puppet scale.",
+                new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        FableTwitcherChest = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherChest",
+            "ArmorFenringChest",
+            "CustomEquipment only: item prefab name equipped in the twitcher's chest slot " +
+            "(empty = bare chest). Must exist in ObjectDB.");
+
+        FableTwitcherLegs = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherLegs",
+            "ArmorFenringLegs",
+            "CustomEquipment only: item prefab name equipped in the twitcher's legs slot " +
+            "(empty = bare legs). Must exist in ObjectDB.");
+
+        FableTwitcherShoulders = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherShoulders",
+            "",
+            "CustomEquipment only: item prefab name equipped in the twitcher's shoulder/cape slot " +
+            "(empty = none). Must exist in ObjectDB.");
+
+        FableTwitcherWeapon = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherWeapon",
+            "FistFenrirClaw",
+            "CustomEquipment only: item prefab name the Fable Twitcher carries in its RIGHT hand " +
+            "(empty = bare hands). Default FistFenrirClaw. Must exist in ObjectDB.");
+
+        FableTwitcherWeaponScale = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherWeaponScale",
+            1.0f,
+            new ConfigDescription(
+                "CustomEquipment only: multiplier on the twitcher's weapon size, applied after the weapon is " +
+                "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
+                new AcceptableValueRange<float>(0.25f, 4.0f)));
+
         // --- Fable Mage ---
-        ClonePlayerToMage = Config.Bind(
+        EnableFableMage = Config.Bind(
             "Fable Mage",
-            "ClonePlayerToMage",
-            true,
-            "Build a player-rig puppet on every Charred_Mage, driven by the mage's own animation, " +
-            "carrying FableMageStaff in its right hand. Requires MasterSwitch.");
+            "EnableFableMage",
+            "CustomEquipment",
+            new ConfigDescription(
+                "How the Charred_Mage is dressed (also the mage's on/off switch):\n" +
+                "Disabled = no puppet, the Charred renders 100% vanilla.\n" +
+                "ClonePlayer = copy the player's body + armor AND the player's equipped weapon.\n" +
+                "CustomEquipment = copy the player's body only and equip the FableMage " +
+                "Helmet/Chest/Legs/Shoulders/Weapon item IDs from this section.",
+                new AcceptableValueList<string>("Disabled", "ClonePlayer", "CustomEquipment")));
 
         FableMageScale = Config.Bind(
             "Fable Mage",
@@ -571,19 +695,57 @@ public class Plugin : BaseUnityPlugin
                 "Multiplier on the auto-computed height-match scale for the Fable Mage puppet. 1.0 = auto scale.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
 
-        FableMageStaff = Config.Bind(
+        FableMageHelmet = Config.Bind(
             "Fable Mage",
-            "FableMageStaff",
-            "StaffFireball",
-            "Item prefab name of the staff the Fable Mage carries (right hand). Must exist in ObjectDB.");
+            "FableMageHelmet",
+            "runeknighthelm",
+            "CustomEquipment only: item prefab name equipped in the mage's helmet slot " +
+            "(empty = bare head). Must exist in ObjectDB.");
 
-        FableMageStaffScale = Config.Bind(
+        FableMageHelmetScale = Config.Bind(
             "Fable Mage",
-            "FableMageStaffScale",
+            "FableMageHelmetScale",
             1.0f,
             new ConfigDescription(
-                "Multiplier on the mage's staff size, applied after the staff is normalized to scale with " +
-                "the puppet rig.",
+                "Fine-tune multiplier on the mage puppet's helmet size (on top of the rig normalization). " +
+                "1.0 = exact fit at puppet scale.",
+                new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        FableMageChest = Config.Bind(
+            "Fable Mage",
+            "FableMageChest",
+            "runeknightchest",
+            "CustomEquipment only: item prefab name equipped in the mage's chest slot " +
+            "(empty = bare chest). Must exist in ObjectDB.");
+
+        FableMageLegs = Config.Bind(
+            "Fable Mage",
+            "FableMageLegs",
+            "runeknightlegs",
+            "CustomEquipment only: item prefab name equipped in the mage's legs slot " +
+            "(empty = bare legs). Must exist in ObjectDB.");
+
+        FableMageShoulders = Config.Bind(
+            "Fable Mage",
+            "FableMageShoulders",
+            "",
+            "CustomEquipment only: item prefab name equipped in the mage's shoulder/cape slot " +
+            "(empty = none). Must exist in ObjectDB.");
+
+        FableMageWeapon = Config.Bind(
+            "Fable Mage",
+            "FableMageWeapon",
+            "StaffFireball",
+            "CustomEquipment only: item prefab name the Fable Mage carries in its RIGHT hand " +
+            "(empty = empty hand). Default StaffFireball. Must exist in ObjectDB.");
+
+        FableMageWeaponScale = Config.Bind(
+            "Fable Mage",
+            "FableMageWeaponScale",
+            1.0f,
+            new ConfigDescription(
+                "CustomEquipment only: multiplier on the mage's weapon size, applied after the weapon is " +
+                "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
 
         // --- Fable Bunny ---
@@ -1012,19 +1174,24 @@ public class Plugin : BaseUnityPlugin
             // Vanilla renamed to Disabled). FableHelmetScale dropped; WarriorKromScale ->
             // FableWarriorWeaponScale; FableKromGrip* -> FableWarriorWeaponGrip*; FableHelmetYOffset
             // dropped. Old keys are unbound this session (orphaned) - carry values over, then purge.
-            void CarryFloat(string oldKey, ConfigEntry<float> target)
+            void CarryFloat(string section, string oldKey, ConfigEntry<float> target)
             {
-                var raw = ReadOrphanRaw("Fable Warrior", oldKey)?.Trim();
+                var raw = ReadOrphanRaw(section, oldKey)?.Trim();
                 if (string.IsNullOrEmpty(raw)) return;
                 if (float.TryParse(raw, System.Globalization.NumberStyles.Float,
                         System.Globalization.CultureInfo.InvariantCulture, out var v))
                     target.Value = v;
             }
-            // Mode source #1 (oldest): the ClonePlayerToWarrior bool (true -> ClonePlayer, false -> Disabled).
+            void CarryString(string section, string oldKey, ConfigEntry<string> target)
+            {
+                var raw = ReadOrphanRaw(section, oldKey);
+                if (!string.IsNullOrEmpty(raw)) target.Value = raw!;
+            }
+            // Warrior: mode source #1 (oldest) ClonePlayerToWarrior bool (true -> ClonePlayer, false -> Disabled).
             var oldClone = ReadOrphanRaw("Fable Warrior", "ClonePlayerToWarrior")?.Trim();
             if (!string.IsNullOrEmpty(oldClone) && bool.TryParse(oldClone, out var wasClone))
                 EnableFableWarrior.Value = wasClone ? "ClonePlayer" : "Disabled";
-            // Mode source #2 (interim, wins over #1): the FableWarriorSwitch enum (Vanilla -> Disabled).
+            // Warrior: mode source #2 (interim, wins over #1) FableWarriorSwitch enum (Vanilla -> Disabled).
             var oldSwitch = ReadOrphanRaw("Fable Warrior", "FableWarriorSwitch")?.Trim();
             if (!string.IsNullOrEmpty(oldSwitch))
                 EnableFableWarrior.Value = string.Equals(oldSwitch, "Vanilla", StringComparison.OrdinalIgnoreCase)
@@ -1032,13 +1199,13 @@ public class Plugin : BaseUnityPlugin
             // NOTE: the old shared FableHelmetScale is deliberately NOT carried into
             // FableWarriorHelmetScale - the warrior helmet scale defaults to 1.0 (the legacy value
             // scaled ALL classes' helmets; it should not silently become the warrior's tuning).
-            CarryFloat("WarriorKromScale", FableWarriorWeaponScale);
-            CarryFloat("FableKromGripRotX", FableWarriorWeaponGripRotX);
-            CarryFloat("FableKromGripRotY", FableWarriorWeaponGripRotY);
-            CarryFloat("FableKromGripRotZ", FableWarriorWeaponGripRotZ);
-            CarryFloat("FableKromGripOffX", FableWarriorWeaponGripOffX);
-            CarryFloat("FableKromGripOffY", FableWarriorWeaponGripOffY);
-            CarryFloat("FableKromGripOffZ", FableWarriorWeaponGripOffZ);
+            CarryFloat("Fable Warrior", "WarriorKromScale", FableWarriorWeaponScale);
+            CarryFloat("Fable Warrior", "FableKromGripRotX", FableWarriorWeaponGripRotX);
+            CarryFloat("Fable Warrior", "FableKromGripRotY", FableWarriorWeaponGripRotY);
+            CarryFloat("Fable Warrior", "FableKromGripRotZ", FableWarriorWeaponGripRotZ);
+            CarryFloat("Fable Warrior", "FableKromGripOffX", FableWarriorWeaponGripOffX);
+            CarryFloat("Fable Warrior", "FableKromGripOffY", FableWarriorWeaponGripOffY);
+            CarryFloat("Fable Warrior", "FableKromGripOffZ", FableWarriorWeaponGripOffZ);
             foreach (var oldKey in new[] {
                 "FableWarriorSwitch", "ClonePlayerToWarrior", "FableHelmetScale", "FableHelmetYOffset",
                 "WarriorKromScale", "FableKromGripRotX", "FableKromGripRotY", "FableKromGripRotZ",
@@ -1046,6 +1213,32 @@ public class Plugin : BaseUnityPlugin
                 // Obsolete dev knob (retarget now always copies Charred bone orientations directly).
                 "FableWarriorRetargetSource" })
                 PurgeOrphanedKey("Fable Warrior", oldKey);
+
+            // --- Fable Archer/Twitcher/Mage restructure (this release) ---
+            // ClonePlayerTo[Class] (bool) -> EnableFable[Class] (enum, true -> ClonePlayer, false ->
+            // Disabled). Archer/Mage weapon: FableArcherBow/FableMageStaff -> Fable[Class]Weapon,
+            // FableArcher/MageBow/StaffScale -> Fable[Class]WeaponScale. New keys (helmet/chest/legs/
+            // shoulders/helmet-scale, + Twitcher weapon/scale) have no old value to carry.
+            void MigrateClassMode(string section, string oldBoolKey, ConfigEntry<string> mode)
+            {
+                var raw = ReadOrphanRaw(section, oldBoolKey)?.Trim();
+                if (!string.IsNullOrEmpty(raw) && bool.TryParse(raw, out var on))
+                    mode.Value = on ? "ClonePlayer" : "Disabled";
+            }
+            MigrateClassMode("Fable Archer", "ClonePlayerToArcher", EnableFableArcher);
+            CarryString("Fable Archer", "FableArcherBow", FableArcherWeapon);
+            CarryFloat("Fable Archer", "FableArcherBowScale", FableArcherWeaponScale);
+            MigrateClassMode("Fable Twitcher", "ClonePlayerToTwitcher", EnableFableTwitcher);
+            MigrateClassMode("Fable Mage", "ClonePlayerToMage", EnableFableMage);
+            CarryString("Fable Mage", "FableMageStaff", FableMageWeapon);
+            CarryFloat("Fable Mage", "FableMageStaffScale", FableMageWeaponScale);
+            foreach (var (section, key) in new[] {
+                ("Fable Archer", "ClonePlayerToArcher"), ("Fable Archer", "FableArcherBow"),
+                ("Fable Archer", "FableArcherBowScale"),
+                ("Fable Twitcher", "ClonePlayerToTwitcher"),
+                ("Fable Mage", "ClonePlayerToMage"), ("Fable Mage", "FableMageStaff"),
+                ("Fable Mage", "FableMageStaffScale") })
+                PurgeOrphanedKey(section, key);
 
             Config.Save();
 
@@ -1084,9 +1277,6 @@ public class Plugin : BaseUnityPlugin
         // (OnFableWarriorModeChanged rebuilds the puppets, re-reading all config getters).
         // This replaces the removed F10 manual-refresh hotkey.
         EnableFableWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        ClonePlayerToArcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        ClonePlayerToTwitcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        ClonePlayerToMage.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorHelmet.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorHelmetScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
@@ -1101,13 +1291,33 @@ public class Plugin : BaseUnityPlugin
         FableWarriorWeaponGripOffX.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorWeaponGripOffY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorWeaponGripOffZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        EnableFableArcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableArcherScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableArcherBow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableArcherBowScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherHelmet.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherHelmetScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherChest.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherLegs.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherShoulders.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        EnableFableTwitcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableTwitcherScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherHelmet.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherHelmetScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherChest.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherLegs.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherShoulders.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        EnableFableMage.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableMageStaff.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableMageStaffScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageHelmet.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageHelmetScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageChest.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageLegs.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageShoulders.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
 
         TerrainTransitionStyle.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TransitionNoiseScale.SettingChanged += (_, _) => OnTerrainTransitionChanged();

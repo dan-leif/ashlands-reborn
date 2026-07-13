@@ -9,9 +9,9 @@ using UObject = UnityEngine.Object;
 
 namespace AshlandsReborn.Patches;
 
-/// <summary>How the Fable Warrior (Charred_Melee) puppet is dressed. Parsed from the
-/// EnableFableWarrior config string.</summary>
-internal enum FableWarriorMode { Disabled, ClonePlayer, CustomEquipment }
+/// <summary>How a Fable charred puppet is dressed. Parsed from the per-class
+/// EnableFable[Class] config string (Warrior/Archer/Twitcher/Mage).</summary>
+internal enum FableMode { Disabled, ClonePlayer, CustomEquipment }
 
 /// <summary>
 /// Fable Warrior: replaces the legacy Charred Warrior body/armor hodgepodge (removed)
@@ -80,58 +80,90 @@ internal static class FableWarriorPatches
         {
             Label = "Warrior",
             Prefabs = new[] { CharredMeleePrefab },
-            Enabled = () => WarriorMode() != FableWarriorMode.Disabled,
+            Enabled = () => ParseMode(Plugin.EnableFableWarrior?.Value) != FableMode.Disabled,
             RightItem = () => Plugin.FableWarriorWeapon?.Value ?? KromPrefabName,
             LeftItem = () => "",
-            WeaponScale = () => WarriorMode() == FableWarriorMode.CustomEquipment
+            WeaponScale = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.CustomEquipment
                 ? (Plugin.FableWarriorWeaponScale?.Value ?? 1.16f) : 1f,
             BodyScale = () => Plugin.FableWarriorScale?.Value ?? 1f,
             HelmetScale = () => Plugin.FableWarriorHelmetScale?.Value ?? 1f,
-            OverrideArmor = () => WarriorMode() == FableWarriorMode.CustomEquipment,
+            OverrideArmor = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.CustomEquipment,
             HelmetItem = () => Plugin.FableWarriorHelmet?.Value ?? "",
             ChestItem = () => Plugin.FableWarriorChest?.Value ?? "",
             LegItem = () => Plugin.FableWarriorLegs?.Value ?? "",
             ShoulderItem = () => Plugin.FableWarriorShoulders?.Value ?? "",
-            KeepClonedHands = () => WarriorMode() == FableWarriorMode.ClonePlayer,
-            WeaponGrip = () => WarriorMode() == FableWarriorMode.CustomEquipment,
+            KeepClonedHands = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.ClonePlayer,
+            WeaponGrip = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.CustomEquipment,
         },
         new()
         {
+            // Archer weapon is a bow -> LEFT hand. No grip (rig-normalized like all non-warriors).
             Label = "Archer",
             Prefabs = new[] { "Charred_Archer" },
-            Enabled = () => Plugin.ClonePlayerToArcher?.Value == true,
-            LeftItem = () => Plugin.FableArcherBow?.Value ?? "BowAshlands",
-            WeaponScale = () => Plugin.FableArcherBowScale?.Value ?? 1f,
+            Enabled = () => ParseMode(Plugin.EnableFableArcher?.Value) != FableMode.Disabled,
+            LeftItem = () => Plugin.FableArcherWeapon?.Value ?? "BowAshlands",
+            RightItem = () => "",
+            WeaponScale = () => ParseMode(Plugin.EnableFableArcher?.Value) == FableMode.CustomEquipment
+                ? (Plugin.FableArcherWeaponScale?.Value ?? 1f) : 1f,
             BodyScale = () => Plugin.FableArcherScale?.Value ?? 1f,
+            HelmetScale = () => Plugin.FableArcherHelmetScale?.Value ?? 1f,
+            OverrideArmor = () => ParseMode(Plugin.EnableFableArcher?.Value) == FableMode.CustomEquipment,
+            HelmetItem = () => Plugin.FableArcherHelmet?.Value ?? "",
+            ChestItem = () => Plugin.FableArcherChest?.Value ?? "",
+            LegItem = () => Plugin.FableArcherLegs?.Value ?? "",
+            ShoulderItem = () => Plugin.FableArcherShoulders?.Value ?? "",
+            KeepClonedHands = () => ParseMode(Plugin.EnableFableArcher?.Value) == FableMode.ClonePlayer,
         },
         new()
         {
+            // Twitcher weapon -> RIGHT hand. No grip.
             Label = "Twitcher",
             Prefabs = new[] { "Charred_Twitcher", "Charred_Twitcher_Summoned" },
-            Enabled = () => Plugin.ClonePlayerToTwitcher?.Value == true,
+            Enabled = () => ParseMode(Plugin.EnableFableTwitcher?.Value) != FableMode.Disabled,
+            RightItem = () => Plugin.FableTwitcherWeapon?.Value ?? "",
+            LeftItem = () => "",
+            WeaponScale = () => ParseMode(Plugin.EnableFableTwitcher?.Value) == FableMode.CustomEquipment
+                ? (Plugin.FableTwitcherWeaponScale?.Value ?? 1f) : 1f,
             BodyScale = () => Plugin.FableTwitcherScale?.Value ?? 1f,
+            HelmetScale = () => Plugin.FableTwitcherHelmetScale?.Value ?? 1f,
+            OverrideArmor = () => ParseMode(Plugin.EnableFableTwitcher?.Value) == FableMode.CustomEquipment,
+            HelmetItem = () => Plugin.FableTwitcherHelmet?.Value ?? "",
+            ChestItem = () => Plugin.FableTwitcherChest?.Value ?? "",
+            LegItem = () => Plugin.FableTwitcherLegs?.Value ?? "",
+            ShoulderItem = () => Plugin.FableTwitcherShoulders?.Value ?? "",
+            KeepClonedHands = () => ParseMode(Plugin.EnableFableTwitcher?.Value) == FableMode.ClonePlayer,
         },
         new()
         {
+            // Mage weapon is a staff -> RIGHT hand. No grip.
             Label = "Mage",
             Prefabs = new[] { "Charred_Mage" },
-            Enabled = () => Plugin.ClonePlayerToMage?.Value == true,
-            RightItem = () => Plugin.FableMageStaff?.Value ?? "StaffFireball",
-            WeaponScale = () => Plugin.FableMageStaffScale?.Value ?? 1f,
+            Enabled = () => ParseMode(Plugin.EnableFableMage?.Value) != FableMode.Disabled,
+            RightItem = () => Plugin.FableMageWeapon?.Value ?? "StaffFireball",
+            LeftItem = () => "",
+            WeaponScale = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment
+                ? (Plugin.FableMageWeaponScale?.Value ?? 1f) : 1f,
             BodyScale = () => Plugin.FableMageScale?.Value ?? 1f,
+            HelmetScale = () => Plugin.FableMageHelmetScale?.Value ?? 1f,
+            OverrideArmor = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment,
+            HelmetItem = () => Plugin.FableMageHelmet?.Value ?? "",
+            ChestItem = () => Plugin.FableMageChest?.Value ?? "",
+            LegItem = () => Plugin.FableMageLegs?.Value ?? "",
+            ShoulderItem = () => Plugin.FableMageShoulders?.Value ?? "",
+            KeepClonedHands = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.ClonePlayer,
         },
     };
 
-    /// <summary>Parse the EnableFableWarrior config string into the mode enum (defaults to
+    /// <summary>Parse an EnableFable[Class] config string into the mode enum (defaults to
     /// CustomEquipment on an unrecognized/empty value).</summary>
-    internal static FableWarriorMode WarriorMode()
+    internal static FableMode ParseMode(string? raw)
     {
-        var raw = Plugin.EnableFableWarrior?.Value?.Trim();
+        raw = raw?.Trim();
         if (string.Equals(raw, "Disabled", StringComparison.OrdinalIgnoreCase))
-            return FableWarriorMode.Disabled;
+            return FableMode.Disabled;
         if (string.Equals(raw, "ClonePlayer", StringComparison.OrdinalIgnoreCase))
-            return FableWarriorMode.ClonePlayer;
-        return FableWarriorMode.CustomEquipment;
+            return FableMode.ClonePlayer;
+        return FableMode.CustomEquipment;
     }
 
     internal static CreatureProfile? FindProfile(string prefabName)

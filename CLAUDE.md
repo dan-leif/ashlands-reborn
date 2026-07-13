@@ -309,25 +309,26 @@ by a ~28/48/59.5° constant). Globally active when `MasterSwitch` is on
 (Disabled = off) and the other classes' `ClonePlayerTo*` toggles.
 
 **Per-creature profile table** (`FableWarriorPatches.Profiles`): the same machinery covers
-`Charred_Melee` (warrior — see `EnableFableWarrior` below),
-`Charred_Archer` (`FableArcherBow` bow, left hand, rig-normalized sizing),
-`Charred_Twitcher`/`Charred_Twitcher_Summoned` (bare hands), and
-`Charred_Mage` (`FableMageStaff` staff, right hand, rig-normalized). Archer/Twitcher/Mage
-each have their own enable toggle (`ClonePlayerTo*`), body-scale multiplier, and weapon-scale
-config in their own config section, and clone the player's body + armor + a fixed class
-weapon. Retarget offsets are computed and cached PER charred prefab (the variants share bone
-names, and empirically the same rest poses, but this is not assumed).
+`Charred_Melee` (warrior, weapon right hand), `Charred_Archer` (weapon LEFT hand — bow),
+`Charred_Twitcher`/`Charred_Twitcher_Summoned` (weapon right hand), and `Charred_Mage`
+(weapon right hand — staff). **All four classes now share the same tri-state config system**
+(see "Fable modes" below): each has its own `EnableFable[Class]` dropdown, body/helmet/weapon
+scales, and CustomEquipment armor/weapon item IDs in its own config section. Only the Warrior
+has the extra weapon-grip knobs. Retarget offsets are computed and cached PER charred prefab
+(the variants share bone names, and empirically the same rest poses, but this is not assumed).
 
-**Warrior modes** (`EnableFableWarrior`, parsed by `FableWarriorPatches.WarriorMode()`,
-Warrior-only): `Disabled` = profile disabled, no puppet, 100% vanilla Charred; `ClonePlayer`
-= clone the player's body + armor AND the player's real equipped weapon (attached even if
-it's a non-warrior weapon; kept in sync via the resync signature), rig-normalized at natural
-size; `CustomEquipment` (default) = clone the player's BODY only, then override the armor
-slots + weapon with the `FableWarrior Helmet/Chest/Legs/Shoulders/Weapon` item IDs (empty =
-bare slot; default Knight set + Krom) and apply the weapon-grip/scale tuning. The mode is
-routed through per-profile `Func<>`s on `CreatureProfile` (`OverrideArmor`, `Helmet/Chest/
-Leg/ShoulderItem`, `KeepClonedHands`, `WeaponGrip`, `HelmetScale`), all defaulted so the
-other three classes are unaffected.
+**Fable modes** (`EnableFable[Class]`, parsed by `FableWarriorPatches.ParseMode()`; per-class
+for Warrior/Archer/Twitcher/Mage): `Disabled` = profile disabled, no puppet, 100% vanilla
+Charred; `ClonePlayer` = clone the player's body + armor AND the player's real equipped weapon
+(attached even if it's the "wrong" style; kept in sync via the resync signature),
+rig-normalized at natural size; `CustomEquipment` (default) = clone the player's BODY only,
+then override the armor slots + weapon with the `Fable[Class] Helmet/Chest/Legs/Shoulders/
+Weapon` item IDs (empty = bare slot). Defaults: Warrior = Knight set + Krom; Archer = Knight +
+BowAshlands; Mage = Rune Knight + StaffFireball; Twitcher = Fenris + FistFenrirClaw (shoulders
+empty for all). The mode is routed through per-profile `Func<>`s on `CreatureProfile`
+(`OverrideArmor`, `Helmet/Chest/Leg/ShoulderItem`, `KeepClonedHands`, `WeaponGrip`,
+`HelmetScale`, `RightItem`/`LeftItem` for the weapon hand). Only the Warrior sets `WeaponGrip`
+(+ its grip config); the other three rig-normalize their weapon like the old bow/staff.
 
 Key mechanics (details in the file's doc comments):
 - **Inactive strip**: the puppet is instantiated under an inactive holder so no gameplay
@@ -504,7 +505,7 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 | `EnableFableWarrior` | "CustomEquipment" | Warrior mode dropdown AND on/off switch: `Disabled` (no puppet) / `ClonePlayer` (player body+armor+weapon) / `CustomEquipment` (player body + configured armor/weapon) |
 | `FableWarriorScale` | 1.0 | Multiplier on the auto-computed height-match scale |
 | `FableWarriorHelmet` / `Chest` / `Legs` / `Shoulders` | "knighthelm" / "knightchest" / "knightlegs" / "" | CustomEquipment armor slot item IDs (empty = bare); Knight IDs are SouthsilArmor |
-| `FableWarriorHelmetScale` | 1.0 | Fine-tune the (already scale-normalized) warrior puppet helmet; **Warrior-only** now (Archer/Twitcher/Mage helmets normalize at a fixed 1.0) |
+| `FableWarriorHelmetScale` | 1.0 | Fine-tune the (already scale-normalized) puppet helmet; each class has its own (`Fable[Class]HelmetScale`) |
 | `FableWarriorWeapon` | "THSwordKrom" | CustomEquipment right-hand weapon item ID (empty = bare hand); default Krom |
 | `FableWarriorWeaponScale` | 1.16 | CustomEquipment weapon size (ClonePlayer weapons keep natural size) |
 | `FableWarriorWeaponGripRotX/Y/Z` | 12 / 0 / 0 | CustomEquipment weapon grip rotation (deg, hand-attach frame); RotX=12 calibrates the shoulder rest (grip tuning WIP) |
@@ -512,14 +513,19 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 
 Every key in the Fable Warrior/Archer/Twitcher/Mage sections applies **instantly** via
 `SettingChanged` (rebuilds the affected puppets live) — there is no manual refresh hotkey.
-Old keys (`ClonePlayerToWarrior`, `FableHelmetScale`/`FableHelmetYOffset`, `WarriorKromScale`,
-`FableKromGrip*`) auto-migrate on first load into the new names (bool→enum: `true`→ClonePlayer)
-and are purged from the cfg orphan store.
+Old keys auto-migrate on first load and are purged from the cfg orphan store:
+`ClonePlayerTo[Class]` bool → `EnableFable[Class]` enum (`true`→ClonePlayer, `false`→Disabled);
+`FableArcherBow`/`FableMageStaff` → `Fable[Class]Weapon`; `FableArcherBowScale`/
+`FableMageStaffScale` → `Fable[Class]WeaponScale`; plus the Warrior's earlier renames
+(`FableWarriorSwitch`, `FableHelmetScale`, `WarriorKromScale`, `FableKromGrip*`).
 
-Sections "Fable Archer" (`ClonePlayerToArcher`, `FableArcherScale`, `FableArcherBow` =
-"BowAshlands", `FableArcherBowScale`), "Fable Twitcher" (`ClonePlayerToTwitcher`,
-`FableTwitcherScale` — no weapon), and "Fable Mage" (`ClonePlayerToMage`, `FableMageScale`,
-`FableMageStaff` = "StaffFireball", `FableMageStaffScale`) mirror the warrior keys.
+Sections **"Fable Archer" / "Fable Twitcher" / "Fable Mage"** mirror the Warrior's keys
+(`EnableFable[Class]` tri-state, `Fable[Class]Scale`, `Fable[Class]Helmet/HelmetScale/Chest/
+Legs/Shoulders`, `Fable[Class]Weapon`, `Fable[Class]WeaponScale`) — but with **no grip knobs**
+(Warrior-only). CustomEquipment defaults: Archer = `knighthelm`/`knightchest`/`knightlegs` +
+`BowAshlands` (LEFT hand); Mage = `runeknighthelm`/`runeknightchest`/`runeknightlegs` +
+`StaffFireball` (right hand); Twitcher = `HelmetFenring`/`ArmorFenringChest`/`ArmorFenringLegs`
++ `FistFenrirClaw` (right hand). Shoulders empty for all.
 
 ## Asset Extraction Scripts
 
