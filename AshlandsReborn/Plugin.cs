@@ -53,49 +53,6 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> EnableValkyrieSwap { get; private set; } = null!;
     public static ConfigEntry<KeyCode> ValkyrieRefreshKey { get; private set; } = null!;
 
-    // --- Warrior General ---
-    public static ConfigEntry<bool> EnableWarriorSwap { get; private set; } = null!;
-    public static ConfigEntry<KeyCode> WarriorRefreshKey { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorKromScale { get; private set; } = null!;
-
-    // --- Warrior Body ---
-    public static ConfigEntry<bool> EnableWarriorBodySwap { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorBodySwapScale { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorBodySwapThickness { get; private set; } = null!;
-    public static ConfigEntry<string> WarriorBodySwapTextureSubmesh { get; private set; } = null!;
-    public static ConfigEntry<bool> WarriorBodySwapHideHead { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorBodySwapHeadCutoffY { get; private set; } = null!;
-    public static ConfigEntry<bool> WarriorChestGlow { get; private set; } = null!;
-    public static ConfigEntry<string> WarriorEyeGlowColor { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorEyeGlowIntensity { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorEyeGlowOffsetX { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorEyeGlowOffsetY { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorEyeGlowOffsetZ { get; private set; } = null!;
-
-    // --- Warrior Player Armor ---
-    public static ConfigEntry<bool> EnableWarriorPlayerArmor { get; private set; } = null!;
-    public static ConfigEntry<string> WarriorChestName { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorChestScale { get; private set; } = null!;
-    public static ConfigEntry<bool> WarriorChestCollapseArmBones { get; private set; } = null!;
-    public static ConfigEntry<bool> WarriorChestCollapseForeArmBones { get; private set; } = null!;
-    public static ConfigEntry<string> WarriorChestSubmeshesHidden { get; private set; } = null!;
-    public static ConfigEntry<bool> WarriorChestTrimArms { get; private set; } = null!;
-    public static ConfigEntry<string> WarriorLegsName { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorLegsScale { get; private set; } = null!;
-    public static ConfigEntry<string> WarriorHelmetName { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorHelmetScale { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorHelmetYaw { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorHelmetYOffset { get; private set; } = null!;
-    public static ConfigEntry<float> WarriorHelmetZOffset { get; private set; } = null!;
-
-    // --- Warrior Vanilla Armor ---
-    public static ConfigEntry<bool> ShowWarriorVanillaHelmet { get; private set; } = null!;
-    public static ConfigEntry<bool> ShowWarriorVanillaBodyArmor { get; private set; } = null!;
-    public static ConfigEntry<string> WarriorVanillaVisibleSubmeshes { get; private set; } = null!;
-    public static ConfigEntry<string> WarriorVanillaCollapseBones { get; private set; } = null!;
-    public static ConfigEntry<string> WarriorVanillaScaleBones { get; private set; } = null!;
-    public static ConfigEntry<KeyCode> WarriorVanillaDumpSubmeshesKey { get; private set; } = null!;
-
     // --- Fable Warrior ---
     public static ConfigEntry<bool> EnableFableWarrior { get; private set; } = null!;
     public static ConfigEntry<bool> ClonePlayerToWarrior { get; private set; } = null!;
@@ -108,6 +65,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableKromGripOffX { get; private set; } = null!;
     public static ConfigEntry<float> FableKromGripOffY { get; private set; } = null!;
     public static ConfigEntry<float> FableKromGripOffZ { get; private set; } = null!;
+    public static ConfigEntry<float> WarriorKromScale { get; private set; } = null!;
     public static ConfigEntry<bool> ClonePlayerToArcher { get; private set; } = null!;
     public static ConfigEntry<float> FableArcherScale { get; private set; } = null!;
     public static ConfigEntry<string> FableArcherBow { get; private set; } = null!;
@@ -156,9 +114,8 @@ public class Plugin : BaseUnityPlugin
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
-    // Global gate for the Fable puppet system (matches CharredWarriorPatches.ShouldSwap's
-    // legacy bypass). Per-creature enablement lives in FableWarriorPatches' profile table
-    // (ClonePlayerToWarrior/Archer/Twitcher/Mage).
+    // Global gate for the Fable puppet system. Per-creature enablement lives in
+    // FableWarriorPatches' profile table (ClonePlayerToWarrior/Archer/Twitcher/Mage).
     public static bool IsFablePuppetActive =>
         MasterSwitch?.Value == true && EnableFableWarrior?.Value == true;
     // Global gate for the Fable Bunny (Morgen -> donor creature) swap.
@@ -417,271 +374,6 @@ public class Plugin : BaseUnityPlugin
             KeyCode.F9,
             "Re-apply Valkyrie swap to nearby Fallen Valkyries without teleporting.");
 
-        // --- Warrior General ---
-        EnableWarriorSwap = Config.Bind(
-            "Warrior General",
-            "EnableWarriorSwap",
-            true,
-            "Master toggle for all Charred_Melee visual changes (body, sword, and armor). When off, all warrior modifications are disabled.");
-
-        WarriorRefreshKey = Config.Bind(
-            "Warrior General",
-            "WarriorRefreshKey",
-            KeyCode.F10,
-            "Re-apply warrior sword and armor swap to nearby instances without teleporting.");
-
-        WarriorKromScale = Config.Bind(
-            "Warrior General",
-            "WarriorKromScale",
-            1.16f,
-            new ConfigDescription(
-                "Scale factor for Krom sword when swapped onto Charred Warriors. 1.0 = vanilla size. 1.16 = 16% larger (matches original sword). 1.18 = 18% larger.",
-                new AcceptableValueRange<float>(0.5f, 2f)));
-
-        // --- Warrior Body ---
-        EnableWarriorBodySwap = Config.Bind(
-            "Warrior Body",
-            "EnableWarriorBodySwap",
-            true,
-            "Toggle between default skeleton body and custom player body/eyes as specified in this section.");
-
-        WarriorChestGlow = Config.Bind(
-            "Warrior Body",
-            "WarriorChestGlow",
-            false,
-            "Show the vanilla Charred chest ember/glow particle effect on the warrior's chest.");
-
-        WarriorBodySwapScale = Config.Bind(
-            "Warrior Body",
-            "WarriorBodySwapScale",
-            1.0f,
-            new ConfigDescription(
-                "Uniform scale multiplier for the body swap mesh.",
-                new AcceptableValueRange<float>(0.5f, 2.0f)));
-
-        WarriorBodySwapThickness = Config.Bind(
-            "Warrior Body",
-            "WarriorBodySwapThickness",
-            1.25f,
-            new ConfigDescription(
-                "Radial thickness of the body swap layer (XZ scale on torso/arms/legs). "
-                + "1.0 = original player proportions; >1 = more muscular. Does not affect height.",
-                new AcceptableValueRange<float>(0.7f, 2.0f)));
-
-        WarriorBodySwapTextureSubmesh = Config.Bind(
-            "Warrior Body",
-            "WarriorBodySwapTextureSubmesh",
-            "3",
-            new ConfigDescription(
-                "Pick a chest armor submesh (0–9) whose material is cloned onto the body swap layer. 'Off' uses a plain dark color.",
-                new AcceptableValueList<string>("Off", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9")));
-
-        WarriorBodySwapHideHead = Config.Bind(
-            "Warrior Body",
-            "WarriorBodySwapHideHead",
-            true,
-            "Hide the player head in the body swap layer (head shows through the helmet visor otherwise).");
-
-        WarriorBodySwapHeadCutoffY = Config.Bind(
-            "Warrior Body",
-            "WarriorBodySwapHeadCutoffY",
-            0.0f,
-            new ConfigDescription(
-                "Vertical Y offset of the head-hide bone wrapper in the body swap layer. " +
-                "Increase to hide more (push cutoff down into neck); decrease to expose more neck.",
-                new AcceptableValueRange<float>(-0.2f, 0.2f)));
-
-        WarriorEyeGlowColor = Config.Bind(
-            "Warrior Body",
-            "WarriorEyeGlowColor",
-            "White",
-            new ConfigDescription(
-                "Emission color preset for the Charred Melee eye glow.",
-                new AcceptableValueList<string>("Blue", "Cyan", "Green", "Red", "White", "Orange")));
-
-        WarriorEyeGlowIntensity = Config.Bind(
-            "Warrior Body",
-            "WarriorEyeGlowIntensity",
-            2.0f,
-            new ConfigDescription(
-                "Brightness multiplier for the eye glow emission (0 = off, 5 = very bright).",
-                new AcceptableValueRange<float>(0f, 5f)));
-
-        WarriorEyeGlowOffsetX = Config.Bind(
-            "Warrior Body",
-            "WarriorEyeGlowOffsetX",
-            0.0f,
-            new ConfigDescription(
-                "Horizontal offset for the eye glow particles. Positive pushes eyes apart, negative pushes them together.",
-                new AcceptableValueRange<float>(-2f, 2f)));
-
-        WarriorEyeGlowOffsetY = Config.Bind(
-            "Warrior Body",
-            "WarriorEyeGlowOffsetY",
-            0.0f,
-            new ConfigDescription(
-                "Vertical offset for the eye glow particles. Positive moves eyes up, negative moves them down.",
-                new AcceptableValueRange<float>(-2f, 2f)));
-
-        WarriorEyeGlowOffsetZ = Config.Bind(
-            "Warrior Body",
-            "WarriorEyeGlowOffsetZ",
-            0.04f,
-            new ConfigDescription(
-                "Forward/back offset for the eye glow particles. Positive moves eyes forward, negative moves them back.",
-                new AcceptableValueRange<float>(-2f, 2f)));
-
-        // --- Warrior Player Armor ---
-        EnableWarriorPlayerArmor = Config.Bind(
-            "Warrior Player Armor",
-            "EnableWarriorPlayerArmor",
-            true,
-            "Enabled: apply player armor pieces and settings to charred warrior as specified in this section. Disabled: do not apply player armor to the warrior.");
-
-        WarriorChestName = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorChestName",
-            "knightchest",
-            "The chest armor to swap onto Charred Warriors. Requires SouthsilArmor mod for 'knightchest'. Try 'ArmorIronChest' to test with vanilla armor. Leave empty to disable.");
-
-        WarriorChestScale = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorChestScale",
-            1.3f,
-            new ConfigDescription(
-                "Scale factor for chest armor on Charred Warriors. 1.0 = player size. Adjusts bind poses so the skinned mesh renders larger/smaller relative to the skeleton.",
-                new AcceptableValueRange<float>(0.5f, 2f)));
-
-        WarriorChestCollapseArmBones = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorChestCollapseArmBones",
-            true,
-            "Collapse the LeftArm/RightArm bones to zero scale on the chest SMR only. Hides the upper-arm portion of submesh 0 (which can't be hidden via submesh tricks because torso and arm geometry share the submesh) while keeping torso vertices anchored to spine bones intact.");
-
-        WarriorChestCollapseForeArmBones = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorChestCollapseForeArmBones",
-            false,
-            "Also collapse LeftForeArm/RightForeArm on the chest SMR. Enable if any submesh-0 geometry runs past the elbow.");
-
-        WarriorChestSubmeshesHidden = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorChestSubmeshesHidden",
-            "5",
-            "Comma-separated list of chest submesh indices to hide via invisible material (e.g. \"5\" or \"5,6\"). Empty string disables all extra hiding.");
-
-        WarriorChestTrimArms = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorChestTrimArms",
-            true,
-            "Remove arm/hand triangles from the chest armor mesh, leaving only the torso plate.");
-
-        WarriorLegsName = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorLegsName",
-            "knightlegs",
-            "The legs armor to swap onto Charred Warriors. Requires SouthsilArmor mod for 'knightlegs'. Leave empty to disable.");
-
-        WarriorLegsScale = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorLegsScale",
-            1.0f,
-            new ConfigDescription(
-                "Scale factor for leg armor on Charred Warriors. 1.0 = player size.",
-                new AcceptableValueRange<float>(0.5f, 2f)));
-
-        WarriorHelmetName = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorHelmetName",
-            "knighthelm",
-            "The helmet to swap onto Charred Warriors. HelmetDrake is vanilla, knighthelm requires SouthsilArmor mod. Leave empty to disable.");
-
-        WarriorHelmetScale = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorHelmetScale",
-            1.1f,
-            new ConfigDescription(
-                "Scale factor for the helmet when swapped onto Charred Warriors. 1.0 = vanilla size.",
-                new AcceptableValueRange<float>(0.5f, 2f)));
-
-        WarriorHelmetYaw = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorHelmetYaw",
-            270f,
-            new ConfigDescription(
-                "Y-axis rotation for the helmet on Charred Warriors. 0 = default HelmetDrake orientation. -90 = facing forward.",
-                new AcceptableValueRange<float>(-360f, 360f)));
-
-        WarriorHelmetYOffset = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorHelmetYOffset",
-            0.05f,
-            new ConfigDescription(
-                "Vertical height offset for the helmet on Charred Warriors. Positive = move up. Adjust so the helmet sits flush on the skull.",
-                new AcceptableValueRange<float>(-0.5f, 0.5f)));
-
-        WarriorHelmetZOffset = Config.Bind(
-            "Warrior Player Armor",
-            "WarriorHelmetZOffset",
-            0.05f,
-            new ConfigDescription(
-                "Forward/back offset for the helmet on Charred Warriors in world space. Positive = forward (toward face). Adjust to prevent skull clipping through front.",
-                new AcceptableValueRange<float>(-0.5f, 0.5f)));
-
-        // --- Warrior Vanilla Armor ---
-        ShowWarriorVanillaHelmet = Config.Bind(
-            "Warrior Vanilla Armor",
-            "ShowWarriorVanillaHelmet",
-            false,
-            "Enabled: apply the vanilla Charred_Helmet to every Charred Warrior. " +
-            "Disabled: remove the vanilla Charred_Helmet from every Charred Warrior. " +
-            "Only takes effect when MasterSwitch is enabled — otherwise each warrior keeps whatever it rolled at spawn.");
-
-        ShowWarriorVanillaBodyArmor = Config.Bind(
-            "Warrior Vanilla Armor",
-            "ShowWarriorVanillaBodyArmor",
-            false,
-            "Enabled: apply all body armor pieces to every Charred Warrior, including those on the legs, hips, chest, shoulders, and arms. " +
-            "(All vanilla body armor lives in one mesh: Charred_Breastplate / 'ChestPiece'.) " +
-            "Disabled: remove all vanilla body armor pieces from every Charred Warrior. " +
-            "Does NOT control the custom player-armor swap — see EnableWarriorPlayerArmor in 'Warrior Player Armor'. " +
-            "Only takes effect when MasterSwitch is enabled.");
-
-        WarriorVanillaVisibleSubmeshes = Config.Bind(
-            "Warrior Vanilla Armor",
-            "WarriorVanillaVisibleSubmeshes",
-            "",
-            "Comma-separated submesh indices of the vanilla Charred_Breastplate ('ChestPiece') mesh to KEEP visible. " +
-            "All other submeshes are hidden via an invisible material. Empty = all visible (no masking). " +
-            "Example: '3,4' to show only submeshes 3 and 4. " +
-            "Press WarriorVanillaDumpSubmeshesKey (F12) in-game to log the submesh layout to BepInEx/LogOutput.log. " +
-            "Only effective when ShowWarriorVanillaBodyArmor=true and MasterSwitch=true.");
-
-        WarriorVanillaCollapseBones = Config.Bind(
-            "Warrior Vanilla Armor",
-            "WarriorVanillaCollapseBones",
-            "",
-            "Comma-separated bone names to collapse (zero-scale) on the vanilla Charred_Breastplate, hiding any geometry weighted to them. " +
-            "Examples: 'LeftShoulder,RightShoulder' to remove pauldrons; 'LeftUpLeg,RightUpLeg' to remove leg armor; 'Spine,Spine1,Spine2' to remove torso plate. " +
-            "WARNING: avoid 'RightArm' and 'RightHandThumb1' — the vanilla mesh has mis-weighted vertices on those bones (101 verts and 119 verts respectively) and collapsing them distorts the right bracer. " +
-            "Only effective when ShowWarriorVanillaBodyArmor=true and MasterSwitch=true.");
-
-        WarriorVanillaScaleBones = Config.Bind(
-            "Warrior Vanilla Armor",
-            "WarriorVanillaScaleBones",
-            "",
-            "Comma-separated 'BoneName:scale' pairs to scale (rather than fully hide) geometry on the vanilla Charred_Breastplate. " +
-            "Example: 'LeftShoulder:0.5,RightShoulder:0.5' halves the pauldrons. " +
-            "Bones listed in WarriorVanillaCollapseBones take precedence (collapsed to zero) over scale entries for the same bone. " +
-            "Only effective when ShowWarriorVanillaBodyArmor=true and MasterSwitch=true.");
-
-        WarriorVanillaDumpSubmeshesKey = Config.Bind(
-            "Warrior Vanilla Armor",
-            "WarriorVanillaDumpSubmeshesKey",
-            KeyCode.F12,
-            "Press this key in-game to log a per-submesh dump of the live vanilla Charred_Breastplate (mesh, materials, triangle ranges, dominant bone per submesh). " +
-            "Use the dump to decide which indices to put in WarriorVanillaVisibleSubmeshes.");
-
         // --- Fable Warrior ---
         EnableFableWarrior = Config.Bind(
             "Fable Warrior",
@@ -775,6 +467,17 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Position offset (meters, hand-attach local) of the puppet's Krom sword grip, Z axis.",
                 new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        // Krom sword sizing for the Fable Warrior puppet. Key name kept as "WarriorKromScale"
+        // (migrated from the removed "Warrior General" section) for cfg compatibility.
+        WarriorKromScale = Config.Bind(
+            "Fable Warrior",
+            "WarriorKromScale",
+            1.16f,
+            new ConfigDescription(
+                "Scale factor for the Krom sword carried by the Fable Warrior puppet. 1.0 = vanilla size. " +
+                "1.16 = 16% larger (matches original sword). 1.18 = 18% larger.",
+                new AcceptableValueRange<float>(0.5f, 2f)));
 
         // --- Fable Archer ---
         ClonePlayerToArcher = Config.Bind(
@@ -1214,49 +917,53 @@ public class Plugin : BaseUnityPlugin
             }
 
             // Migrate "Charred Warrior" section keys to new section names
-            MigrateKey("Charred Warrior", "EnableCharredWarriorSwap", EnableWarriorSwap);
-            MigrateKey("Charred Warrior", "CharredWarriorRefreshKey", WarriorRefreshKey);
+            // WarriorKromScale is the only key that survived the legacy Charred Warrior
+            // removal (now under "Fable Warrior"). Carry over any value a user had saved
+            // under the old "Charred Warrior" / "Warrior General" sections.
             MigrateKey("Charred Warrior", "CharredWarriorKromScale", WarriorKromScale);
-            MigrateKey("Charred Warrior", "EnableBodySwap", EnableWarriorBodySwap);
-            MigrateKey("Charred Warrior", "BodySwapScale", WarriorBodySwapScale);
-            MigrateKey("Charred Warrior", "BodySwapThickness", WarriorBodySwapThickness);
-            MigrateKey("Charred Warrior", "BodySwapChestTextureSubmesh", WarriorBodySwapTextureSubmesh);
-            MigrateKey("Charred Warrior", "BodySwapHideHead", WarriorBodySwapHideHead);
-            MigrateKey("Charred Warrior", "BodySwapHeadCutoffY", WarriorBodySwapHeadCutoffY);
-            MigrateKey("Charred Warrior", "EyeGlowColor", WarriorEyeGlowColor);
-            MigrateKey("Charred Warrior", "EyeGlowIntensity", WarriorEyeGlowIntensity);
-            MigrateKey("Charred Warrior", "EyeGlowOffsetX", WarriorEyeGlowOffsetX);
-            MigrateKey("Charred Warrior", "EyeGlowOffsetY", WarriorEyeGlowOffsetY);
-            MigrateKey("Charred Warrior", "EyeGlowOffsetZ", WarriorEyeGlowOffsetZ);
-            MigrateKey("Charred Warrior", "CharredWarriorChestName", WarriorChestName);
-            MigrateKey("Charred Warrior", "CharredWarriorChestScale", WarriorChestScale);
-            MigrateKey("Charred Warrior", "ChestCollapseArmBones", WarriorChestCollapseArmBones);
-            MigrateKey("Charred Warrior", "ChestCollapseForeArmBones", WarriorChestCollapseForeArmBones);
-            MigrateKey("Charred Warrior", "ChestSubmeshesHidden", WarriorChestSubmeshesHidden);
-            MigrateKey("Charred Warrior", "TrimChestArms", WarriorChestTrimArms);
-            MigrateKey("Charred Warrior", "CharredWarriorLegsName", WarriorLegsName);
-            MigrateKey("Charred Warrior", "CharredWarriorLegsScale", WarriorLegsScale);
-            MigrateKey("Charred Warrior", "CharredWarriorHelmetName", WarriorHelmetName);
-            MigrateKey("Charred Warrior", "CharredWarriorHelmetScale", WarriorHelmetScale);
-            MigrateKey("Charred Warrior", "CharredWarriorHelmetYaw", WarriorHelmetYaw);
-            MigrateKey("Charred Warrior", "CharredWarriorHelmetYOffset", WarriorHelmetYOffset);
-            MigrateKey("Charred Warrior", "CharredWarriorHelmetZOffset", WarriorHelmetZOffset);
+            MigrateKey("Warrior General", "WarriorKromScale", WarriorKromScale);
             // DataDumpKey removed — just clean it up
             var defDataDump = new ConfigDefinition("Charred Warrior", "DataDumpKey");
             if (Config.ContainsKey(defDataDump)) Config.Remove(defDataDump);
 
-            // Removed config keys from the previous "Warrior Vanilla Armor" iteration —
-            // delete from saved cfg files so they don't linger in ConfigurationManager.
-            foreach (var dead in new[]
-                     {
-                         "ForceWarriorVanillaArmor", "ForceWarriorVanillaArmorAll",
-                         "ShowWarriorVanillaChest", "ShowWarriorVanillaShoulders",
-                         "ShowWarriorVanillaBracers", "WarriorVanillaBracersScale",
-                     })
+            // The legacy Charred Warrior system was removed (superseded by the Fable puppet).
+            // Purge its four config sections from saved cfg files so no orphaned keys linger.
+            // (WarriorKromScale is intentionally excluded — it moved to "Fable Warrior".)
+            void PurgeSection(string section, string[] keys)
             {
-                var def = new ConfigDefinition("Warrior Vanilla Armor", dead);
-                if (Config.ContainsKey(def)) Config.Remove(def);
+                foreach (var dead in keys)
+                {
+                    var def = new ConfigDefinition(section, dead);
+                    if (Config.ContainsKey(def)) Config.Remove(def);
+                }
             }
+            PurgeSection("Warrior General", new[] { "EnableWarriorSwap", "WarriorRefreshKey" });
+            PurgeSection("Warrior Body", new[]
+            {
+                "EnableWarriorBodySwap", "WarriorChestGlow", "WarriorBodySwapScale",
+                "WarriorBodySwapThickness", "WarriorBodySwapTextureSubmesh",
+                "WarriorBodySwapHideHead", "WarriorBodySwapHeadCutoffY", "WarriorEyeGlowColor",
+                "WarriorEyeGlowIntensity", "WarriorEyeGlowOffsetX", "WarriorEyeGlowOffsetY",
+                "WarriorEyeGlowOffsetZ",
+            });
+            PurgeSection("Warrior Player Armor", new[]
+            {
+                "EnableWarriorPlayerArmor", "WarriorChestName", "WarriorChestScale",
+                "WarriorChestCollapseArmBones", "WarriorChestCollapseForeArmBones",
+                "WarriorChestSubmeshesHidden", "WarriorChestTrimArms", "WarriorLegsName",
+                "WarriorLegsScale", "WarriorHelmetName", "WarriorHelmetScale",
+                "WarriorHelmetYaw", "WarriorHelmetYOffset", "WarriorHelmetZOffset",
+            });
+            PurgeSection("Warrior Vanilla Armor", new[]
+            {
+                "ShowWarriorVanillaHelmet", "ShowWarriorVanillaBodyArmor",
+                "WarriorVanillaVisibleSubmeshes", "WarriorVanillaCollapseBones",
+                "WarriorVanillaScaleBones", "WarriorVanillaDumpSubmeshesKey",
+                // dead keys from earlier "Warrior Vanilla Armor" iterations
+                "ForceWarriorVanillaArmor", "ForceWarriorVanillaArmorAll",
+                "ShowWarriorVanillaChest", "ShowWarriorVanillaShoulders",
+                "ShowWarriorVanillaBracers", "WarriorVanillaBracersScale",
+            });
 
             // Removed: the Fable Warrior retarget now always copies Charred bone orientations
             // directly (no rest-pose "source" choice), so this dev knob is obsolete.
@@ -1318,7 +1025,7 @@ public class Plugin : BaseUnityPlugin
             ApplyTreePatches();
             Patches.FableBunnyPatches.ApplyBunnyPatches(Harmony);
 
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, WarriorSwap: {(EnableWarriorSwap.Value ? "ON" : "OFF")}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, FableWarrior: {(EnableFableWarrior.Value ? "ON" : "OFF")}");
         }
         catch (Exception ex)
         {
