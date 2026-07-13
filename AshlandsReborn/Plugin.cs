@@ -1464,7 +1464,6 @@ public class Plugin : BaseUnityPlugin
     private static float _lastMasterSwitchToggleTime;
     private static float _lastTreeRefreshTime;
     private static float _lastValkyrieRefreshTime;
-    private static float _lastCharredRefreshTime;
     private static float _lastBracerScaleUpdateTime;
 
     private void Update()
@@ -1495,42 +1494,12 @@ public class Plugin : BaseUnityPlugin
                 Patches.ValkyriePatches.RefreshValkyries();
                 Log.LogInfo("[Ashlands Reborn] Valkyrie refresh triggered");
             }
-            if (Input.GetKeyDown(WarriorRefreshKey?.Value ?? KeyCode.F10) && Time.time - _lastCharredRefreshTime >= 1f)
-            {
-                _lastCharredRefreshTime = Time.time;
-                if (IsFablePuppetActive)
-                {
-                    Patches.FableWarriorPatches.RefreshAll();
-                    Log.LogInfo("[Ashlands Reborn] Fable Warrior refresh triggered");
-                }
-                else
-                {
-                    // Dump BEFORE refresh — _lastChestSMR is still valid
-                    Patches.CharredWarriorPatches.DumpChestMatricesNow();
-                    Patches.CharredWarriorPatches.RefreshCharredWarriors();
-                    Log.LogInfo("[Ashlands Reborn] Warrior matrix dump + refresh triggered");
-                }
-                if (IsFableBunnyActive)
-                {
-                    Patches.FableBunnyPatches.RefreshAll();
-                    Log.LogInfo("[Ashlands Reborn] Fable Bunny refresh triggered");
-                }
-            }
-            if (Input.GetKeyDown(WarriorVanillaDumpSubmeshesKey?.Value ?? KeyCode.F12))
-            {
-                Patches.CharredWarriorPatches.DumpVanillaBreastplateSubmeshes();
-            }
-
+            // Fable creature config changes apply instantly via SettingChanged handlers
+            // (see OnFableWarriorModeChanged / OnFableBunnyChanged), so there is no manual
+            // refresh hotkey. The periodic tick keeps the Fable puppets/bunnies in sync.
             if (Time.time - _lastBracerScaleUpdateTime >= 0.2f)
             {
                 _lastBracerScaleUpdateTime = Time.time;
-                if (!IsFablePuppetActive)
-                {
-                    Patches.CharredWarriorPatches.UpdateBracerScales();
-                    Patches.CharredWarriorPatches.UpdateChestSubmeshesHidden();
-                    Patches.CharredWarriorPatches.UpdateBodySwapThickness();
-                    Patches.CharredWarriorPatches.UpdateVanillaBreastplateMods();
-                }
                 Patches.FableWarriorPatches.PeriodicUpdate();
                 Patches.FableBunnyPatches.PeriodicUpdate();
             }
@@ -1566,7 +1535,6 @@ public class Plugin : BaseUnityPlugin
             Patches.EnvManPatches.ForceTerrainRefresh(force: true);
             Patches.TreePatches.RefreshTrees();
             Patches.ValkyriePatches.RefreshValkyries();
-            Patches.CharredWarriorPatches.RefreshCharredWarriors();
             Patches.FableWarriorPatches.RefreshAll();
             Patches.FableBunnyPatches.RefreshAll();
             Log.LogInfo("[Ashlands Reborn] Master switch ON - all overrides applied");
@@ -1577,7 +1545,6 @@ public class Plugin : BaseUnityPlugin
             Patches.EnvManPatches.ForceTerrainRefresh(force: true);
             Patches.TreePatches.RevertAllTrees();
             Patches.ValkyriePatches.RevertAllValkyries();
-            Patches.CharredWarriorPatches.RevertAllCharredWarriors();
             Patches.FableWarriorPatches.RevertAll();
             Patches.FableBunnyPatches.RevertAll();
             Log.LogInfo("[Ashlands Reborn] Master switch OFF - all overrides reverted");
@@ -1615,23 +1582,18 @@ public class Plugin : BaseUnityPlugin
         OnTerrainTransitionChanged();
     }
 
-    // Mode transitions between the legacy Charred Warrior swap and the Fable Warrior puppet
-    // must clean up the mode being left before applying the mode being entered - otherwise
-    // stale attachments/instances from one system can linger under the other.
+    // Any Fable Warrior/Archer/Twitcher/Mage config change (enable, per-creature clone
+    // toggle, scale/grip/weapon knobs) applies instantly: rebuild the puppets when the
+    // system is active, otherwise revert them so the charred creatures return to vanilla.
+    // RefreshAll reverts + rebuilds each puppet, re-reading every config getter.
     private void OnFableWarriorModeChanged()
     {
         if (!MasterSwitch.Value || Player.m_localPlayer == null) return;
 
         if (IsFablePuppetActive)
-        {
-            Patches.CharredWarriorPatches.RevertAllCharredWarriors();
             Patches.FableWarriorPatches.RefreshAll();
-        }
         else
-        {
             Patches.FableWarriorPatches.RevertAll();
-            Patches.CharredWarriorPatches.RefreshCharredWarriors();
-        }
     }
 
     private void OnDestroy()

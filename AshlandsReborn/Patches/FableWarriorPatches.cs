@@ -10,10 +10,8 @@ using UObject = UnityEngine.Object;
 namespace AshlandsReborn.Patches;
 
 /// <summary>
-/// Fable Warrior: replaces the legacy Charred Warrior body/armor hodgepodge
-/// (<see cref="CharredWarriorPatches"/>, gated off via ShouldSwap when
-/// Plugin.EnableFableWarrior is true) with a scaled Player-rig "puppet" driven by the
-/// Charred's own animation.
+/// Fable Warrior: replaces the legacy Charred Warrior body/armor hodgepodge (removed)
+/// with a scaled Player-rig "puppet" driven by the Charred's own animation.
 ///
 /// The core idea that makes this work where 10+ prior mesh-on-Charred-skeleton attempts
 /// failed: the player body mesh NEVER leaves the skeleton it was authored for. We instantiate
