@@ -54,9 +54,9 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<KeyCode> ValkyrieRefreshKey { get; private set; } = null!;
 
     // --- Fable Warrior ---
-    // Vanilla | ClonePlayer | CustomEquipment (parsed via FableWarriorPatches.WarriorMode).
-    // Vanilla disables the warrior puppet; this key replaces the old EnableFableWarrior toggle.
-    public static ConfigEntry<string> FableWarriorSwitch { get; private set; } = null!;
+    // Disabled | ClonePlayer | CustomEquipment (parsed via FableWarriorPatches.WarriorMode).
+    // Disabled builds no warrior puppet; this key is also the warrior's on/off switch.
+    public static ConfigEntry<string> EnableFableWarrior { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorScale { get; private set; } = null!;
     public static ConfigEntry<string> FableWarriorHelmet { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorHelmetScale { get; private set; } = null!;
@@ -121,7 +121,7 @@ public class Plugin : BaseUnityPlugin
     public static bool IsTerrainOverrideActive => MasterSwitch?.Value == true && EnableTerrainOverride?.Value == true;
     // Global gate for the Fable puppet system: just the master switch now (the old
     // EnableFableWarrior toggle was removed). Per-creature enablement lives in
-    // FableWarriorPatches' profile table (FableWarriorSwitch != Vanilla for the warrior,
+    // FableWarriorPatches' profile table (EnableFableWarrior != Disabled for the warrior,
     // ClonePlayerToArcher/Twitcher/Mage for the others).
     public static bool IsFablePuppetActive => MasterSwitch?.Value == true;
     // Global gate for the Fable Bunny (Morgen -> donor creature) swap.
@@ -381,18 +381,18 @@ public class Plugin : BaseUnityPlugin
             "Re-apply Valkyrie swap to nearby Fallen Valkyries without teleporting.");
 
         // --- Fable Warrior ---
-        FableWarriorSwitch = Config.Bind(
+        EnableFableWarrior = Config.Bind(
             "Fable Warrior",
-            "FableWarriorSwitch",
+            "EnableFableWarrior",
             "CustomEquipment",
             new ConfigDescription(
                 "How the Charred_Melee (warrior) is dressed (also the warrior's on/off switch):\n" +
-                "Vanilla = no puppet, the Charred renders 100% vanilla.\n" +
+                "Disabled = no puppet, the Charred renders 100% vanilla.\n" +
                 "ClonePlayer = copy the player's body + armor AND the player's equipped weapon " +
                 "(attached even if it's not a warrior-style weapon).\n" +
                 "CustomEquipment = copy the player's body only (no player armor/weapon) and equip the " +
                 "FableWarrior Helmet/Chest/Legs/Shoulders/Weapon item IDs from this section.",
-                new AcceptableValueList<string>("Vanilla", "ClonePlayer", "CustomEquipment")));
+                new AcceptableValueList<string>("Disabled", "ClonePlayer", "CustomEquipment")));
 
         FableWarriorScale = Config.Bind(
             "Fable Warrior",
@@ -1007,10 +1007,11 @@ public class Plugin : BaseUnityPlugin
             PurgeOrphanedSection("Creatures");
 
             // --- Fable Warrior config restructure (this release) ---
-            // ClonePlayerToWarrior (bool) -> FableWarriorSwitch (enum); FableHelmetScale ->
-            // FableWarriorHelmetScale; WarriorKromScale -> FableWarriorWeaponScale; FableKromGrip* ->
-            // FableWarriorWeaponGrip*; FableHelmetYOffset dropped. All old keys are unbound this
-            // session (orphaned), so carry their values over from the orphan store, then purge them.
+            // Warrior mode key: original ClonePlayerToWarrior (bool) -> interim FableWarriorSwitch
+            // (enum, Vanilla/ClonePlayer/CustomEquipment) -> current EnableFableWarrior (enum,
+            // Vanilla renamed to Disabled). FableHelmetScale dropped; WarriorKromScale ->
+            // FableWarriorWeaponScale; FableKromGrip* -> FableWarriorWeaponGrip*; FableHelmetYOffset
+            // dropped. Old keys are unbound this session (orphaned) - carry values over, then purge.
             void CarryFloat(string oldKey, ConfigEntry<float> target)
             {
                 var raw = ReadOrphanRaw("Fable Warrior", oldKey)?.Trim();
@@ -1019,9 +1020,15 @@ public class Plugin : BaseUnityPlugin
                         System.Globalization.CultureInfo.InvariantCulture, out var v))
                     target.Value = v;
             }
+            // Mode source #1 (oldest): the ClonePlayerToWarrior bool (true -> ClonePlayer, false -> Disabled).
             var oldClone = ReadOrphanRaw("Fable Warrior", "ClonePlayerToWarrior")?.Trim();
             if (!string.IsNullOrEmpty(oldClone) && bool.TryParse(oldClone, out var wasClone))
-                FableWarriorSwitch.Value = wasClone ? "ClonePlayer" : "Vanilla";
+                EnableFableWarrior.Value = wasClone ? "ClonePlayer" : "Disabled";
+            // Mode source #2 (interim, wins over #1): the FableWarriorSwitch enum (Vanilla -> Disabled).
+            var oldSwitch = ReadOrphanRaw("Fable Warrior", "FableWarriorSwitch")?.Trim();
+            if (!string.IsNullOrEmpty(oldSwitch))
+                EnableFableWarrior.Value = string.Equals(oldSwitch, "Vanilla", StringComparison.OrdinalIgnoreCase)
+                    ? "Disabled" : oldSwitch;
             // NOTE: the old shared FableHelmetScale is deliberately NOT carried into
             // FableWarriorHelmetScale - the warrior helmet scale defaults to 1.0 (the legacy value
             // scaled ALL classes' helmets; it should not silently become the warrior's tuning).
@@ -1033,7 +1040,7 @@ public class Plugin : BaseUnityPlugin
             CarryFloat("FableKromGripOffY", FableWarriorWeaponGripOffY);
             CarryFloat("FableKromGripOffZ", FableWarriorWeaponGripOffZ);
             foreach (var oldKey in new[] {
-                "EnableFableWarrior", "ClonePlayerToWarrior", "FableHelmetScale", "FableHelmetYOffset",
+                "FableWarriorSwitch", "ClonePlayerToWarrior", "FableHelmetScale", "FableHelmetYOffset",
                 "WarriorKromScale", "FableKromGripRotX", "FableKromGripRotY", "FableKromGripRotZ",
                 "FableKromGripOffX", "FableKromGripOffY", "FableKromGripOffZ",
                 // Obsolete dev knob (retarget now always copies Charred bone orientations directly).
@@ -1076,7 +1083,7 @@ public class Plugin : BaseUnityPlugin
         // Every Fable Warrior/Archer/Twitcher/Mage config applies instantly
         // (OnFableWarriorModeChanged rebuilds the puppets, re-reading all config getters).
         // This replaces the removed F10 manual-refresh hotkey.
-        FableWarriorSwitch.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        EnableFableWarrior.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToArcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToTwitcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         ClonePlayerToMage.SettingChanged += (_, _) => OnFableWarriorModeChanged();
@@ -1129,7 +1136,7 @@ public class Plugin : BaseUnityPlugin
             ApplyTreePatches();
             Patches.FableBunnyPatches.ApplyBunnyPatches(Harmony);
 
-            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, FableWarrior: {FableWarriorSwitch.Value}");
+            Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, FableWarrior: {EnableFableWarrior.Value}");
         }
         catch (Exception ex)
         {

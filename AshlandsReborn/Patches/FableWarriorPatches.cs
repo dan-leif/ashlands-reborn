@@ -10,8 +10,8 @@ using UObject = UnityEngine.Object;
 namespace AshlandsReborn.Patches;
 
 /// <summary>How the Fable Warrior (Charred_Melee) puppet is dressed. Parsed from the
-/// FableWarriorSwitch config string.</summary>
-internal enum FableWarriorMode { Vanilla, ClonePlayer, CustomEquipment }
+/// EnableFableWarrior config string.</summary>
+internal enum FableWarriorMode { Disabled, ClonePlayer, CustomEquipment }
 
 /// <summary>
 /// Fable Warrior: replaces the legacy Charred Warrior body/armor hodgepodge (removed)
@@ -80,7 +80,7 @@ internal static class FableWarriorPatches
         {
             Label = "Warrior",
             Prefabs = new[] { CharredMeleePrefab },
-            Enabled = () => WarriorMode() != FableWarriorMode.Vanilla,
+            Enabled = () => WarriorMode() != FableWarriorMode.Disabled,
             RightItem = () => Plugin.FableWarriorWeapon?.Value ?? KromPrefabName,
             LeftItem = () => "",
             WeaponScale = () => WarriorMode() == FableWarriorMode.CustomEquipment
@@ -122,13 +122,13 @@ internal static class FableWarriorPatches
         },
     };
 
-    /// <summary>Parse the FableWarriorSwitch config string into the mode enum (defaults to
+    /// <summary>Parse the EnableFableWarrior config string into the mode enum (defaults to
     /// CustomEquipment on an unrecognized/empty value).</summary>
     internal static FableWarriorMode WarriorMode()
     {
-        var raw = Plugin.FableWarriorSwitch?.Value?.Trim();
-        if (string.Equals(raw, "Vanilla", StringComparison.OrdinalIgnoreCase))
-            return FableWarriorMode.Vanilla;
+        var raw = Plugin.EnableFableWarrior?.Value?.Trim();
+        if (string.Equals(raw, "Disabled", StringComparison.OrdinalIgnoreCase))
+            return FableWarriorMode.Disabled;
         if (string.Equals(raw, "ClonePlayer", StringComparison.OrdinalIgnoreCase))
             return FableWarriorMode.ClonePlayer;
         return FableWarriorMode.CustomEquipment;

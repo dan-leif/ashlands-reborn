@@ -305,11 +305,11 @@ every `MonoUpdaters.LateUpdate` the Charred bones' rotations are retargeted onto
 matching puppet bones (shared Mixamo names) via deviation-from-rest transfer, with a
 computed rest-pose alignment baked in for the 6 arm-chain bones (their rest poses differ
 by a ~28/48/59.5° constant). Globally active when `MasterSwitch` is on
-(`Plugin.IsFablePuppetActive`); per-creature enablement is the warrior's `FableWarriorSwitch`
-(Vanilla = off) and the other classes' `ClonePlayerTo*` toggles.
+(`Plugin.IsFablePuppetActive`); per-creature enablement is the warrior's `EnableFableWarrior`
+(Disabled = off) and the other classes' `ClonePlayerTo*` toggles.
 
 **Per-creature profile table** (`FableWarriorPatches.Profiles`): the same machinery covers
-`Charred_Melee` (warrior — see `FableWarriorSwitch` below),
+`Charred_Melee` (warrior — see `EnableFableWarrior` below),
 `Charred_Archer` (`FableArcherBow` bow, left hand, rig-normalized sizing),
 `Charred_Twitcher`/`Charred_Twitcher_Summoned` (bare hands), and
 `Charred_Mage` (`FableMageStaff` staff, right hand, rig-normalized). Archer/Twitcher/Mage
@@ -318,8 +318,8 @@ config in their own config section, and clone the player's body + armor + a fixe
 weapon. Retarget offsets are computed and cached PER charred prefab (the variants share bone
 names, and empirically the same rest poses, but this is not assumed).
 
-**Warrior modes** (`FableWarriorSwitch`, parsed by `FableWarriorPatches.WarriorMode()`,
-Warrior-only): `Vanilla` = profile disabled, no puppet, 100% vanilla Charred; `ClonePlayer`
+**Warrior modes** (`EnableFableWarrior`, parsed by `FableWarriorPatches.WarriorMode()`,
+Warrior-only): `Disabled` = profile disabled, no puppet, 100% vanilla Charred; `ClonePlayer`
 = clone the player's body + armor AND the player's real equipped weapon (attached even if
 it's a non-warrior weapon; kept in sync via the resync signature), rig-normalized at natural
 size; `CustomEquipment` (default) = clone the player's BODY only, then override the armor
@@ -501,7 +501,7 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 
 | Config key | Default | Effect |
 |---|---|---|
-| `FableWarriorSwitch` | "CustomEquipment" | Warrior mode dropdown AND on/off switch: `Vanilla` (no puppet) / `ClonePlayer` (player body+armor+weapon) / `CustomEquipment` (player body + configured armor/weapon). Replaced the removed `EnableFableWarrior` toggle |
+| `EnableFableWarrior` | "CustomEquipment" | Warrior mode dropdown AND on/off switch: `Disabled` (no puppet) / `ClonePlayer` (player body+armor+weapon) / `CustomEquipment` (player body + configured armor/weapon) |
 | `FableWarriorScale` | 1.0 | Multiplier on the auto-computed height-match scale |
 | `FableWarriorHelmet` / `Chest` / `Legs` / `Shoulders` | "knighthelm" / "knightchest" / "knightlegs" / "" | CustomEquipment armor slot item IDs (empty = bare); Knight IDs are SouthsilArmor |
 | `FableWarriorHelmetScale` | 1.0 | Fine-tune the (already scale-normalized) warrior puppet helmet; **Warrior-only** now (Archer/Twitcher/Mage helmets normalize at a fixed 1.0) |
