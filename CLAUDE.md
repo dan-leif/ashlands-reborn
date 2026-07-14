@@ -224,10 +224,11 @@ F1 dropdown, live rebuild via `SettingChanged` → `ForceTerrainRefresh`):
   artifact: its stride-2 subsampling misses ~1 lethal vertex at the test spot (raw ≥ 0.6
   whose stride neighbor sample is ≤ 0.1 renders green); LAVACHECK reports it as
   `CONTRACT`, excluded from the aggregate. The styled paths are strictly safer.
-- Styles: `MudBlend` (default; scorched-mud fade), `AshBlend` (v3: MudBlend with NO mud —
-  see below), `RockBlend` (v4: GrassToLava's tight rim rendered as gray rock — see below),
-  `GrassToLava` (green close to the lava rivers, tight rim), `LegacySmooth` (v4 — see
-  below), `DebugGradient` (7 dev calibration strips; EXEMPT from the hold — strips must
+- Styles: `LegacySmooth` (default since v4.3 — user verdict on v4.2: "by far the best
+  version"; see below), `MudBlend` (scorched-mud fade; the pre-v4.3 default), `AshBlend`
+  (v3: MudBlend with NO mud — see below), `RockBlend` (v4: GrassToLava's tight rim
+  rendered as gray rock — see below), `GrassToLava` (green close to the lava rivers,
+  tight rim), `DebugGradient` (7 dev calibration strips; EXEMPT from the hold — strips must
   paint over lava; G-ramp strip renders yellow-green, not clean gray, so a StoneAsh style
   was evaluated and rejected). Knobs: `TransitionAshHold`, `TransitionFadeWidth`,
   `TransitionNoiseScale/Strength`, `TransitionBlurRadius` — all live-refresh via F1.
@@ -255,6 +256,21 @@ F1 dropdown, live rebuild via `SettingChanged` → `ForceTerrainRefresh`):
   overlay (same mid-fade window) — visually indistinguishable in probes, but slice 3
   doubles as the hoe-path texture, so the targeted default preserves path visibility.
   Empty spec = vanilla array = the yellow line returns.
+- **LegacySmooth line-mix sliders (v4.3, TERRAIN_TRANSITION_V43_PLAN.md)**: pure grass
+  in the swapped slice still traced the old line as a subtle SATURATION bump — the plains
+  overlay peaks mid-fade, where the base blend is grass diluted with ash (duller/grayer
+  than pure slice 0). `LegacySmoothLineGrass/Ash/Mud/Khaki` (defaults 0.65/0.25/0.05/0.05,
+  normalized by sum, live rebuild) bake a grass(0)/light-ash(13)/mud(3)/khaki(8) weighted
+  average — RGB and alpha alike — into every `LegacySmoothSwapSlices` dst slice via the
+  uncompressed graded-clone path; effectively-pure-grass weights keep the v4.2
+  byte-identical compressed fast path, and only then; cache keys grow an `|lm` segment
+  only when a mix is active (AshBlend/RockBlend keys untouched). Run-1 sweep measurements
+  (difference-based line mask vs the pure-grass reference; `TerrainPhotoProbeLineMixes`
+  probe): ash weight trades the top-down green-excess line (+6.7 pure → +1.9 at 0.45 ash)
+  against a DARK line at oblique play angles (mean-RGB delta −1.2 pure → −7.2 at 0.45).
+  The 0.65/0.25 default sits in the sweet spot (top dGE +3.4, oblique dRGB −4.9); nudge
+  toward 0.75/0.15 if the line reads dark in-game, toward 0.55/0.35 if still too green.
+  Sweep composites: `screenshots/terrain-transition/compare_legacysmooth_line_mix_*`.
 - **AshBlend (v3, TERRAIN_NO_MUD_PLAN.md)**: green fades directly into ash; identical to
   MudBlend in band/skirt/grass code (only the material differs). Do NOT re-attempt a
   direct green→ash fade in vertex-color space: biome weights are Chebyshev distances
