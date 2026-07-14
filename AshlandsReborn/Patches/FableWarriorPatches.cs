@@ -712,10 +712,6 @@ internal static class FableWarriorPatches
                     Plugin.FableWarriorWeaponGripRotX?.Value ?? 0f,
                     Plugin.FableWarriorWeaponGripRotY?.Value ?? 0f,
                     Plugin.FableWarriorWeaponGripRotZ?.Value ?? 0f);
-                t.localPosition += new Vector3(
-                    Plugin.FableWarriorWeaponGripOffX?.Value ?? 0f,
-                    Plugin.FableWarriorWeaponGripOffY?.Value ?? 0f,
-                    Plugin.FableWarriorWeaponGripOffZ?.Value ?? 0f);
             }
             else
             {

@@ -363,7 +363,7 @@ Key mechanics (details in the file's doc comments):
   puppet-vs-prefab helmet-joint lossy ratio × the profile's `HelmetScale()` (warrior =
   `FableWarriorHelmetScale`, other classes = 1.0 — the helmet scale is now Warrior-scoped, no
   Y-offset). The warrior's CustomEquipment weapon keeps `FableWarriorWeaponScale` sizing plus
-  `FableWarriorWeaponGripRot*/Off*` grip tuning (RotX=12 calibrated so the resting blade lies
+  `FableWarriorWeaponGripRot*` grip tuning (rotation-only; calibrated so the resting blade lies
   on the shoulder, not through the trapezius); ClonePlayer weapons rig-normalize at natural
   size. Skinned attaches (`attach_skin` armor) are immune — bones + bind poses drive them.
 - **Charred suppression**: pure-skip prefixes on the 7 private `VisEquipment.Set*Equipped`
@@ -521,8 +521,7 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 | `FableWarriorHelmetScale` | 1.0 | Fine-tune the (already scale-normalized) puppet helmet; each class has its own (`Fable[Class]HelmetScale`) |
 | `FableWarriorWeapon` | "THSwordKrom" | CustomEquipment right-hand weapon item ID (empty = bare hand); default Krom |
 | `FableWarriorWeaponScale` | 1.16 | CustomEquipment weapon size (ClonePlayer weapons keep natural size) |
-| `FableWarriorWeaponGripRotX/Y/Z` | 12 / 0 / 0 | CustomEquipment weapon grip rotation (deg, hand-attach frame); RotX=12 calibrates the shoulder rest (grip tuning WIP) |
-| `FableWarriorWeaponGripOffX/Y/Z` | 0 | CustomEquipment weapon grip position offset (m, hand-attach frame) |
+| `FableWarriorWeaponGripRotX/Y/Z` | -17.75 / 15.21 / -121.69 | CustomEquipment weapon grip rotation (deg, hand-attach frame); calibrates the shoulder rest (grip tuning WIP) |
 
 Every key in the Fable Warrior/Archer/Twitcher/Mage sections applies **instantly** via
 `SettingChanged` (rebuilds the affected puppets live) — there is no manual refresh hotkey.

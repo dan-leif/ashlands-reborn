@@ -69,9 +69,6 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableWarriorWeaponGripRotX { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorWeaponGripRotY { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorWeaponGripRotZ { get; private set; } = null!;
-    public static ConfigEntry<float> FableWarriorWeaponGripOffX { get; private set; } = null!;
-    public static ConfigEntry<float> FableWarriorWeaponGripOffY { get; private set; } = null!;
-    public static ConfigEntry<float> FableWarriorWeaponGripOffZ { get; private set; } = null!;
     // Archer/Twitcher/Mage mirror the Fable Warrior tri-state (Disabled/ClonePlayer/CustomEquipment).
     public static ConfigEntry<string> EnableFableArcher { get; private set; } = null!;
     public static ConfigEntry<float> FableArcherScale { get; private set; } = null!;
@@ -505,18 +502,18 @@ public class Plugin : BaseUnityPlugin
         FableWarriorWeaponGripRotX = Config.Bind(
             "Fable Warrior",
             "FableWarriorWeaponGripRotX",
-            12.0f,
+            -17.74648f,
             new ConfigDescription(
                 "CustomEquipment only: rotation (degrees) of the warrior's weapon around the hand-attach " +
                 "local X axis. Tunes the idle sword-on-shoulder rest so the blade lies beside the trapezius " +
-                "instead of through it (12 = calibrated Krom value). Applied on top of the vanilla attach " +
-                "orientation. (Grip tuning is a work in progress.)",
+                "instead of through it. Applied on top of the vanilla attach orientation. " +
+                "(Grip tuning is a work in progress.)",
                 new AcceptableValueRange<float>(-180f, 180f)));
 
         FableWarriorWeaponGripRotY = Config.Bind(
             "Fable Warrior",
             "FableWarriorWeaponGripRotY",
-            0.0f,
+            15.21127f,
             new ConfigDescription(
                 "CustomEquipment only: rotation (degrees) of the warrior's weapon around the hand-attach local Y axis.",
                 new AcceptableValueRange<float>(-180f, 180f)));
@@ -524,34 +521,10 @@ public class Plugin : BaseUnityPlugin
         FableWarriorWeaponGripRotZ = Config.Bind(
             "Fable Warrior",
             "FableWarriorWeaponGripRotZ",
-            0.0f,
+            -121.6901f,
             new ConfigDescription(
                 "CustomEquipment only: rotation (degrees) of the warrior's weapon around the hand-attach local Z axis.",
                 new AcceptableValueRange<float>(-180f, 180f)));
-
-        FableWarriorWeaponGripOffX = Config.Bind(
-            "Fable Warrior",
-            "FableWarriorWeaponGripOffX",
-            0.0f,
-            new ConfigDescription(
-                "CustomEquipment only: position offset (meters, hand-attach local) of the warrior's weapon grip, X axis.",
-                new AcceptableValueRange<float>(-0.5f, 0.5f)));
-
-        FableWarriorWeaponGripOffY = Config.Bind(
-            "Fable Warrior",
-            "FableWarriorWeaponGripOffY",
-            0.0f,
-            new ConfigDescription(
-                "CustomEquipment only: position offset (meters, hand-attach local) of the warrior's weapon grip, Y axis.",
-                new AcceptableValueRange<float>(-0.5f, 0.5f)));
-
-        FableWarriorWeaponGripOffZ = Config.Bind(
-            "Fable Warrior",
-            "FableWarriorWeaponGripOffZ",
-            0.0f,
-            new ConfigDescription(
-                "CustomEquipment only: position offset (meters, hand-attach local) of the warrior's weapon grip, Z axis.",
-                new AcceptableValueRange<float>(-0.5f, 0.5f)));
 
         // --- Fable Archer ---
         EnableFableArcher = Config.Bind(
@@ -1326,13 +1299,12 @@ public class Plugin : BaseUnityPlugin
             CarryFloat("Fable Warrior", "FableKromGripRotX", FableWarriorWeaponGripRotX);
             CarryFloat("Fable Warrior", "FableKromGripRotY", FableWarriorWeaponGripRotY);
             CarryFloat("Fable Warrior", "FableKromGripRotZ", FableWarriorWeaponGripRotZ);
-            CarryFloat("Fable Warrior", "FableKromGripOffX", FableWarriorWeaponGripOffX);
-            CarryFloat("Fable Warrior", "FableKromGripOffY", FableWarriorWeaponGripOffY);
-            CarryFloat("Fable Warrior", "FableKromGripOffZ", FableWarriorWeaponGripOffZ);
             foreach (var oldKey in new[] {
                 "FableWarriorSwitch", "ClonePlayerToWarrior", "FableHelmetScale", "FableHelmetYOffset",
                 "WarriorKromScale", "FableKromGripRotX", "FableKromGripRotY", "FableKromGripRotZ",
                 "FableKromGripOffX", "FableKromGripOffY", "FableKromGripOffZ",
+                // Removed this release: the weapon grip position offsets (rotation-only grip now).
+                "FableWarriorWeaponGripOffX", "FableWarriorWeaponGripOffY", "FableWarriorWeaponGripOffZ",
                 // Obsolete dev knob (retarget now always copies Charred bone orientations directly).
                 "FableWarriorRetargetSource" })
                 PurgeOrphanedKey("Fable Warrior", oldKey);
@@ -1415,9 +1387,6 @@ public class Plugin : BaseUnityPlugin
         FableWarriorWeaponGripRotX.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorWeaponGripRotY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorWeaponGripRotZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableWarriorWeaponGripOffX.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableWarriorWeaponGripOffY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableWarriorWeaponGripOffZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         EnableFableArcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableArcherScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableArcherHelmet.SettingChanged += (_, _) => OnFableWarriorModeChanged();
