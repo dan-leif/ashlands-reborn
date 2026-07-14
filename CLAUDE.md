@@ -533,12 +533,14 @@ Old keys auto-migrate on first load and are purged from the cfg orphan store:
 (`FableWarriorSwitch`, `FableHelmetScale`, `WarriorKromScale`, `FableKromGrip*`).
 
 Sections **"Fable Archer" / "Fable Twitcher" / "Fable Mage"** mirror the Warrior's keys
-(`EnableFable[Class]` tri-state, `Fable[Class]Scale`, `Fable[Class]Helmet/HelmetScale/Chest/
-Legs/Shoulders`, `Fable[Class]Weapon`, `Fable[Class]WeaponScale`) — but with **no grip knobs**
-(Warrior-only). CustomEquipment defaults: Archer = `knighthelm`/`knightchest`/`knightlegs` +
-`BowAshlands` (LEFT hand); Mage = `runeknighthelm`/`runeknightchest`/`runeknightlegs` +
-`StaffFireball` (right hand); Twitcher = `HelmetFenring`/`ArmorFenringChest`/`ArmorFenringLegs`
-+ `FistFenrirClaw` (right hand). Shoulders empty for all.
+(`EnableFable[Class]` tri-state, `Fable[Class]Scale`, `Fable[Class]Sex`, `Fable[Class]Helmet/
+HelmetScale/Chest/Legs/Shoulders`, `Fable[Class]Weapon`, `Fable[Class]WeaponScale`) — but with
+**no grip knobs** (Warrior-only). CustomEquipment defaults: Archer =
+`norahhelmalt`/`norahchest`/`norahlegs` + `BowAshlands` (LEFT hand, `WeaponScale` 1.3); Mage =
+`runeknighthelm`/`runeknightchest`/`runeknightlegs` + `StaffFireball` (right hand); Twitcher =
+`HelmetFenring`/`ArmorFenringChest`/`ArmorFenringLegs` + `FistFenrirClaw` (right hand).
+Shoulders empty for all. **`Fable[Class]Sex`** (Male/Female, CustomRace only) is per-class —
+default **Female for the Archer**, Male for the others — driving `VisEquipment.SetModel(0/1)`.
 
 ### Fable Race config (section "Fable Race")
 
@@ -548,7 +550,7 @@ Fable Bunny). Overrides the per-puppet player-clone in `ApplyAppearance`.
 | Config key | Default | Effect |
 |---|---|---|
 | `FableRaceMode` | "CustomRace" | `Vanilla` = no puppets, all Charred native (overrides every `EnableFable[Class]`; folded into `IsFablePuppetActive`) / `ClonePlayer` = bodies copy the player (legacy) / `CustomRace` = bodies use the settings below |
-| `FableRaceSex` | "Male" | `SetModel(0/1)`; beards render only on Male |
+| _(sex is per-class)_ | — | Body sex lives in each class section as `Fable[Class]Sex` (Male/Female → `SetModel(0/1)`; beards render only on Male). Default Female for Archer, Male for others |
 | `FableRaceHair` | "Hair5" | hair item (`HairNone`, `Hair1`..`Hair23`); `Hair5`/`Hair8` are short |
 | `FableRaceBeard` | "BeardNone" | beard item (`BeardNone`, `Beard1`..`Beard16`) |
 | `FableRaceSkinTone` | 1.0 | 0 = lightest, 1 = darkest; Lerp between hardcoded skin endpoints (vanilla gamut bottoms out ~70% grey) |

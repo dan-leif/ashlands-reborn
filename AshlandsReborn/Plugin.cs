@@ -58,6 +58,7 @@ public class Plugin : BaseUnityPlugin
     // Disabled builds no warrior puppet; this key is also the warrior's on/off switch.
     public static ConfigEntry<string> EnableFableWarrior { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableWarriorSex { get; private set; } = null!;
     public static ConfigEntry<string> FableWarriorHelmet { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorHelmetScale { get; private set; } = null!;
     public static ConfigEntry<string> FableWarriorChest { get; private set; } = null!;
@@ -74,6 +75,7 @@ public class Plugin : BaseUnityPlugin
     // Archer/Twitcher/Mage mirror the Fable Warrior tri-state (Disabled/ClonePlayer/CustomEquipment).
     public static ConfigEntry<string> EnableFableArcher { get; private set; } = null!;
     public static ConfigEntry<float> FableArcherScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableArcherSex { get; private set; } = null!;
     public static ConfigEntry<string> FableArcherHelmet { get; private set; } = null!;
     public static ConfigEntry<float> FableArcherHelmetScale { get; private set; } = null!;
     public static ConfigEntry<string> FableArcherChest { get; private set; } = null!;
@@ -83,6 +85,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableArcherWeaponScale { get; private set; } = null!;
     public static ConfigEntry<string> EnableFableTwitcher { get; private set; } = null!;
     public static ConfigEntry<float> FableTwitcherScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableTwitcherSex { get; private set; } = null!;
     public static ConfigEntry<string> FableTwitcherHelmet { get; private set; } = null!;
     public static ConfigEntry<float> FableTwitcherHelmetScale { get; private set; } = null!;
     public static ConfigEntry<string> FableTwitcherChest { get; private set; } = null!;
@@ -92,6 +95,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableTwitcherWeaponScale { get; private set; } = null!;
     public static ConfigEntry<string> EnableFableMage { get; private set; } = null!;
     public static ConfigEntry<float> FableMageScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableMageSex { get; private set; } = null!;
     public static ConfigEntry<string> FableMageHelmet { get; private set; } = null!;
     public static ConfigEntry<float> FableMageHelmetScale { get; private set; } = null!;
     public static ConfigEntry<string> FableMageChest { get; private set; } = null!;
@@ -105,7 +109,6 @@ public class Plugin : BaseUnityPlugin
     // Fable Bunny). Vanilla | ClonePlayer | CustomRace. Vanilla is a master-off that folds
     // into IsFablePuppetActive and overrides every class's EnableFable[Class].
     public static ConfigEntry<string> FableRaceMode { get; private set; } = null!;
-    public static ConfigEntry<string> FableRaceSex { get; private set; } = null!;
     public static ConfigEntry<string> FableRaceHair { get; private set; } = null!;
     public static ConfigEntry<string> FableRaceBeard { get; private set; } = null!;
     public static ConfigEntry<float> FableRaceSkinTone { get; private set; } = null!;
@@ -436,6 +439,14 @@ public class Plugin : BaseUnityPlugin
                 "Multiplier on the auto-computed height-match scale for the Fable Warrior puppet. 1.0 = auto scale.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
 
+        FableWarriorSex = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorSex",
+            "Male",
+            new ConfigDescription(
+                "CustomRace only: body sex (model) for the Fable Warrior. Beards only render on Male.",
+                new AcceptableValueList<string>("Male", "Female")));
+
         FableWarriorHelmet = Config.Bind(
             "Fable Warrior",
             "FableWarriorHelmet",
@@ -563,10 +574,18 @@ public class Plugin : BaseUnityPlugin
                 "Multiplier on the auto-computed height-match scale for the Fable Archer puppet. 1.0 = auto scale.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
 
+        FableArcherSex = Config.Bind(
+            "Fable Archer",
+            "FableArcherSex",
+            "Female",
+            new ConfigDescription(
+                "CustomRace only: body sex (model) for the Fable Archer. Beards only render on Male.",
+                new AcceptableValueList<string>("Male", "Female")));
+
         FableArcherHelmet = Config.Bind(
             "Fable Archer",
             "FableArcherHelmet",
-            "knighthelm",
+            "norahhelmalt",
             "CustomEquipment only: item prefab name equipped in the archer's helmet slot " +
             "(empty = bare head). Must exist in ObjectDB.");
 
@@ -582,14 +601,14 @@ public class Plugin : BaseUnityPlugin
         FableArcherChest = Config.Bind(
             "Fable Archer",
             "FableArcherChest",
-            "knightchest",
+            "norahchest",
             "CustomEquipment only: item prefab name equipped in the archer's chest slot " +
             "(empty = bare chest). Must exist in ObjectDB.");
 
         FableArcherLegs = Config.Bind(
             "Fable Archer",
             "FableArcherLegs",
-            "knightlegs",
+            "norahlegs",
             "CustomEquipment only: item prefab name equipped in the archer's legs slot " +
             "(empty = bare legs). Must exist in ObjectDB.");
 
@@ -610,7 +629,7 @@ public class Plugin : BaseUnityPlugin
         FableArcherWeaponScale = Config.Bind(
             "Fable Archer",
             "FableArcherWeaponScale",
-            1.0f,
+            1.3f,
             new ConfigDescription(
                 "CustomEquipment only: multiplier on the archer's weapon size, applied after the weapon is " +
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
@@ -636,6 +655,14 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Multiplier on the auto-computed height-match scale for the Fable Twitcher puppet. 1.0 = auto scale.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
+
+        FableTwitcherSex = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherSex",
+            "Male",
+            new ConfigDescription(
+                "CustomRace only: body sex (model) for the Fable Twitcher. Beards only render on Male.",
+                new AcceptableValueList<string>("Male", "Female")));
 
         FableTwitcherHelmet = Config.Bind(
             "Fable Twitcher",
@@ -711,6 +738,14 @@ public class Plugin : BaseUnityPlugin
                 "Multiplier on the auto-computed height-match scale for the Fable Mage puppet. 1.0 = auto scale.",
                 new AcceptableValueRange<float>(0.5f, 2.0f)));
 
+        FableMageSex = Config.Bind(
+            "Fable Mage",
+            "FableMageSex",
+            "Male",
+            new ConfigDescription(
+                "CustomRace only: body sex (model) for the Fable Mage. Beards only render on Male.",
+                new AcceptableValueList<string>("Male", "Female")));
+
         FableMageHelmet = Config.Bind(
             "Fable Mage",
             "FableMageHelmet",
@@ -779,14 +814,6 @@ public class Plugin : BaseUnityPlugin
                 "The class's own EnableFable[Class] still chooses whether it gets a puppet and its " +
                 "armor/weapon; this key only drives the body.",
                 new AcceptableValueList<string>("Vanilla", "ClonePlayer", "CustomRace")));
-
-        FableRaceSex = Config.Bind(
-            "Fable Race",
-            "FableRaceSex",
-            "Male",
-            new ConfigDescription(
-                "CustomRace only: body model for the Fable race. Note: beards only render on Male.",
-                new AcceptableValueList<string>("Male", "Female")));
 
         FableRaceHair = Config.Bind(
             "Fable Race",
@@ -1336,6 +1363,10 @@ public class Plugin : BaseUnityPlugin
                 ("Fable Mage", "FableMageStaffScale") })
                 PurgeOrphanedKey(section, key);
 
+            // FableRaceSex (global) was split into per-class Fable[Class]Sex (this release). No
+            // carry: the per-class defaults (Archer = Female, others = Male) are intentional.
+            PurgeOrphanedKey("Fable Race", "FableRaceSex");
+
             Config.Save();
 
             // Removed: the Fable Bunny hybrid Lox mode was dropped after user review (the swap
@@ -1416,7 +1447,10 @@ public class Plugin : BaseUnityPlugin
         FableMageWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         // Fable Race (global body mode) - also rebuilds all puppets live (Vanilla reverts them).
         FableRaceMode.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableRaceSex.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableWarriorSex.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherSex.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherSex.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageSex.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableRaceHair.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableRaceBeard.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableRaceSkinTone.SettingChanged += (_, _) => OnFableWarriorModeChanged();

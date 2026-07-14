@@ -56,6 +56,9 @@ internal static class FableWarriorPatches
         public Func<string> LeftItem = () => "";
         public Func<float> WeaponScale = () => 1f;
         public Func<float> BodyScale = () => 1f;
+        /// <summary>CustomRace only: per-class body sex as a VisEquipment model index
+        /// (0 = male, 1 = female), read from Fable[Class]Sex.</summary>
+        public Func<int> ModelIndex = () => 0;
         /// <summary>Multiplier on the (already rig-normalized) helmet size. Warrior reads its own
         /// config; the other classes default to 1.0 (rig-normalize only).</summary>
         public Func<float> HelmetScale = () => 1f;
@@ -86,6 +89,7 @@ internal static class FableWarriorPatches
             WeaponScale = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.CustomEquipment
                 ? (Plugin.FableWarriorWeaponScale?.Value ?? 1.16f) : 1f,
             BodyScale = () => Plugin.FableWarriorScale?.Value ?? 1f,
+            ModelIndex = () => SexToModel(Plugin.FableWarriorSex?.Value),
             HelmetScale = () => Plugin.FableWarriorHelmetScale?.Value ?? 1f,
             OverrideArmor = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.CustomEquipment,
             HelmetItem = () => Plugin.FableWarriorHelmet?.Value ?? "",
@@ -106,6 +110,7 @@ internal static class FableWarriorPatches
             WeaponScale = () => ParseMode(Plugin.EnableFableArcher?.Value) == FableMode.CustomEquipment
                 ? (Plugin.FableArcherWeaponScale?.Value ?? 1f) : 1f,
             BodyScale = () => Plugin.FableArcherScale?.Value ?? 1f,
+            ModelIndex = () => SexToModel(Plugin.FableArcherSex?.Value),
             HelmetScale = () => Plugin.FableArcherHelmetScale?.Value ?? 1f,
             OverrideArmor = () => ParseMode(Plugin.EnableFableArcher?.Value) == FableMode.CustomEquipment,
             HelmetItem = () => Plugin.FableArcherHelmet?.Value ?? "",
@@ -125,6 +130,7 @@ internal static class FableWarriorPatches
             WeaponScale = () => ParseMode(Plugin.EnableFableTwitcher?.Value) == FableMode.CustomEquipment
                 ? (Plugin.FableTwitcherWeaponScale?.Value ?? 1f) : 1f,
             BodyScale = () => Plugin.FableTwitcherScale?.Value ?? 1f,
+            ModelIndex = () => SexToModel(Plugin.FableTwitcherSex?.Value),
             HelmetScale = () => Plugin.FableTwitcherHelmetScale?.Value ?? 1f,
             OverrideArmor = () => ParseMode(Plugin.EnableFableTwitcher?.Value) == FableMode.CustomEquipment,
             HelmetItem = () => Plugin.FableTwitcherHelmet?.Value ?? "",
@@ -144,6 +150,7 @@ internal static class FableWarriorPatches
             WeaponScale = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment
                 ? (Plugin.FableMageWeaponScale?.Value ?? 1f) : 1f,
             BodyScale = () => Plugin.FableMageScale?.Value ?? 1f,
+            ModelIndex = () => SexToModel(Plugin.FableMageSex?.Value),
             HelmetScale = () => Plugin.FableMageHelmetScale?.Value ?? 1f,
             OverrideArmor = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment,
             HelmetItem = () => Plugin.FableMageHelmet?.Value ?? "",
@@ -595,7 +602,7 @@ internal static class FableWarriorPatches
             if (string.Equals(Plugin.FableRaceMode.Value, "CustomRace", StringComparison.OrdinalIgnoreCase))
             {
                 var vis = marker.PuppetVis;
-                vis.SetModel(string.Equals(Plugin.FableRaceSex.Value, "Female", StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+                vis.SetModel(profile?.ModelIndex() ?? 0); // per-class Fable[Class]Sex
                 vis.SetHairItem(Plugin.FableRaceHair.Value ?? "");
                 vis.SetBeardItem(Plugin.FableRaceBeard.Value ?? "BeardNone");
                 vis.SetSkinColor(ComputeRaceSkinColor());
@@ -640,6 +647,11 @@ internal static class FableWarriorPatches
     private static readonly Vector3 HairDark = new Vector3(0.18f, 0.12f, 0.08f);  // slider 1
     private const float BlondnessDarkMul = 0.35f; // blondness 0 -> dims the toned hair
     private const float BlondnessBrightMul = 1.0f; // blondness 1 -> full brightness
+
+    /// <summary>Fable[Class]Sex string -> VisEquipment model index: "Female" = 1, else 0 (male).
+    /// Beards render only on model 0 (male).</summary>
+    private static int SexToModel(string? sex) =>
+        string.Equals(sex, "Female", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
 
     private static Vector3 ComputeRaceSkinColor()
     {
