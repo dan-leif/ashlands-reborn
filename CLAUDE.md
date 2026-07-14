@@ -175,6 +175,7 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `FableBunnyPatches.cs` | `Character.Awake`, `Humanoid.StartAttack`, `Ragdoll.Awake` (all manually applied with null-guards), `MonoUpdaters.LateUpdate` | Fable Bunny: replaces the Morgen's visuals with a giant self-animating Hare (+ optional hybrid Lox for bite/roll). See "Fable Bunny" below |
 | `PhotoModePatches.cs` | `GameCamera.LateUpdate` (prefix) | Dev verification harness: spawns a warrior, orbits the camera, captures full-body + close-up screenshots autonomously |
 | `LifecycleTestPatches.cs` | None (no Harmony patches) | Dev M4 self-test: spawns 3 warriors (incl. 2★), asserts toggle/refresh/sync/scale lifecycle invariants |
+| `MageWeaponTestPatches.cs` | None (no Harmony patches) | Dev harness (`MageWeaponTest`): dumps the ObjectDB/ZNetScene staff catalog + candidate prefab hierarchies, then spawns a pinned Charred_Mage and cycles `MageWeaponTestList` through `FableMageWeapon`, screenshotting each staff in-hand. Output: `AR_MageWeapon\` |
 | `DevAutoLoadPatches.cs` | None (no Harmony patches) | State machine called from `Plugin.Update()` that auto-navigates FejdStartup menus on startup |
 
 **Note on `DevAutoLoadPatches.cs`:** This file has no `[HarmonyPatch]` attributes. Harmony-patching `FejdStartup.Start()` (a coroutine) and `FejdStartup.Update()` (not defined as an override) fails silently. Instead it exposes a `Tick()` method called from `Plugin.Update()` each frame, checking `FejdStartup.instance` directly.
@@ -337,8 +338,9 @@ Charred; `ClonePlayer` = clone the player's body + armor AND the player's real e
 rig-normalized at natural size; `CustomEquipment` (default) = clone the player's BODY only,
 then override the armor slots + weapon with the `Fable[Class] Helmet/Chest/Legs/Shoulders/
 Weapon` item IDs (empty = bare slot). Defaults: Warrior = Knight set + Krom; Archer = Knight +
-BowAshlands; Mage = Rune Knight + StaffFireball; Twitcher = Fenris + FistFenrirClaw (shoulders
-empty for all). The mode is routed through per-profile `Func<>`s on `CreatureProfile`
+BowAshlands; Mage = `chiefhelmdeer` + `frostmagechest`/`frostmagelegs` + `StaffIceShards`;
+Twitcher = Fenris + FistFenrirClaw (shoulders empty for all). The mode is routed through
+per-profile `Func<>`s on `CreatureProfile`
 (`OverrideArmor`, `Helmet/Chest/Leg/ShoulderItem`, `KeepClonedHands`, `WeaponGrip`,
 `HelmetScale`, `RightItem`/`LeftItem` for the weapon hand). Only the Warrior sets `WeaponGrip`
 (+ its grip config); the other three rig-normalize their weapon like the old bow/staff.
@@ -366,6 +368,19 @@ Key mechanics (details in the file's doc comments):
   `FableWarriorWeaponGripRot*` grip tuning (rotation-only; calibrated so the resting blade lies
   on the shoulder, not through the trapezius); ClonePlayer weapons rig-normalize at natural
   size. Skinned attaches (`attach_skin` armor) are immune — bones + bind poses drive them.
+- **Creature-weapon attach fallback** (`EnsureCreatureWeaponAttached`, called from
+  `FixupPuppetAttaches`): vanilla `VisEquipment.AttachItem` only mounts a child literally named
+  `attach` (or `attach_skin`). Staffs wielded by creatures (Dvergr, etc.) put their held mesh
+  under an `attach_r.hand` / `attach_l.hand` child instead, so vanilla leaves the hand empty even
+  though the item IS in ObjectDB (`m_*ItemInstance` stays null). When that instance field is empty
+  and the configured weapon name resolves (ObjectDB → ZNetScene fallback), we instantiate the
+  first recognized attach child (`attach`, `attach_r.hand`, `attach_l.hand`, `attach_skin`) onto
+  the hand joint (colliders off, transform reset, equipoffset applied) and write it back into
+  `m_*ItemInstance` so it flows through the normal scale/cleanup path. This is what lets
+  `FableMageWeapon` accept creature-only staffs (`DvergerStaffFire/Ice/Support`,
+  `charred_magestaff_fire`, …). Standalone bake-free limitation: the Bog Witch's staff is a
+  SkinnedMeshRenderer baked into the creature (path `BogWitch/BogWitch/staff`), not an item, so it
+  can't be equipped this way.
 - **Charred suppression**: pure-skip prefixes on the 7 private `VisEquipment.Set*Equipped`
   methods, gated on the `AshlandsRebornFableWarrior` marker; glow FX (EyeGlow ×2,
   chestglow) disabled; charred Animator set to `AlwaysAnimate` so the hidden source keeps
@@ -506,6 +521,8 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 | `PhotoModeM4Test` | false | Run the M4 lifecycle self-test once after world load (suppresses the auto photo shoot) |
 | `PhotoModePrefabs` | "Charred_Melee" | CSV of creature prefabs the harness shoots per session (filenames prefixed per prefab) |
 | `PhotoModeSpawnDistance` | 5 | Distance in front of the player to spawn the test warrior |
+| `MageWeaponTest` | false | Run the mage-weapon harness once after world load: dumps the staff catalog, spawns a Charred_Mage, cycles `MageWeaponTestList` through `FableMageWeapon`, shoots each in-hand into `AR_MageWeapon\` |
+| `MageWeaponTestList` | (6 staffs) | CSV of staff/weapon prefab IDs the mage-weapon harness cycles |
 | `PhotoModeIslandPos` | "2736,40,2580" | Test island teleport target; empty disables |
 | `TerrainPhotoAuto` | false | Run the terrain photo harness once after world load (suppressed by PhotoModeAuto/M4Test) |
 | `TerrainPhotoKey` | F7 | Run the terrain photo harness on demand |
@@ -536,7 +553,8 @@ Sections **"Fable Archer" / "Fable Twitcher" / "Fable Mage"** mirror the Warrior
 HelmetScale/Chest/Legs/Shoulders`, `Fable[Class]Weapon`, `Fable[Class]WeaponScale`) — but with
 **no grip knobs** (Warrior-only). CustomEquipment defaults: Archer =
 `norahhelmalt`/`norahchest`/`norahlegs` + `BowAshlands` (LEFT hand, `WeaponScale` 1.3); Mage =
-`runeknighthelm`/`runeknightchest`/`runeknightlegs` + `StaffFireball` (right hand); Twitcher =
+`chiefhelmdeer`/`frostmagechest`/`frostmagelegs` + `StaffIceShards` (right hand — `FableMageWeapon`
+also accepts creature-only staffs, see the creature-weapon attach fallback above); Twitcher =
 `HelmetFenring`/`ArmorFenringChest`/`ArmorFenringLegs` + `FistFenrirClaw` (right hand).
 Shoulders empty for all. **`Fable[Class]Sex`** (Male/Female, CustomRace only) is per-class —
 default **Female for the Archer**, Male for the others — driving `VisEquipment.SetModel(0/1)`.

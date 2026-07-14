@@ -137,6 +137,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> PhotoModeM4Test { get; private set; } = null!;
     public static ConfigEntry<string> PhotoModePrefabs { get; private set; } = null!;
     public static ConfigEntry<float> PhotoModeSpawnDistance { get; private set; } = null!;
+    public static ConfigEntry<bool> MageWeaponTest { get; private set; } = null!;
+    public static ConfigEntry<string> MageWeaponTestList { get; private set; } = null!;
     public static ConfigEntry<string> PhotoModeIslandPos { get; private set; } = null!;
     public static ConfigEntry<bool> TerrainPhotoAuto { get; private set; } = null!;
     public static ConfigEntry<KeyCode> TerrainPhotoKey { get; private set; } = null!;
@@ -722,7 +724,7 @@ public class Plugin : BaseUnityPlugin
         FableMageHelmet = Config.Bind(
             "Fable Mage",
             "FableMageHelmet",
-            "runeknighthelm",
+            "chiefhelmdeer",
             "CustomEquipment only: item prefab name equipped in the mage's helmet slot " +
             "(empty = bare head). Must exist in ObjectDB.");
 
@@ -738,14 +740,14 @@ public class Plugin : BaseUnityPlugin
         FableMageChest = Config.Bind(
             "Fable Mage",
             "FableMageChest",
-            "runeknightchest",
+            "frostmagechest",
             "CustomEquipment only: item prefab name equipped in the mage's chest slot " +
             "(empty = bare chest). Must exist in ObjectDB.");
 
         FableMageLegs = Config.Bind(
             "Fable Mage",
             "FableMageLegs",
-            "runeknightlegs",
+            "frostmagelegs",
             "CustomEquipment only: item prefab name equipped in the mage's legs slot " +
             "(empty = bare legs). Must exist in ObjectDB.");
 
@@ -759,9 +761,21 @@ public class Plugin : BaseUnityPlugin
         FableMageWeapon = Config.Bind(
             "Fable Mage",
             "FableMageWeapon",
-            "StaffFireball",
-            "CustomEquipment only: item prefab name the Fable Mage carries in its RIGHT hand " +
-            "(empty = empty hand). Default StaffFireball. Must exist in ObjectDB.");
+            "StaffIceShards",
+            "CustomEquipment only: prefab name the Fable Mage carries in its RIGHT hand " +
+            "(empty = empty hand). Default StaffIceShards.\n" +
+            "The mesh is resolved from ObjectDB/ZNetScene and mounted even for staffs wielded only by " +
+            "creatures: those store their held mesh under an 'attach_r.hand' child instead of the " +
+            "plain 'attach' child the game normally looks for, so they'd otherwise show an empty hand. " +
+            "This mod attaches that child too.\n" +
+            "Player staffs: StaffFireball, StaffIceShards, StaffShield, StaffSkeleton, StaffRedTroll, " +
+            "StaffGreenRoots, StaffLightning, StaffClusterbomb.\n" +
+            "Creature staffs (tested, non-player): DvergerStaffFire, DvergerStaffIce, DvergerStaffSupport " +
+            "(wooden shaft + green support orb), charred_magestaff_fire. Other Dvergr/Charred/Goblin-shaman " +
+            "staffs (DvergerStaffHeal, DvergerStaffNova, DvergerStaffBlocker, charred_magestaff_summon, " +
+            "GoblinShaman_Staff_Bones/Feathers) use the same code path and should also work.\n" +
+            "Note: the Bog Witch's staff is a skinned mesh baked into the creature (no standalone item " +
+            "prefab), so it can't be equipped this way.");
 
         FableMageWeaponScale = Config.Bind(
             "Fable Mage",
@@ -1011,6 +1025,21 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Distance in front of the player to spawn the photo-mode Charred_Melee.",
                 new AcceptableValueRange<float>(2f, 15f)));
+
+        MageWeaponTest = Config.Bind(
+            "Dev Automation",
+            "MageWeaponTest",
+            false,
+            "Dev: once ~10s after world load, dump the ObjectDB staff catalog, spawn a Charred_Mage, and " +
+            "cycle MageWeaponTestList through FableMageWeapon, capturing a full-body + close-up screenshot " +
+            "per staff into <plugin dir>\\AR_MageWeapon\\ (+ STAFFS.txt catalog + DONE.txt).");
+
+        MageWeaponTestList = Config.Bind(
+            "Dev Automation",
+            "MageWeaponTestList",
+            "StaffIceShards,StaffFireball,DvergerStaffFire,DvergerStaffIce,DvergerStaffSupport,charred_magestaff_fire",
+            "Comma-separated staff/weapon prefab IDs the MageWeaponTest harness cycles through the Fable " +
+            "Mage's hand.");
 
         FableBunnyReconDump = Config.Bind(
             "Dev Automation",
@@ -1608,6 +1637,7 @@ public class Plugin : BaseUnityPlugin
         Patches.PhotoModePatches.Tick();
         Patches.LifecycleTestPatches.Tick();
         Patches.TerrainPhotoPatches.Tick();
+        Patches.MageWeaponTestPatches.Tick();
         Patches.FableBunnyPatches.ReconTick();
 
         var inWorld = Player.m_localPlayer != null;

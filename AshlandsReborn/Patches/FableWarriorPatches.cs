@@ -701,6 +701,17 @@ internal static class FableWarriorPatches
             ?.GetComponent<VisEquipment>();
         var profile = marker.Profile;
 
+        // Creature-only weapons (e.g. DvergerStaffFire, charred_magestaff_fire, BogWitch staff)
+        // are not registered in ObjectDB, so vanilla VisEquipment.AttachItem can't resolve them and
+        // the hand comes up empty. Fall back to the ZNetScene prefab and attach its visual manually,
+        // writing the result into m_*ItemInstance so the scaling below and future swaps treat it as
+        // the equipped instance.
+        if (profile?.KeepClonedHands() != true)
+        {
+            EnsureCreatureWeaponAttached(marker.PuppetVis, FRightItemInstance, marker.PuppetVis.m_rightHand, profile?.RightItem());
+            EnsureCreatureWeaponAttached(marker.PuppetVis, FLeftItemInstance, marker.PuppetVis.m_leftHand, profile?.LeftItem());
+        }
+
         if (FRightItemInstance?.GetValue(marker.PuppetVis) is GameObject rightGo && rightGo != null
             && !ReferenceEquals(rightGo, marker.LastFixedRightItem))
         {
@@ -757,6 +768,64 @@ internal static class FableWarriorPatches
         if (liveJoint == null || prefabJoint == null) return 1f;
         var prefabY = Mathf.Abs(prefabJoint.lossyScale.y);
         return prefabY > 1e-5f ? Mathf.Abs(liveJoint.lossyScale.y) / prefabY : 1f;
+    }
+
+    // Vanilla VisEquipment.AttachItem only mounts a child literally named "attach" (or
+    // "attach_skin"). Creature staffs (Dvergr, etc.) put their held mesh under "attach_r.hand" /
+    // "attach_l.hand" instead, so vanilla leaves the hand empty even though the item IS in ObjectDB.
+    private static readonly string[] AttachChildNames = { "attach", "attach_r.hand", "attach_l.hand", "attach_skin" };
+
+    /// <summary>
+    /// If <paramref name="instField"/> is empty but <paramref name="itemName"/> resolves to a prefab
+    /// whose held mesh lives under a non-standard attach child (creature staffs), instantiate that
+    /// child onto <paramref name="joint"/> the same way vanilla VisEquipment.AttachItem does
+    /// (colliders disabled, transform reset, equipoffset applied), then store the instance on the
+    /// VisEquipment so it participates in the normal fixup/scale path and is cleaned up on the next
+    /// swap. No-op when the hand is already populated (vanilla found a plain "attach") or the item
+    /// name is empty/unresolvable.
+    /// </summary>
+    private static void EnsureCreatureWeaponAttached(VisEquipment vis, FieldInfo? instField, Transform? joint, string? itemName)
+    {
+        if (instField == null || joint == null) return;
+        if (instField.GetValue(vis) is GameObject existing && existing != null) return; // vanilla handled it
+        if (string.IsNullOrWhiteSpace(itemName)) return;
+
+        // ObjectDB is authoritative for the item prefab; fall back to ZNetScene for creature-only IDs.
+        var prefab = (ObjectDB.instance != null ? ObjectDB.instance.GetItemPrefab(itemName) : null)
+                     ?? ZNetScene.instance?.GetPrefab(itemName);
+        if (prefab == null)
+        {
+            Plugin.Log?.LogWarning($"[Fable Warrior] Weapon '{itemName}' not found in ObjectDB or ZNetScene - hand left empty.");
+            return;
+        }
+
+        Transform? attach = null, equipOffset = null;
+        for (var i = 0; i < prefab.transform.childCount; i++)
+        {
+            var c = prefab.transform.GetChild(i);
+            if (c.name == "equipoffset") { equipOffset = c; continue; }
+            if (attach == null && Array.IndexOf(AttachChildNames, c.name) >= 0) attach = c;
+        }
+        if (attach == null)
+        {
+            Plugin.Log?.LogWarning($"[Fable Warrior] Weapon '{itemName}' has no recognized attach child - cannot mount it.");
+            return;
+        }
+
+        var go = UObject.Instantiate(attach.gameObject);
+        go.SetActive(true);
+        foreach (var col in go.GetComponentsInChildren<Collider>()) col.enabled = false;
+        var t = go.transform;
+        t.SetParent(joint);
+        t.localPosition = Vector3.zero;
+        t.localRotation = Quaternion.identity;
+        if (equipOffset != null)
+        {
+            t.localPosition += equipOffset.localPosition;
+            t.localRotation *= equipOffset.localRotation;
+        }
+        instField.SetValue(vis, go);
+        Plugin.Log?.LogInfo($"[Fable Warrior] Creature weapon '{itemName}' attached via fallback ('{attach.name}') to {joint.name}.");
     }
 
     private static string ComputeEquipSignature(Player player)
