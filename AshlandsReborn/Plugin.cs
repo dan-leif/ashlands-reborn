@@ -41,6 +41,10 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> RockBlendBandBrightness { get; private set; } = null!;
     public static ConfigEntry<bool> RockBlendWideBand { get; private set; } = null!;
     public static ConfigEntry<string> LegacySmoothSwapSlices { get; private set; } = null!;
+    public static ConfigEntry<float> LegacySmoothLineGrass { get; private set; } = null!;
+    public static ConfigEntry<float> LegacySmoothLineAsh { get; private set; } = null!;
+    public static ConfigEntry<float> LegacySmoothLineMud { get; private set; } = null!;
+    public static ConfigEntry<float> LegacySmoothLineKhaki { get; private set; } = null!;
     public static ConfigEntry<bool> LegacySmoothDebugRamp { get; private set; } = null!;
     public static ConfigEntry<bool> TerrainArrayUncompressed { get; private set; } = null!;
 
@@ -148,6 +152,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> TerrainPhotoProbeSpecs { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoProbeAshBrightness { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoProbeLegacySpecs { get; private set; } = null!;
+    public static ConfigEntry<string> TerrainPhotoProbeLineMixes { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
@@ -221,7 +226,7 @@ public class Plugin : BaseUnityPlugin
         TerrainTransitionStyle = Config.Bind(
             "Terrain",
             "TerrainTransitionStyle",
-            "MudBlend",
+            "LegacySmooth",
             new ConfigDescription(
                 "How green terrain transitions into ash/lava. Legacy = original binary stamp (exact previous " +
                 "behavior). LegacySmooth = green blends straight into ash across one smooth organic fade (no " +
@@ -370,6 +375,45 @@ public class Plugin : BaseUnityPlugin
             "weak swamp-mud overlay (same mid-fade window) as grass - visually near-identical, but slice 3 " +
             "doubles as the hoe-path texture, so paths would render grassy. Empty = vanilla array (the " +
             "yellow line returns). Live rebuild.");
+
+        LegacySmoothLineGrass = Config.Bind(
+            "Terrain",
+            "LegacySmoothLineGrass",
+            0.65f,
+            new ConfigDescription(
+                "LegacySmooth only: weight of the meadows grass texture (slice 0) in the line-slice mix. " +
+                "The swapped-in LegacySmoothSwapSlices content is a weighted average of grass/ash/mud/khaki " +
+                "(weights normalized by their sum; all zero = pure grass): pure grass reads slightly MORE " +
+                "saturated than the grass-diluted-with-ash ground the old plains line inhabits, so diluting " +
+                "the line texture the same way makes it vanish. Live rebuild.",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        LegacySmoothLineAsh = Config.Bind(
+            "Terrain",
+            "LegacySmoothLineAsh",
+            0.25f,
+            new ConfigDescription(
+                "LegacySmooth only: weight of the light ash texture (slice 13 - the tonal-family pick, not " +
+                "near-black slice 7) in the line-slice mix. See LegacySmoothLineGrass. Live rebuild.",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        LegacySmoothLineMud = Config.Bind(
+            "Terrain",
+            "LegacySmoothLineMud",
+            0.05f,
+            new ConfigDescription(
+                "LegacySmooth only: weight of the swamp mud texture (slice 3) in the line-slice mix. " +
+                "See LegacySmoothLineGrass. Live rebuild.",
+                new AcceptableValueRange<float>(0f, 1f)));
+
+        LegacySmoothLineKhaki = Config.Bind(
+            "Terrain",
+            "LegacySmoothLineKhaki",
+            0.05f,
+            new ConfigDescription(
+                "LegacySmooth only: weight of the plains khaki texture (slice 8 - a little of the original " +
+                "overlay back) in the line-slice mix. See LegacySmoothLineGrass. Live rebuild.",
+                new AcceptableValueRange<float>(0f, 1f)));
 
         TerrainArrayUncompressed = Config.Bind(
             "Terrain",
@@ -1118,6 +1162,15 @@ public class Plugin : BaseUnityPlugin
             "When non-empty, the terrain photo run first captures a LegacySmoothDebugRamp diagnostic set, " +
             "then a LegacySmooth capture set per spec.");
 
+        TerrainPhotoProbeLineMixes = Config.Bind(
+            "Dev Automation",
+            "TerrainPhotoProbeLineMixes",
+            "",
+            "Semicolon-separated LegacySmooth line-mix tuples 'grass,ash,mud,khaki' (e.g. " +
+            "'1,0,0,0;0.65,0.25,0.05,0.05'). When non-empty, the terrain photo run appends a LegacySmooth " +
+            "capture set per tuple (the LegacySmoothLine* sliders are set, terrain refreshed, then " +
+            "restored). Include '1,0,0,0' as the pure-grass reference for the difference-based line mask.");
+
         LegacySmoothDebugRamp = Config.Bind(
             "Dev Automation",
             "LegacySmoothDebugRamp",
@@ -1471,6 +1524,10 @@ public class Plugin : BaseUnityPlugin
         RockBlendBandBrightness.SettingChanged += (_, _) => OnBandArrayConfigChanged();
         RockBlendWideBand.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         LegacySmoothSwapSlices.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        LegacySmoothLineGrass.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        LegacySmoothLineAsh.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        LegacySmoothLineMud.SettingChanged += (_, _) => OnBandArrayConfigChanged();
+        LegacySmoothLineKhaki.SettingChanged += (_, _) => OnBandArrayConfigChanged();
         LegacySmoothDebugRamp.SettingChanged += (_, _) => OnTerrainTransitionChanged();
         TerrainArrayUncompressed.SettingChanged += (_, _) => OnBandArrayConfigChanged();
 

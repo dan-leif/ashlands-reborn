@@ -481,21 +481,48 @@ internal static class TerrainTransition
         public readonly Color Tint;
         public readonly float GrassMix;
         public readonly string ConfigName;
+        public readonly Vector4? LineMix;
 
-        public BandArrayParams(string swaps, float brightness, Color tint, float grassMix, string configName)
+        public BandArrayParams(string swaps, float brightness, Color tint, float grassMix, string configName,
+            Vector4? lineMix = null)
         {
             Swaps = swaps;
             Brightness = brightness;
             Tint = tint;
             GrassMix = grassMix;
             ConfigName = configName;
+            LineMix = lineMix;
         }
 
         public bool GradingNeutral =>
-            Mathf.Approximately(Brightness, 1f) && Tint == Color.white && GrassMix <= 0f;
+            Mathf.Approximately(Brightness, 1f) && Tint == Color.white && GrassMix <= 0f && !LineMix.HasValue;
 
+        // The lm segment is appended only when a line mix is active, so AshBlend/RockBlend
+        // keys (and LegacySmooth's pure-grass fast path) stay byte-identical to v4.2.
         public string CacheKey(bool uncompressed) =>
-            $"{Swaps}|b{Brightness:F3}|t{Tint.r:F3},{Tint.g:F3},{Tint.b:F3}|m{GrassMix:F3}|{(uncompressed ? "u" : "c")}";
+            $"{Swaps}|b{Brightness:F3}|t{Tint.r:F3},{Tint.g:F3},{Tint.b:F3}|m{GrassMix:F3}|{(uncompressed ? "u" : "c")}"
+            + (LineMix.HasValue
+                ? $"|lm{LineMix.Value.x:F3},{LineMix.Value.y:F3},{LineMix.Value.z:F3},{LineMix.Value.w:F3}"
+                : "");
+    }
+
+    // Line-mix source slices (v4.3): meadows grass, light ash (13, NOT near-black 7 - the
+    // v3 tonal-family finding), swamp mud, plains khaki.
+    private static readonly int[] LineMixSlices = { 0, 13, 3, 8 };
+
+    /// <summary>Normalized LegacySmooth line-mix weights (grass, ash, mud, khaki) from the
+    /// LegacySmoothLine* sliders, or null when the mix is effectively pure grass - the
+    /// null routes to the v4.2 byte-identical compressed slice-copy fast path.</summary>
+    private static Vector4? LineMixWeights()
+    {
+        var g = Mathf.Clamp01(Plugin.LegacySmoothLineGrass?.Value ?? 1f);
+        var a = Mathf.Clamp01(Plugin.LegacySmoothLineAsh?.Value ?? 0f);
+        var m = Mathf.Clamp01(Plugin.LegacySmoothLineMud?.Value ?? 0f);
+        var k = Mathf.Clamp01(Plugin.LegacySmoothLineKhaki?.Value ?? 0f);
+        var sum = g + a + m + k;
+        if (sum <= 0f) return null; // all-zero = pure grass
+        var mix = new Vector4(g / sum, a / sum, m / sum, k / sum);
+        return mix.x >= 0.9995f ? null : mix;
     }
 
     private static BandArrayParams? CurrentBandParams(TransitionStyle style) => style switch
@@ -516,13 +543,17 @@ internal static class TerrainTransition
         // the khaki slice 8 pops as a yellow line floating inside otherwise-green ground
         // (green on BOTH sides, because the perceptual green/ash crossover sits closer
         // to the ash end of the ramp). Swapping grass over the offending overlay slices
-        // hides the line under the very texture that surrounds it.
+        // hides the line under the very texture that surrounds it. v4.3: pure grass is
+        // still slightly MORE saturated than the grass-diluted-with-ash base blend at the
+        // line's spot on the ramp, so the swapped-in content can instead be a grass/ash/
+        // mud/khaki weighted mix (LegacySmoothLine* sliders) matching the local blend.
         TransitionStyle.LegacySmooth => new BandArrayParams(
             Plugin.LegacySmoothSwapSlices?.Value ?? "",
             1f,
             Color.white,
             0f,
-            "LegacySmoothSwapSlices"),
+            "LegacySmoothSwapSlices",
+            LineMixWeights()),
         _ => null,
     };
 
@@ -604,7 +635,7 @@ internal static class TerrainTransition
         try
         {
             var clone = uncompressed
-                ? BuildGradedClone(src, swaps, p.Brightness, p.Tint, p.GrassMix)
+                ? BuildGradedClone(src, swaps, p.Brightness, p.Tint, p.GrassMix, p.LineMix)
                 : BuildCompressedClone(src, swaps);
             PatchedArrayCache[key] = clone;
             AllPatchedArrays.Add(clone);
@@ -685,9 +716,11 @@ internal static class TerrainTransition
 
     /// <summary>Uncompressed rebuild with the swapped-in band slice graded in byte space
     /// (matching how the PIL tone target is measured). All 16 slices are GPU-decoded
-    /// because CopyTexture cannot mix BC7 and RGBA32 within one array.</summary>
+    /// because CopyTexture cannot mix BC7 and RGBA32 within one array. When a line mix is
+    /// set (LegacySmooth v4.3), the mixed texture replaces EVERY dst slice (the per-pair
+    /// src only matters for the pure-grass compressed fast path).</summary>
     private static Texture2DArray BuildGradedClone(Texture2DArray src, List<KeyValuePair<int, int>> swaps,
-        float brightness, Color tint, float grassMix)
+        float brightness, Color tint, float grassMix, Vector4? lineMix = null)
     {
         var mips = src.mipmapCount > 1;
         var clone = new Texture2DArray(src.width, src.height, src.depth, TextureFormat.RGBA32, mips, linear: false)
@@ -702,17 +735,57 @@ internal static class TerrainTransition
         for (var slice = 0; slice < src.depth; slice++)
             pixels[slice] = DecodeSlice(src, slice);
 
-        foreach (var pair in swaps)
+        if (lineMix.HasValue)
         {
-            var graded = (Color32[])pixels[pair.Value].Clone();
-            GradeBandPixels(graded, grassMix > 0f ? pixels[0] : null, brightness, tint, grassMix);
-            pixels[pair.Key] = graded;
+            var mixed = BuildLineMixPixels(pixels, lineMix.Value);
+            foreach (var pair in swaps)
+                pixels[pair.Key] = mixed;
+        }
+        else
+        {
+            foreach (var pair in swaps)
+            {
+                var graded = (Color32[])pixels[pair.Value].Clone();
+                GradeBandPixels(graded, grassMix > 0f ? pixels[0] : null, brightness, tint, grassMix);
+                pixels[pair.Key] = graded;
+            }
         }
 
         for (var slice = 0; slice < src.depth; slice++)
             clone.SetPixels32(pixels[slice], slice, 0);
         clone.Apply(updateMipmaps: mips, makeNoLongerReadable: true);
         return clone;
+    }
+
+    /// <summary>Byte-space weighted average of the four line-mix source slices
+    /// (grass 0, light ash 13, mud 3, khaki 8), RGB and alpha alike - slice alpha
+    /// modulates overlay strength, and mixing it keeps the diluted line texture's
+    /// overlay weight consistent with its diluted color.</summary>
+    private static Color32[] BuildLineMixPixels(Color32[][] pixels, Vector4 mix)
+    {
+        var weights = new[] { mix.x, mix.y, mix.z, mix.w };
+        var length = pixels[LineMixSlices[0]].Length;
+        var mixed = new Color32[length];
+        for (var i = 0; i < length; i++)
+        {
+            float r = 0f, g = 0f, b = 0f, a = 0f;
+            for (var s = 0; s < LineMixSlices.Length; s++)
+            {
+                var w = weights[s];
+                if (w <= 0f) continue;
+                var px = pixels[LineMixSlices[s]][i];
+                r += px.r * w;
+                g += px.g * w;
+                b += px.b * w;
+                a += px.a * w;
+            }
+            mixed[i] = new Color32(
+                (byte)Mathf.Clamp(Mathf.RoundToInt(r), 0, 255),
+                (byte)Mathf.Clamp(Mathf.RoundToInt(g), 0, 255),
+                (byte)Mathf.Clamp(Mathf.RoundToInt(b), 0, 255),
+                (byte)Mathf.Clamp(Mathf.RoundToInt(a), 0, 255));
+        }
+        return mixed;
     }
 
     /// <summary>BC7 -> readable RGBA32 bytes: CopyTexture the slice into a same-format

@@ -81,7 +81,7 @@ internal static class TerrainPhotoPatches
     private static IEnumerator CaptureRoutine()
     {
         _running = true;
-        var originalStyle = Plugin.TerrainTransitionStyle?.Value ?? "MudBlend";
+        var originalStyle = Plugin.TerrainTransitionStyle?.Value ?? "LegacySmooth";
         var originalOverride = Plugin.EnableTerrainOverride?.Value ?? true;
         try
         {
@@ -185,6 +185,7 @@ internal static class TerrainPhotoPatches
             yield return ProbeRockSpecs(pos, ground, dir, shotPaths);
             yield return ProbeAshBrightness(pos, ground, dir, shotPaths);
             yield return ProbeLegacySpecs(pos, ground, dir, shotPaths);
+            yield return ProbeLineMixes(pos, ground, dir, shotPaths);
 
             checkLines.Insert(0, totalViolations == 0 ? "LAVACHECK PASS" : $"LAVACHECK FAIL n={totalViolations}");
 
@@ -398,6 +399,59 @@ internal static class TerrainPhotoPatches
         }
         if (Plugin.LegacySmoothSwapSlices.Value != originalSpec)
             Plugin.LegacySmoothSwapSlices.Value = originalSpec;
+    }
+
+    /// <summary>LegacySmooth line-mix probe (v4.3): one capture set per
+    /// TerrainPhotoProbeLineMixes tuple 'grass,ash,mud,khaki' - the LegacySmoothLine*
+    /// sliders are set (each SettingChanged invalidates the patched-array cache and
+    /// refreshes), captured, then restored. The pure-grass tuple '1,0,0,0' is the
+    /// reference frame for the difference-based line mask.</summary>
+    private static IEnumerator ProbeLineMixes(Vector3 pos, Vector3 ground, string dir, List<string> shotPaths)
+    {
+        var tuples = (Plugin.TerrainPhotoProbeLineMixes?.Value ?? "")
+            .Split(';').Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
+        if (tuples.Length == 0) yield break;
+
+        var sliders = new[]
+        {
+            Plugin.LegacySmoothLineGrass!, Plugin.LegacySmoothLineAsh!,
+            Plugin.LegacySmoothLineMud!, Plugin.LegacySmoothLineKhaki!,
+        };
+        var originals = sliders.Select(s => s.Value).ToArray();
+        SetStyle("LegacySmooth");
+
+        foreach (var tuple in tuples)
+        {
+            var parts = tuple.Split(',').Select(s => s.Trim()).ToArray();
+            var weights = new float[4];
+            var ok = parts.Length == 4;
+            for (var i = 0; ok && i < 4; i++)
+                ok = float.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out weights[i]);
+            if (!ok)
+            {
+                Plugin.Log?.LogWarning($"[AR TerrainPhoto] Probe line mix: cannot parse '{tuple}'");
+                continue;
+            }
+
+            Plugin.Log?.LogInfo($"[AR TerrainPhoto] Probe LegacySmooth line mix {tuple}");
+            var changed = false;
+            for (var i = 0; i < 4; i++)
+            {
+                if (Mathf.Approximately(sliders[i].Value, weights[i])) continue;
+                sliders[i].Value = weights[i];
+                changed = true;
+            }
+            if (!changed)
+                EnvManPatches.ForceTerrainRefresh(force: true);
+            yield return WaitForRebuild(pos);
+            yield return CaptureSet(
+                $"LegacySmooth_mix_{weights[0]:F2}-{weights[1]:F2}-{weights[2]:F2}-{weights[3]:F2}",
+                ground, dir, shotPaths);
+        }
+
+        for (var i = 0; i < 4; i++)
+            if (!Mathf.Approximately(sliders[i].Value, originals[i]))
+                sliders[i].Value = originals[i];
     }
 
     /// <summary>AshBlend band-tone probe: one capture set per TerrainPhotoProbeAshBrightness
