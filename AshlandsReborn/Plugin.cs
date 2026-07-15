@@ -830,10 +830,10 @@ public class Plugin : BaseUnityPlugin
         FableMageWeapon = Config.Bind(
             "Fable Mage",
             "FableMageWeapon",
-            "StaffIceShards",
+            "DvergerStaffSupport",
             new ConfigDescription(
                 "CustomEquipment only: the staff the Fable Mage carries in its RIGHT hand " +
-                "(None = empty hand). Default StaffIceShards.\n" +
+                "(None = empty hand). Default DvergerStaffSupport.\n" +
                 "Player staffs (Staff*) mount via their normal attach point; creature staffs " +
                 "(DvergerStaff*, charred_magestaff_fire) store their held mesh under an " +
                 "'attach_r.hand' child the game normally ignores - this mod mounts that child too. " +
@@ -851,7 +851,7 @@ public class Plugin : BaseUnityPlugin
         FableMageWeaponScale = Config.Bind(
             "Fable Mage",
             "FableMageWeaponScale",
-            1.0f,
+            0.75f,
             new ConfigDescription(
                 "CustomEquipment only: multiplier on the mage's weapon size, applied after the weapon is " +
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
@@ -901,7 +901,7 @@ public class Plugin : BaseUnityPlugin
         FableMageDvergerStaffRotY = BindMageKnob("FableMageDvergerStaffRotY", -95f, -180f, 180f, RotHelp("Dvergr", "DvergerStaff*", "Y"));
         FableMageDvergerStaffRotZ = BindMageKnob("FableMageDvergerStaffRotZ", 0f, -180f, 180f, RotHelp("Dvergr", "DvergerStaff*", "Z"));
         FableMageDvergerStaffOffsetX = BindMageKnob("FableMageDvergerStaffOffsetX", -0.075f, -0.5f, 0.5f, OffHelp("Dvergr", "DvergerStaff*", "X"));
-        FableMageDvergerStaffOffsetY = BindMageKnob("FableMageDvergerStaffOffsetY", -0.15f, -0.5f, 0.5f, OffHelp("Dvergr", "DvergerStaff*", "Y"));
+        FableMageDvergerStaffOffsetY = BindMageKnob("FableMageDvergerStaffOffsetY", -0.1f, -0.5f, 0.5f, OffHelp("Dvergr", "DvergerStaff*", "Y"));
         FableMageDvergerStaffOffsetZ = BindMageKnob("FableMageDvergerStaffOffsetZ", 0f, -0.5f, 0.5f, OffHelp("Dvergr", "DvergerStaff*", "Z"));
 
         FableMageCharredStaffRotX = BindMageKnob("FableMageCharredStaffRotX", 0f, -180f, 180f, RotHelp("Charred", "charred_magestaff*", "X"));
@@ -964,7 +964,7 @@ public class Plugin : BaseUnityPlugin
         FableRacePureBlackSkin = Config.Bind(
             "Fable Race",
             "FableRacePureBlackSkin",
-            false,
+            true,
             "CustomRace only: force the skin to pure black (0,0,0), darker than the FableRaceSkinTone " +
             "slider can reach. Overrides FableRaceSkinTone when on. The eyes keep their own color and " +
             "the body is still lit by the scene (highlights/shadows read the form) - only the skin " +
