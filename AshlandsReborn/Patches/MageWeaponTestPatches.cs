@@ -102,16 +102,36 @@ internal static class MageWeaponTestPatches
 
             Freeze(go);
 
+            // Rotation/offset sweep mode: capture each staff once per knob combination instead of
+            // once at the saved knob values. Knobs restored in the finally below.
+            var sweep = ParseSweep(Plugin.MageWeaponRotSweep?.Value);
+            if (sweep.Count > 0) _knobSnapshot = ReadKnobs();
+
             foreach (var weapon in weapons)
             {
                 if (go == null) break;
                 Plugin.Log?.LogInfo($"[AR MageWeapon] === weapon: {weapon} ===");
                 if (Plugin.FableMageWeapon != null) Plugin.FableMageWeapon.Value = weapon; // live rebuild
-                // Rebuild chain: RevertAll -> 1 frame -> BuildAfterSettle (10f) -> ApplyAppearance
-                //   -> FixupPuppetAttaches (10f wait) -> creature-weapon fallback. Give it margin.
-                yield return new WaitForSeconds(4f);
-                if (go == null) break;
-                yield return CaptureSubject(dir, $"{Sanitize(weapon)}_full", go, null, shotPaths, spawnPos, spawnRot);
+                if (sweep.Count == 0)
+                {
+                    // Rebuild chain: RevertAll -> 1 frame -> BuildAfterSettle (10f) -> ApplyAppearance
+                    //   -> FixupPuppetAttaches (10f wait) -> creature-weapon fallback. Give it margin.
+                    yield return new WaitForSeconds(4f);
+                    if (go == null) break;
+                    yield return CaptureSubject(dir, $"{Sanitize(weapon)}_full", go, null, shotPaths, spawnPos, spawnRot);
+                }
+                else
+                {
+                    for (var i = 0; i < sweep.Count; i++)
+                    {
+                        if (go == null) break;
+                        Plugin.Log?.LogInfo($"[AR MageWeapon] sweep {i}: [{string.Join(",", sweep[i])}]");
+                        SetKnobs(sweep[i]); // each set fires a live rebuild; the wait absorbs all of them
+                        yield return new WaitForSeconds(4f);
+                        if (go == null) break;
+                        yield return CaptureSubject(dir, $"{Sanitize(weapon)}_sweep_{i}", go, null, shotPaths, spawnPos, spawnRot);
+                    }
+                }
             }
 
             if (go != null) ZNetScene.instance?.Destroy(go);
@@ -123,9 +143,53 @@ internal static class MageWeaponTestPatches
         }
         finally
         {
+            if (_knobSnapshot != null) { SetKnobs(_knobSnapshot); _knobSnapshot = null; }
             PhotoModePatches.ClearCameraOverride();
             _running = false;
         }
+    }
+
+    private static float[]? _knobSnapshot;
+
+    /// <summary>Parse MageWeaponRotSweep: 'rx,ry,rz[,ox,oy,oz]' entries separated by '|'.</summary>
+    private static List<float[]> ParseSweep(string? raw)
+    {
+        var result = new List<float[]>();
+        if (string.IsNullOrWhiteSpace(raw)) return result;
+        foreach (var entry in raw!.Split('|'))
+        {
+            var parts = entry.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
+            if (parts.Length != 3 && parts.Length != 6)
+            {
+                Plugin.Log?.LogWarning($"[AR MageWeapon] sweep entry '{entry}' is not 3 or 6 numbers - skipped");
+                continue;
+            }
+            var vals = new float[6];
+            var ok = true;
+            for (var i = 0; i < parts.Length; i++)
+                if (!float.TryParse(parts[i], System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out vals[i])) { ok = false; break; }
+            if (ok) result.Add(vals);
+            else Plugin.Log?.LogWarning($"[AR MageWeapon] sweep entry '{entry}' has a non-numeric part - skipped");
+        }
+        return result;
+    }
+
+    private static float[] ReadKnobs() => new[]
+    {
+        Plugin.FableMageWeaponRotX?.Value ?? 0f, Plugin.FableMageWeaponRotY?.Value ?? 0f,
+        Plugin.FableMageWeaponRotZ?.Value ?? 0f, Plugin.FableMageWeaponOffsetX?.Value ?? 0f,
+        Plugin.FableMageWeaponOffsetY?.Value ?? 0f, Plugin.FableMageWeaponOffsetZ?.Value ?? 0f,
+    };
+
+    private static void SetKnobs(float[] v)
+    {
+        if (Plugin.FableMageWeaponRotX != null) Plugin.FableMageWeaponRotX.Value = v[0];
+        if (Plugin.FableMageWeaponRotY != null) Plugin.FableMageWeaponRotY.Value = v[1];
+        if (Plugin.FableMageWeaponRotZ != null) Plugin.FableMageWeaponRotZ.Value = v[2];
+        if (Plugin.FableMageWeaponOffsetX != null) Plugin.FableMageWeaponOffsetX.Value = v[3];
+        if (Plugin.FableMageWeaponOffsetY != null) Plugin.FableMageWeaponOffsetY.Value = v[4];
+        if (Plugin.FableMageWeaponOffsetZ != null) Plugin.FableMageWeaponOffsetZ.Value = v[5];
     }
 
     /// <summary>Dump every ObjectDB item whose name hints at a staff/wand, matching ZNetScene

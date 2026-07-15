@@ -75,6 +75,10 @@ internal static class FableWarriorPatches
         /// <summary>Warrior CustomEquipment only: apply the configured weapon grip rot/offset
         /// (hand-attach frame) + WeaponScale to the right-hand item instead of rig-normalizing it.</summary>
         public Func<bool> WeaponGrip = () => false;
+        /// <summary>Mage CustomEquipment only: after rig-normalizing the right-hand item, apply the
+        /// built-in per-staff orientation default (StaffOrientationDefaults) plus the
+        /// FableMageWeaponRot/Offset knobs in the hand-attach local frame.</summary>
+        public Func<bool> StaffOrientation = () => false;
     }
 
     private static readonly CreatureProfile[] Profiles =
@@ -141,11 +145,13 @@ internal static class FableWarriorPatches
         },
         new()
         {
-            // Mage weapon is a staff -> RIGHT hand. No grip.
+            // Mage weapon is a staff -> RIGHT hand. No grip, but per-staff orientation defaults +
+            // the FableMageWeaponRot/Offset knobs apply on top of the rig-normalize.
             Label = "Mage",
             Prefabs = new[] { "Charred_Mage" },
             Enabled = () => ParseMode(Plugin.EnableFableMage?.Value) != FableMode.Disabled,
-            RightItem = () => Plugin.FableMageWeapon?.Value ?? "StaffFireball",
+            // The dropdown's "None" sentinel means bare hand (AcceptableValueList can't hold "").
+            RightItem = () => NoneToEmpty(Plugin.FableMageWeapon?.Value),
             LeftItem = () => "",
             WeaponScale = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment
                 ? (Plugin.FableMageWeaponScale?.Value ?? 1f) : 1f,
@@ -158,8 +164,15 @@ internal static class FableWarriorPatches
             LegItem = () => Plugin.FableMageLegs?.Value ?? "",
             ShoulderItem = () => Plugin.FableMageShoulders?.Value ?? "",
             KeepClonedHands = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.ClonePlayer,
+            StaffOrientation = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment,
         },
     };
+
+    /// <summary>Map the FableMageWeapon dropdown's "None" sentinel (AcceptableValueList cannot
+    /// contain an empty string) to the empty-hand value the attach code expects.</summary>
+    private static string NoneToEmpty(string? value) =>
+        string.IsNullOrWhiteSpace(value) || string.Equals(value, "None", StringComparison.OrdinalIgnoreCase)
+            ? "" : value!;
 
     /// <summary>Parse an EnableFable[Class] config string into the mode enum (defaults to
     /// CustomEquipment on an unrecognized/empty value).</summary>
@@ -728,6 +741,8 @@ internal static class FableWarriorPatches
             {
                 var ratio = JointLossyRatio(marker.PuppetVis.m_rightHand, prefabVis != null ? prefabVis.m_rightHand : null);
                 t.localScale = t.localScale * ratio * (profile?.WeaponScale() ?? 1f);
+                if (profile?.StaffOrientation() == true)
+                    ApplyStaffOrientation(t, profile.RightItem());
             }
             marker.LastFixedRightItem = rightGo;
             Plugin.Log?.LogInfo($"[Fable Warrior] Right-hand item fixed on {marker.gameObject.name} ({profile?.Label})");
@@ -768,6 +783,53 @@ internal static class FableWarriorPatches
         if (liveJoint == null || prefabJoint == null) return 1f;
         var prefabY = Mathf.Abs(prefabJoint.lossyScale.y);
         return prefabY > 1e-5f ? Mathf.Abs(liveJoint.lossyScale.y) / prefabY : 1f;
+    }
+
+    /// <summary>
+    /// Built-in per-staff orientation defaults for the Fable Mage (hand-attach local frame), baked
+    /// from the MAGE_STAFF_PLAN.md tuning loop against vanilla-carry references (the player for
+    /// Staff*, the Dvergr mages / vanilla Charred_Mage for creature staffs). Lookup: exact prefab
+    /// name first, then prefix family. Missing entry = identity.
+    /// COMPOSITION CONTRACT (changing it invalidates every baked value): applied after the vanilla
+    /// attach + equipoffset and the rig-normalize scale, as
+    ///   localRotation *= Euler(defaultRot) * Euler(knobRot);  localPosition += defaultPos + knobPos;
+    /// where knob = the FableMageWeaponRot/Offset user configs.
+    /// </summary>
+    private static readonly (string Key, bool Prefix, Vector3 Rot, Vector3 Pos)[] StaffOrientationDefaults =
+    {
+        // Filled during the M3 tuning loop (MAGE_STAFF_PLAN.md status table mirrors these values).
+    };
+
+    private static bool TryGetStaffOrientationDefault(string itemName, out Vector3 rot, out Vector3 pos)
+    {
+        foreach (var e in StaffOrientationDefaults)
+            if (!e.Prefix && string.Equals(itemName, e.Key, StringComparison.OrdinalIgnoreCase))
+            { rot = e.Rot; pos = e.Pos; return true; }
+        foreach (var e in StaffOrientationDefaults)
+            if (e.Prefix && itemName.StartsWith(e.Key, StringComparison.OrdinalIgnoreCase))
+            { rot = e.Rot; pos = e.Pos; return true; }
+        rot = Vector3.zero; pos = Vector3.zero;
+        return false;
+    }
+
+    /// <summary>Apply the built-in per-staff orientation default plus the FableMageWeaponRot/Offset
+    /// knobs to an equipped right-hand staff (see StaffOrientationDefaults for the contract).</summary>
+    private static void ApplyStaffOrientation(Transform t, string itemName)
+    {
+        TryGetStaffOrientationDefault(itemName ?? "", out var defRot, out var defPos);
+        var knobRot = new Vector3(
+            Plugin.FableMageWeaponRotX?.Value ?? 0f,
+            Plugin.FableMageWeaponRotY?.Value ?? 0f,
+            Plugin.FableMageWeaponRotZ?.Value ?? 0f);
+        var knobPos = new Vector3(
+            Plugin.FableMageWeaponOffsetX?.Value ?? 0f,
+            Plugin.FableMageWeaponOffsetY?.Value ?? 0f,
+            Plugin.FableMageWeaponOffsetZ?.Value ?? 0f);
+        t.localRotation *= Quaternion.Euler(defRot) * Quaternion.Euler(knobRot);
+        t.localPosition += defPos + knobPos;
+        if (defRot != Vector3.zero || defPos != Vector3.zero || knobRot != Vector3.zero || knobPos != Vector3.zero)
+            Plugin.Log?.LogInfo($"[Fable Warrior] Staff orientation '{itemName}': " +
+                                $"defRot={defRot} defPos={defPos} knobRot={knobRot} knobPos={knobPos}");
     }
 
     // Vanilla VisEquipment.AttachItem only mounts a child literally named "attach" (or

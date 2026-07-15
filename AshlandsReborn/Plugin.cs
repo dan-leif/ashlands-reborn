@@ -104,6 +104,12 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableMageShoulders { get; private set; } = null!;
     public static ConfigEntry<string> FableMageWeapon { get; private set; } = null!;
     public static ConfigEntry<float> FableMageWeaponScale { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageWeaponRotX { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageWeaponRotY { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageWeaponRotZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageWeaponOffsetX { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageWeaponOffsetY { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageWeaponOffsetZ { get; private set; } = null!;
 
     // --- Fable Race ---
     // Global body mode for ALL Fable Charred puppets (Warrior/Archer/Twitcher/Mage; NOT the
@@ -144,6 +150,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> MageWeaponTest { get; private set; } = null!;
     public static ConfigEntry<string> MageWeaponTestList { get; private set; } = null!;
     public static ConfigEntry<bool> MageWeaponRefCapture { get; private set; } = null!;
+    public static ConfigEntry<string> MageWeaponRotSweep { get; private set; } = null!;
     public static ConfigEntry<string> PhotoModeIslandPos { get; private set; } = null!;
     public static ConfigEntry<bool> TerrainPhotoAuto { get; private set; } = null!;
     public static ConfigEntry<KeyCode> TerrainPhotoKey { get; private set; } = null!;
@@ -807,20 +814,21 @@ public class Plugin : BaseUnityPlugin
             "Fable Mage",
             "FableMageWeapon",
             "StaffIceShards",
-            "CustomEquipment only: prefab name the Fable Mage carries in its RIGHT hand " +
-            "(empty = empty hand). Default StaffIceShards.\n" +
-            "The mesh is resolved from ObjectDB/ZNetScene and mounted even for staffs wielded only by " +
-            "creatures: those store their held mesh under an 'attach_r.hand' child instead of the " +
-            "plain 'attach' child the game normally looks for, so they'd otherwise show an empty hand. " +
-            "This mod attaches that child too.\n" +
-            "Player staffs: StaffFireball, StaffIceShards, StaffShield, StaffSkeleton, StaffRedTroll, " +
-            "StaffGreenRoots, StaffLightning, StaffClusterbomb.\n" +
-            "Creature staffs (tested, non-player): DvergerStaffFire, DvergerStaffIce, DvergerStaffSupport " +
-            "(wooden shaft + green support orb), charred_magestaff_fire. Other Dvergr/Charred/Goblin-shaman " +
-            "staffs (DvergerStaffHeal, DvergerStaffNova, DvergerStaffBlocker, charred_magestaff_summon, " +
-            "GoblinShaman_Staff_Bones/Feathers) use the same code path and should also work.\n" +
-            "Note: the Bog Witch's staff is a skinned mesh baked into the creature (no standalone item " +
-            "prefab), so it can't be equipped this way.");
+            new ConfigDescription(
+                "CustomEquipment only: the staff the Fable Mage carries in its RIGHT hand " +
+                "(None = empty hand). Default StaffIceShards.\n" +
+                "Player staffs (Staff*) mount via their normal attach point; creature staffs " +
+                "(DvergerStaff*, charred_magestaff_fire) store their held mesh under an " +
+                "'attach_r.hand' child the game normally ignores - this mod mounts that child too. " +
+                "Every entry gets a built-in per-staff orientation so it sits naturally in the hand; " +
+                "fine-tune with FableMageWeaponRotX/Y/Z + OffsetX/Y/Z.\n" +
+                "(DvergerStaffNova/Blocker have no held mesh at all and the Bog Witch staff is baked " +
+                "into her body mesh - none of them can be equipped, which is why they're not listed.)",
+                new AcceptableValueList<string>(
+                    "StaffIceShards", "StaffFireball", "StaffShield", "StaffSkeleton", "StaffRedTroll",
+                    "StaffGreenRoots", "StaffLightning", "StaffClusterbomb",
+                    "DvergerStaffFire", "DvergerStaffIce", "DvergerStaffSupport", "DvergerStaffHeal",
+                    "charred_magestaff_fire", "None")));
 
         FableMageWeaponScale = Config.Bind(
             "Fable Mage",
@@ -830,6 +838,25 @@ public class Plugin : BaseUnityPlugin
                 "CustomEquipment only: multiplier on the mage's weapon size, applied after the weapon is " +
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
+
+        FableMageWeaponRotX = BindMageKnob("FableMageWeaponRotX", -180f, 180f,
+            "Extra rotation (deg, X) applied to the mage's staff on top of its built-in per-staff " +
+            "orientation, in the hand-attach local frame (same convention as the Warrior grip knobs). " +
+            "Applies live.");
+        FableMageWeaponRotY = BindMageKnob("FableMageWeaponRotY", -180f, 180f,
+            "Extra rotation (deg, Y) on the mage's staff, hand-attach local frame. Applies live.");
+        FableMageWeaponRotZ = BindMageKnob("FableMageWeaponRotZ", -180f, 180f,
+            "Extra rotation (deg, Z) on the mage's staff, hand-attach local frame. Applies live.");
+        FableMageWeaponOffsetX = BindMageKnob("FableMageWeaponOffsetX", -0.5f, 0.5f,
+            "Extra grip position offset (~m, X) on the mage's staff, hand-attach local frame - shifts " +
+            "where along the shaft the hand grips. Applies live.");
+        FableMageWeaponOffsetY = BindMageKnob("FableMageWeaponOffsetY", -0.5f, 0.5f,
+            "Extra grip position offset (~m, Y) on the mage's staff, hand-attach local frame. Applies live.");
+        FableMageWeaponOffsetZ = BindMageKnob("FableMageWeaponOffsetZ", -0.5f, 0.5f,
+            "Extra grip position offset (~m, Z) on the mage's staff, hand-attach local frame. Applies live.");
+
+        ConfigEntry<float> BindMageKnob(string key, float min, float max, string help) =>
+            Config.Bind("Fable Mage", key, 0f, new ConfigDescription(help, new AcceptableValueRange<float>(min, max)));
 
         // --- Fable Race ---
         // Fixed body appearance shared by all four Fable Charred puppets (not the Fable Bunny).
@@ -1084,7 +1111,7 @@ public class Plugin : BaseUnityPlugin
             "MageWeaponTestList",
             "StaffIceShards,StaffFireball,StaffShield,StaffSkeleton,StaffRedTroll,StaffGreenRoots," +
             "StaffLightning,StaffClusterbomb,DvergerStaffFire,DvergerStaffIce,DvergerStaffSupport," +
-            "DvergerStaffHeal,DvergerStaffNova,DvergerStaffBlocker,charred_magestaff_fire",
+            "DvergerStaffHeal,charred_magestaff_fire",
             "Comma-separated staff/weapon prefab IDs the MageWeaponTest harness cycles through the Fable " +
             "Mage's hand. Must stay a subset of the FableMageWeapon dropdown list (values outside the " +
             "list are clamped to its first entry when set).");
@@ -1098,6 +1125,16 @@ public class Plugin : BaseUnityPlugin
             "(ref_player_*.png), vanilla DvergerMageFire/Ice/Support spawns holding their own staffs " +
             "(ref_DvergerMage*.png), and a vanilla puppet-disabled Charred_Mage (ref_Charred_Mage_*.png). " +
             "Same framing as the puppet shots so they compare side-by-side.");
+
+        MageWeaponRotSweep = Config.Bind(
+            "Dev Automation",
+            "MageWeaponRotSweep",
+            "",
+            "Dev: rotation/offset sweep for the MageWeaponTest run. Entries 'rx,ry,rz[,ox,oy,oz]' " +
+            "separated by '|' (e.g. \"0,0,0|0,90,0|0,180,0|90,0,0\"). When non-empty, each staff in " +
+            "MageWeaponTestList is captured once per entry with the FableMageWeaponRot/Offset knobs " +
+            "set to it (filenames {staff}_sweep_{i}_{yaw}.png); knob values are restored afterwards. " +
+            "Shrink MageWeaponTestList to the staff under tuning - every entry costs a ~4s rebuild.");
 
         FableBunnyReconDump = Config.Bind(
             "Dev Automation",
@@ -1517,6 +1554,12 @@ public class Plugin : BaseUnityPlugin
         FableMageShoulders.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageWeaponRotX.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageWeaponRotY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageWeaponRotZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageWeaponOffsetX.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageWeaponOffsetY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageWeaponOffsetZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         // Fable Race (global body mode) - also rebuilds all puppets live (Vanilla reverts them).
         FableRaceMode.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorSex.SettingChanged += (_, _) => OnFableWarriorModeChanged();
