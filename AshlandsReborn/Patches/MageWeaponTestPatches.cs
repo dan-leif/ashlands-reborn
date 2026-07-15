@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using BepInEx.Configuration;
 using UnityEngine;
 using UObject = UnityEngine.Object;
 
@@ -103,7 +104,9 @@ internal static class MageWeaponTestPatches
             Freeze(go);
 
             // Rotation/offset sweep mode: capture each staff once per knob combination instead of
-            // once at the saved knob values. Knobs restored in the finally below.
+            // once at the saved knob values. Each entry is written to the knobs of the swept staff's
+            // OWN source family, so a sweep tunes exactly the family it photographs. All 18 knobs are
+            // restored in the finally below.
             var sweep = ParseSweep(Plugin.MageWeaponRotSweep?.Value);
             if (sweep.Count > 0) _knobSnapshot = ReadKnobs();
 
@@ -122,11 +125,15 @@ internal static class MageWeaponTestPatches
                 }
                 else
                 {
+                    var family = FableWarriorPatches.ClassifyStaff(weapon);
+                    if (family == FableWarriorPatches.StaffFamily.None)
+                        Plugin.Log?.LogWarning($"[AR MageWeapon] '{weapon}' matches no staff family - " +
+                                               "sweep entries have nothing to write; shots will all be identical");
                     for (var i = 0; i < sweep.Count; i++)
                     {
                         if (go == null) break;
-                        Plugin.Log?.LogInfo($"[AR MageWeapon] sweep {i}: [{string.Join(",", sweep[i])}]");
-                        SetKnobs(sweep[i]); // each set fires a live rebuild; the wait absorbs all of them
+                        Plugin.Log?.LogInfo($"[AR MageWeapon] sweep {i} ({family}): [{string.Join(",", sweep[i])}]");
+                        SetKnobs(family, sweep[i]); // each set fires a live rebuild; the wait absorbs all of them
                         yield return new WaitForSeconds(4f);
                         if (go == null) break;
                         yield return CaptureSubject(dir, $"{Sanitize(weapon)}_sweep_{i}", go, null, shotPaths, spawnPos, spawnRot);
@@ -175,21 +182,53 @@ internal static class MageWeaponTestPatches
         return result;
     }
 
-    private static float[] ReadKnobs() => new[]
+    /// <summary>The six orientation configs of one staff family, ordered rotX/Y/Z then offsetX/Y/Z -
+    /// the same order a MageWeaponRotSweep entry lists them in.</summary>
+    private static ConfigEntry<float>?[] KnobsOf(FableWarriorPatches.StaffFamily family) => family switch
     {
-        Plugin.FableMageWeaponRotX?.Value ?? 0f, Plugin.FableMageWeaponRotY?.Value ?? 0f,
-        Plugin.FableMageWeaponRotZ?.Value ?? 0f, Plugin.FableMageWeaponOffsetX?.Value ?? 0f,
-        Plugin.FableMageWeaponOffsetY?.Value ?? 0f, Plugin.FableMageWeaponOffsetZ?.Value ?? 0f,
+        FableWarriorPatches.StaffFamily.Player => new[]
+        {
+            Plugin.FableMagePlayerStaffRotX, Plugin.FableMagePlayerStaffRotY, Plugin.FableMagePlayerStaffRotZ,
+            Plugin.FableMagePlayerStaffOffsetX, Plugin.FableMagePlayerStaffOffsetY, Plugin.FableMagePlayerStaffOffsetZ,
+        },
+        FableWarriorPatches.StaffFamily.Dverger => new[]
+        {
+            Plugin.FableMageDvergerStaffRotX, Plugin.FableMageDvergerStaffRotY, Plugin.FableMageDvergerStaffRotZ,
+            Plugin.FableMageDvergerStaffOffsetX, Plugin.FableMageDvergerStaffOffsetY, Plugin.FableMageDvergerStaffOffsetZ,
+        },
+        FableWarriorPatches.StaffFamily.Charred => new[]
+        {
+            Plugin.FableMageCharredStaffRotX, Plugin.FableMageCharredStaffRotY, Plugin.FableMageCharredStaffRotZ,
+            Plugin.FableMageCharredStaffOffsetX, Plugin.FableMageCharredStaffOffsetY, Plugin.FableMageCharredStaffOffsetZ,
+        },
+        _ => new ConfigEntry<float>?[6],
     };
+
+    private static readonly FableWarriorPatches.StaffFamily[] SweepFamilies =
+    {
+        FableWarriorPatches.StaffFamily.Player,
+        FableWarriorPatches.StaffFamily.Dverger,
+        FableWarriorPatches.StaffFamily.Charred,
+    };
+
+    /// <summary>Snapshot all 18 knobs (every family) - a sweep only writes the swept staff's family,
+    /// but restoring the lot keeps the harness honest if the test list spans families.</summary>
+    private static float[] ReadKnobs() =>
+        SweepFamilies.SelectMany(f => KnobsOf(f).Select(c => c?.Value ?? 0f)).ToArray();
 
     private static void SetKnobs(float[] v)
     {
-        if (Plugin.FableMageWeaponRotX != null) Plugin.FableMageWeaponRotX.Value = v[0];
-        if (Plugin.FableMageWeaponRotY != null) Plugin.FableMageWeaponRotY.Value = v[1];
-        if (Plugin.FableMageWeaponRotZ != null) Plugin.FableMageWeaponRotZ.Value = v[2];
-        if (Plugin.FableMageWeaponOffsetX != null) Plugin.FableMageWeaponOffsetX.Value = v[3];
-        if (Plugin.FableMageWeaponOffsetY != null) Plugin.FableMageWeaponOffsetY.Value = v[4];
-        if (Plugin.FableMageWeaponOffsetZ != null) Plugin.FableMageWeaponOffsetZ.Value = v[5];
+        for (var f = 0; f < SweepFamilies.Length; f++)
+            SetKnobs(SweepFamilies[f], v.Skip(f * 6).Take(6).ToArray());
+    }
+
+    /// <summary>Write one family's six knobs. Values are ABSOLUTE orientations - the configs are the
+    /// whole orientation, with no baked layer underneath (MAGE_STAFF_PLAN.md "v2").</summary>
+    private static void SetKnobs(FableWarriorPatches.StaffFamily family, float[] v)
+    {
+        var knobs = KnobsOf(family);
+        for (var i = 0; i < knobs.Length && i < v.Length; i++)
+            if (knobs[i] != null) knobs[i]!.Value = v[i];
     }
 
     /// <summary>Dump every ObjectDB item whose name hints at a staff/wand, matching ZNetScene

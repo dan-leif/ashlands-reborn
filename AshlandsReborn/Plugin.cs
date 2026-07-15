@@ -104,12 +104,27 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableMageShoulders { get; private set; } = null!;
     public static ConfigEntry<string> FableMageWeapon { get; private set; } = null!;
     public static ConfigEntry<float> FableMageWeaponScale { get; private set; } = null!;
-    public static ConfigEntry<float> FableMageWeaponRotX { get; private set; } = null!;
-    public static ConfigEntry<float> FableMageWeaponRotY { get; private set; } = null!;
-    public static ConfigEntry<float> FableMageWeaponRotZ { get; private set; } = null!;
-    public static ConfigEntry<float> FableMageWeaponOffsetX { get; private set; } = null!;
-    public static ConfigEntry<float> FableMageWeaponOffsetY { get; private set; } = null!;
-    public static ConfigEntry<float> FableMageWeaponOffsetZ { get; private set; } = null!;
+    // Staff orientation, per source family (player Staff* / DvergerStaff* / charred_magestaff*).
+    // These ARE the whole orientation - there is no hidden baked layer underneath. All-zero =
+    // the staff's raw attach orientation.
+    public static ConfigEntry<float> FableMagePlayerStaffRotX { get; private set; } = null!;
+    public static ConfigEntry<float> FableMagePlayerStaffRotY { get; private set; } = null!;
+    public static ConfigEntry<float> FableMagePlayerStaffRotZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableMagePlayerStaffOffsetX { get; private set; } = null!;
+    public static ConfigEntry<float> FableMagePlayerStaffOffsetY { get; private set; } = null!;
+    public static ConfigEntry<float> FableMagePlayerStaffOffsetZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageDvergerStaffRotX { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageDvergerStaffRotY { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageDvergerStaffRotZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageDvergerStaffOffsetX { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageDvergerStaffOffsetY { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageDvergerStaffOffsetZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageCharredStaffRotX { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageCharredStaffRotY { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageCharredStaffRotZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageCharredStaffOffsetX { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageCharredStaffOffsetY { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageCharredStaffOffsetZ { get; private set; } = null!;
 
     // --- Fable Race ---
     // Global body mode for ALL Fable Charred puppets (Warrior/Archer/Twitcher/Mage; NOT the
@@ -820,8 +835,9 @@ public class Plugin : BaseUnityPlugin
                 "Player staffs (Staff*) mount via their normal attach point; creature staffs " +
                 "(DvergerStaff*, charred_magestaff_fire) store their held mesh under an " +
                 "'attach_r.hand' child the game normally ignores - this mod mounts that child too. " +
-                "Every entry gets a built-in per-staff orientation so it sits naturally in the hand; " +
-                "fine-tune with FableMageWeaponRotX/Y/Z + OffsetX/Y/Z.\n" +
+                "How the staff sits in the hand is set entirely by the per-source orientation knobs " +
+                "below (FableMagePlayerStaff* / FableMageDvergerStaff* / FableMageCharredStaff*), " +
+                "each covering one staff family.\n" +
                 "(DvergerStaffNova/Blocker have no held mesh at all and the Bog Witch staff is baked " +
                 "into her body mesh - none of them can be equipped, which is why they're not listed.)",
                 new AcceptableValueList<string>(
@@ -839,24 +855,42 @@ public class Plugin : BaseUnityPlugin
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
 
-        FableMageWeaponRotX = BindMageKnob("FableMageWeaponRotX", -180f, 180f,
-            "Extra rotation (deg, X) applied to the mage's staff on top of its built-in per-staff " +
-            "orientation, in the hand-attach local frame (same convention as the Warrior grip knobs). " +
-            "Applies live.");
-        FableMageWeaponRotY = BindMageKnob("FableMageWeaponRotY", -180f, 180f,
-            "Extra rotation (deg, Y) on the mage's staff, hand-attach local frame. Applies live.");
-        FableMageWeaponRotZ = BindMageKnob("FableMageWeaponRotZ", -180f, 180f,
-            "Extra rotation (deg, Z) on the mage's staff, hand-attach local frame. Applies live.");
-        FableMageWeaponOffsetX = BindMageKnob("FableMageWeaponOffsetX", -0.5f, 0.5f,
-            "Extra grip position offset (~m, X) on the mage's staff, hand-attach local frame - shifts " +
-            "where along the shaft the hand grips. Applies live.");
-        FableMageWeaponOffsetY = BindMageKnob("FableMageWeaponOffsetY", -0.5f, 0.5f,
-            "Extra grip position offset (~m, Y) on the mage's staff, hand-attach local frame. Applies live.");
-        FableMageWeaponOffsetZ = BindMageKnob("FableMageWeaponOffsetZ", -0.5f, 0.5f,
-            "Extra grip position offset (~m, Z) on the mage's staff, hand-attach local frame. Applies live.");
+        // Orientation knobs, one group per staff source family. Each group affects ONLY its family
+        // and IS the complete orientation (no hidden built-in layer): 0 on every axis = the staff's
+        // raw attach orientation. Defaults are neutral except the Dvergr family, whose values are
+        // the user's approved in-game tuning (MAGE_STAFF_PLAN.md "v2").
+        string RotHelp(string family, string prefix, string axis) =>
+            $"Rotation (deg, {axis}) of {family} staffs ({prefix}) in the Fable Mage's hand, hand-attach " +
+            "local frame, applied after the attach's equipoffset; 0 on every axis = the staff's raw " +
+            "attach orientation. Applies live.";
+        string OffHelp(string family, string prefix, string axis) =>
+            $"Grip position offset (~m, {axis}) of {family} staffs ({prefix}) in the Fable Mage's hand, " +
+            "hand-attach local frame, applied after the attach's equipoffset - shifts where along the " +
+            "shaft the hand grips. 0 on every axis = the staff's raw attach position. Applies live.";
 
-        ConfigEntry<float> BindMageKnob(string key, float min, float max, string help) =>
-            Config.Bind("Fable Mage", key, 0f, new ConfigDescription(help, new AcceptableValueRange<float>(min, max)));
+        FableMagePlayerStaffRotX = BindMageKnob("FableMagePlayerStaffRotX", 0f, -180f, 180f, RotHelp("player", "Staff*", "X"));
+        FableMagePlayerStaffRotY = BindMageKnob("FableMagePlayerStaffRotY", 0f, -180f, 180f, RotHelp("player", "Staff*", "Y"));
+        FableMagePlayerStaffRotZ = BindMageKnob("FableMagePlayerStaffRotZ", 0f, -180f, 180f, RotHelp("player", "Staff*", "Z"));
+        FableMagePlayerStaffOffsetX = BindMageKnob("FableMagePlayerStaffOffsetX", 0f, -0.5f, 0.5f, OffHelp("player", "Staff*", "X"));
+        FableMagePlayerStaffOffsetY = BindMageKnob("FableMagePlayerStaffOffsetY", 0f, -0.5f, 0.5f, OffHelp("player", "Staff*", "Y"));
+        FableMagePlayerStaffOffsetZ = BindMageKnob("FableMagePlayerStaffOffsetZ", 0f, -0.5f, 0.5f, OffHelp("player", "Staff*", "Z"));
+
+        FableMageDvergerStaffRotX = BindMageKnob("FableMageDvergerStaffRotX", 0f, -180f, 180f, RotHelp("Dvergr", "DvergerStaff*", "X"));
+        FableMageDvergerStaffRotY = BindMageKnob("FableMageDvergerStaffRotY", -95f, -180f, 180f, RotHelp("Dvergr", "DvergerStaff*", "Y"));
+        FableMageDvergerStaffRotZ = BindMageKnob("FableMageDvergerStaffRotZ", 0f, -180f, 180f, RotHelp("Dvergr", "DvergerStaff*", "Z"));
+        FableMageDvergerStaffOffsetX = BindMageKnob("FableMageDvergerStaffOffsetX", -0.075f, -0.5f, 0.5f, OffHelp("Dvergr", "DvergerStaff*", "X"));
+        FableMageDvergerStaffOffsetY = BindMageKnob("FableMageDvergerStaffOffsetY", -0.15f, -0.5f, 0.5f, OffHelp("Dvergr", "DvergerStaff*", "Y"));
+        FableMageDvergerStaffOffsetZ = BindMageKnob("FableMageDvergerStaffOffsetZ", 0f, -0.5f, 0.5f, OffHelp("Dvergr", "DvergerStaff*", "Z"));
+
+        FableMageCharredStaffRotX = BindMageKnob("FableMageCharredStaffRotX", 0f, -180f, 180f, RotHelp("Charred", "charred_magestaff*", "X"));
+        FableMageCharredStaffRotY = BindMageKnob("FableMageCharredStaffRotY", 0f, -180f, 180f, RotHelp("Charred", "charred_magestaff*", "Y"));
+        FableMageCharredStaffRotZ = BindMageKnob("FableMageCharredStaffRotZ", 0f, -180f, 180f, RotHelp("Charred", "charred_magestaff*", "Z"));
+        FableMageCharredStaffOffsetX = BindMageKnob("FableMageCharredStaffOffsetX", 0f, -0.5f, 0.5f, OffHelp("Charred", "charred_magestaff*", "X"));
+        FableMageCharredStaffOffsetY = BindMageKnob("FableMageCharredStaffOffsetY", 0f, -0.5f, 0.5f, OffHelp("Charred", "charred_magestaff*", "Y"));
+        FableMageCharredStaffOffsetZ = BindMageKnob("FableMageCharredStaffOffsetZ", 0f, -0.5f, 0.5f, OffHelp("Charred", "charred_magestaff*", "Z"));
+
+        ConfigEntry<float> BindMageKnob(string key, float def, float min, float max, string help) =>
+            Config.Bind("Fable Mage", key, def, new ConfigDescription(help, new AcceptableValueRange<float>(min, max)));
 
         // --- Fable Race ---
         // Fixed body appearance shared by all four Fable Charred puppets (not the Fable Bunny).
@@ -1132,8 +1166,10 @@ public class Plugin : BaseUnityPlugin
             "",
             "Dev: rotation/offset sweep for the MageWeaponTest run. Entries 'rx,ry,rz[,ox,oy,oz]' " +
             "separated by '|' (e.g. \"0,0,0|0,90,0|0,180,0|90,0,0\"). When non-empty, each staff in " +
-            "MageWeaponTestList is captured once per entry with the FableMageWeaponRot/Offset knobs " +
-            "set to it (filenames {staff}_sweep_{i}_{yaw}.png); knob values are restored afterwards. " +
+            "MageWeaponTestList is captured once per entry with the orientation knobs of THAT staff's " +
+            "own source family (FableMagePlayerStaff*/FableMageDvergerStaff*/FableMageCharredStaff*) " +
+            "set to it (filenames {staff}_sweep_{i}_{yaw}.png); all 18 knobs are restored afterwards. " +
+            "Values are ABSOLUTE orientations, not deltas - there is no baked base underneath. " +
             "Shrink MageWeaponTestList to the staff under tuning - every entry costs a ~4s rebuild.");
 
         FableBunnyReconDump = Config.Bind(
@@ -1468,6 +1504,15 @@ public class Plugin : BaseUnityPlugin
                 ("Fable Mage", "FableMageStaffScale") })
                 PurgeOrphanedKey(section, key);
 
+            // The six global staff knobs were split into per-source families (this release), and the
+            // hardcoded orientation table they composed with is gone. Deliberately NOT carried over:
+            // they tuned a baked base that no longer exists, and the one tuning the user approved
+            // (the Dvergr family) is now folded into FableMageDvergerStaff*'s DEFAULTS.
+            foreach (var oldKey in new[] {
+                "FableMageWeaponRotX", "FableMageWeaponRotY", "FableMageWeaponRotZ",
+                "FableMageWeaponOffsetX", "FableMageWeaponOffsetY", "FableMageWeaponOffsetZ" })
+                PurgeOrphanedKey("Fable Mage", oldKey);
+
             // FableRaceSex (global) was split into per-class Fable[Class]Sex (this release). No
             // carry: the per-class defaults (Archer = Female, others = Male) are intentional.
             PurgeOrphanedKey("Fable Race", "FableRaceSex");
@@ -1554,12 +1599,14 @@ public class Plugin : BaseUnityPlugin
         FableMageShoulders.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableMageWeaponRotX.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableMageWeaponRotY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableMageWeaponRotZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableMageWeaponOffsetX.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableMageWeaponOffsetY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableMageWeaponOffsetZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        foreach (var knob in new[] {
+                     FableMagePlayerStaffRotX, FableMagePlayerStaffRotY, FableMagePlayerStaffRotZ,
+                     FableMagePlayerStaffOffsetX, FableMagePlayerStaffOffsetY, FableMagePlayerStaffOffsetZ,
+                     FableMageDvergerStaffRotX, FableMageDvergerStaffRotY, FableMageDvergerStaffRotZ,
+                     FableMageDvergerStaffOffsetX, FableMageDvergerStaffOffsetY, FableMageDvergerStaffOffsetZ,
+                     FableMageCharredStaffRotX, FableMageCharredStaffRotY, FableMageCharredStaffRotZ,
+                     FableMageCharredStaffOffsetX, FableMageCharredStaffOffsetY, FableMageCharredStaffOffsetZ })
+            knob.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         // Fable Race (global body mode) - also rebuilds all puppets live (Vanilla reverts them).
         FableRaceMode.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorSex.SettingChanged += (_, _) => OnFableWarriorModeChanged();

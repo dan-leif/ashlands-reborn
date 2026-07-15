@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 using UObject = UnityEngine.Object;
@@ -75,9 +76,9 @@ internal static class FableWarriorPatches
         /// <summary>Warrior CustomEquipment only: apply the configured weapon grip rot/offset
         /// (hand-attach frame) + WeaponScale to the right-hand item instead of rig-normalizing it.</summary>
         public Func<bool> WeaponGrip = () => false;
-        /// <summary>Mage CustomEquipment only: after rig-normalizing the right-hand item, apply the
-        /// built-in per-staff orientation default (StaffOrientationDefaults) plus the
-        /// FableMageWeaponRot/Offset knobs in the hand-attach local frame.</summary>
+        /// <summary>Mage CustomEquipment only: after rig-normalizing the right-hand item, orient it
+        /// with its staff family's FableMage[Player|Dverger|Charred]Staff Rot/Offset configs, in the
+        /// hand-attach local frame (see ApplyStaffOrientation).</summary>
         public Func<bool> StaffOrientation = () => false;
     }
 
@@ -145,8 +146,8 @@ internal static class FableWarriorPatches
         },
         new()
         {
-            // Mage weapon is a staff -> RIGHT hand. No grip, but per-staff orientation defaults +
-            // the FableMageWeaponRot/Offset knobs apply on top of the rig-normalize.
+            // Mage weapon is a staff -> RIGHT hand. No grip; the staff's source family orientation
+            // configs apply on top of the rig-normalize.
             Label = "Mage",
             Prefabs = new[] { "Charred_Mage" },
             Enabled = () => ParseMode(Plugin.EnableFableMage?.Value) != FableMode.Disabled,
@@ -785,57 +786,54 @@ internal static class FableWarriorPatches
         return prefabY > 1e-5f ? Mathf.Abs(liveJoint.lossyScale.y) / prefabY : 1f;
     }
 
-    /// <summary>
-    /// Built-in per-staff orientation defaults for the Fable Mage (hand-attach local frame), baked
-    /// from the MAGE_STAFF_PLAN.md tuning loop against vanilla-carry references (the player for
-    /// Staff*, the Dvergr mages / vanilla Charred_Mage for creature staffs). Lookup: exact prefab
-    /// name first, then prefix family. Missing entry = identity.
-    /// COMPOSITION CONTRACT (changing it invalidates every baked value): applied after the vanilla
-    /// attach + equipoffset and the rig-normalize scale, as
-    ///   localRotation *= Euler(defaultRot) * Euler(knobRot);  localPosition += defaultPos + knobPos;
-    /// where knob = the FableMageWeaponRot/Offset user configs.
-    /// </summary>
-    private static readonly (string Key, bool Prefix, Vector3 Rot, Vector3 Pos)[] StaffOrientationDefaults =
-    {
-        // M3 sweep results (MAGE_STAFF_PLAN.md). The charred idle pose holds the hand joint so a
-        // vanilla-attached player staff reads as a horizontal lance; X+90 stands it upright, head
-        // up, matching the player's own carry. The attach_r.hand creature staffs hang head-down;
-        // Y rotations pitch the head through the vertical plane (opposite signs per family).
-        ("Staff", true, new Vector3(90f, 0f, 0f), Vector3.zero),            // player staffs: vertical, head up
-        ("DvergerStaff", true, new Vector3(0f, 130f, 0f), Vector3.zero),    // Dvergr carry: head up-forward ~40°
-        ("charred_magestaff", true, new Vector3(0f, 75f, 0f), Vector3.zero), // vanilla Charred: head down at feet, butt up-back
-    };
+    /// <summary>Staff source families. Each has its own set of six Fable Mage orientation configs;
+    /// a staff that matches none is left at its raw attach orientation.</summary>
+    internal enum StaffFamily { None, Player, Dverger, Charred }
 
-    private static bool TryGetStaffOrientationDefault(string itemName, out Vector3 rot, out Vector3 pos)
+    /// <summary>Classify a staff prefab by name prefix. Order matters only for readability -
+    /// "DvergerStaffFire" does not start with "Staff", so the families cannot overlap.</summary>
+    internal static StaffFamily ClassifyStaff(string? itemName)
     {
-        foreach (var e in StaffOrientationDefaults)
-            if (!e.Prefix && string.Equals(itemName, e.Key, StringComparison.OrdinalIgnoreCase))
-            { rot = e.Rot; pos = e.Pos; return true; }
-        foreach (var e in StaffOrientationDefaults)
-            if (e.Prefix && itemName.StartsWith(e.Key, StringComparison.OrdinalIgnoreCase))
-            { rot = e.Rot; pos = e.Pos; return true; }
-        rot = Vector3.zero; pos = Vector3.zero;
-        return false;
+        var name = itemName ?? "";
+        if (name.StartsWith("DvergerStaff", StringComparison.OrdinalIgnoreCase)) return StaffFamily.Dverger;
+        if (name.StartsWith("charred_magestaff", StringComparison.OrdinalIgnoreCase)) return StaffFamily.Charred;
+        if (name.StartsWith("Staff", StringComparison.OrdinalIgnoreCase)) return StaffFamily.Player;
+        return StaffFamily.None;
     }
 
-    /// <summary>Apply the built-in per-staff orientation default plus the FableMageWeaponRot/Offset
-    /// knobs to an equipped right-hand staff (see StaffOrientationDefaults for the contract).</summary>
+    private static float Knob(ConfigEntry<float>? c) => c?.Value ?? 0f;
+
+    /// <summary>The configured orientation (rotation Euler + position offset, hand-attach local
+    /// frame) of a staff family. These configs ARE the entire orientation - there is no built-in
+    /// layer underneath, so all-zero yields the staff's raw attach orientation.</summary>
+    internal static (Vector3 Rot, Vector3 Pos) StaffFamilyOrientation(StaffFamily family) => family switch
+    {
+        StaffFamily.Player => (
+            new Vector3(Knob(Plugin.FableMagePlayerStaffRotX), Knob(Plugin.FableMagePlayerStaffRotY), Knob(Plugin.FableMagePlayerStaffRotZ)),
+            new Vector3(Knob(Plugin.FableMagePlayerStaffOffsetX), Knob(Plugin.FableMagePlayerStaffOffsetY), Knob(Plugin.FableMagePlayerStaffOffsetZ))),
+        StaffFamily.Dverger => (
+            new Vector3(Knob(Plugin.FableMageDvergerStaffRotX), Knob(Plugin.FableMageDvergerStaffRotY), Knob(Plugin.FableMageDvergerStaffRotZ)),
+            new Vector3(Knob(Plugin.FableMageDvergerStaffOffsetX), Knob(Plugin.FableMageDvergerStaffOffsetY), Knob(Plugin.FableMageDvergerStaffOffsetZ))),
+        StaffFamily.Charred => (
+            new Vector3(Knob(Plugin.FableMageCharredStaffRotX), Knob(Plugin.FableMageCharredStaffRotY), Knob(Plugin.FableMageCharredStaffRotZ)),
+            new Vector3(Knob(Plugin.FableMageCharredStaffOffsetX), Knob(Plugin.FableMageCharredStaffOffsetY), Knob(Plugin.FableMageCharredStaffOffsetZ))),
+        _ => (Vector3.zero, Vector3.zero),
+    };
+
+    /// <summary>
+    /// Orient an equipped right-hand staff per its source family's Fable Mage configs.
+    /// COMPOSITION CONTRACT (the configs' meaning depends on it): applied after the vanilla attach +
+    /// equipoffset and the rig-normalize scale, as
+    ///   localRotation *= Euler(familyRot);  localPosition += familyPos;
+    /// </summary>
     private static void ApplyStaffOrientation(Transform t, string itemName)
     {
-        TryGetStaffOrientationDefault(itemName ?? "", out var defRot, out var defPos);
-        var knobRot = new Vector3(
-            Plugin.FableMageWeaponRotX?.Value ?? 0f,
-            Plugin.FableMageWeaponRotY?.Value ?? 0f,
-            Plugin.FableMageWeaponRotZ?.Value ?? 0f);
-        var knobPos = new Vector3(
-            Plugin.FableMageWeaponOffsetX?.Value ?? 0f,
-            Plugin.FableMageWeaponOffsetY?.Value ?? 0f,
-            Plugin.FableMageWeaponOffsetZ?.Value ?? 0f);
-        t.localRotation *= Quaternion.Euler(defRot) * Quaternion.Euler(knobRot);
-        t.localPosition += defPos + knobPos;
-        if (defRot != Vector3.zero || defPos != Vector3.zero || knobRot != Vector3.zero || knobPos != Vector3.zero)
-            Plugin.Log?.LogInfo($"[Fable Warrior] Staff orientation '{itemName}': " +
-                                $"defRot={defRot} defPos={defPos} knobRot={knobRot} knobPos={knobPos}");
+        var family = ClassifyStaff(itemName);
+        var (rot, pos) = StaffFamilyOrientation(family);
+        t.localRotation *= Quaternion.Euler(rot);
+        t.localPosition += pos;
+        if (rot != Vector3.zero || pos != Vector3.zero)
+            Plugin.Log?.LogInfo($"[Fable Warrior] Staff orientation '{itemName}' ({family}): rot={rot} pos={pos}");
     }
 
     // Vanilla VisEquipment.AttachItem only mounts a child literally named "attach" (or
