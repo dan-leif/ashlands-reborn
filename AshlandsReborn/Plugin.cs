@@ -18,7 +18,7 @@ public class Plugin : BaseUnityPlugin
     // --- General ---
     public static ConfigEntry<bool> MasterSwitch { get; private set; } = null!;
     public static ConfigEntry<KeyCode> MasterSwitchKey { get; private set; } = null!;
-    public static ConfigEntry<bool> EnableDevCommandsAndGodMode { get; private set; } = null!;
+    public static ConfigEntry<bool> EnableDevMode { get; private set; } = null!;
 
     // --- Weather ---
     public static ConfigEntry<bool> EnableWeatherOverride { get; private set; } = null!;
@@ -183,7 +183,7 @@ public class Plugin : BaseUnityPlugin
             "General",
             "MasterSwitch",
             true,
-            "Master toggle for all mod features except DevCommandsAndGodMode."
+            "Master toggle for all mod features except EnableDevMode."
         );
 
         MasterSwitchKey = Config.Bind(
@@ -193,11 +193,11 @@ public class Plugin : BaseUnityPlugin
             "Hotkey to toggle MasterSwitch and immediately revert or apply all visual changes."
         );
 
-        EnableDevCommandsAndGodMode = Config.Bind(
+        EnableDevMode = Config.Bind(
             "General",
-            "EnableDevCommandsAndGodMode",
+            "EnableDevMode",
             true,
-            "When loading a world, run devcommands and god for easier testing."
+            "When loading a world, run devcommands, god, debugmode and nocost for easier testing."
         );
 
         // --- Weather ---
@@ -205,7 +205,7 @@ public class Plugin : BaseUnityPlugin
             "Weather",
             "EnableWeatherOverride",
             true,
-            "When in Ashlands, override the environment to Meadows-like (clear sky, no cinder rain, no lava fog)."
+            "Override the environment to Meadows-like (clear sky, no cinder rain, no lava fog) in every biome, not just the Ashlands."
         );
 
         ForceNoon = Config.Bind(
@@ -1421,6 +1421,13 @@ public class Plugin : BaseUnityPlugin
             // carry: the per-class defaults (Archer = Female, others = Male) are intentional.
             PurgeOrphanedKey("Fable Race", "FableRaceSex");
 
+            // EnableDevCommandsAndGodMode -> EnableDevMode (this release; the dev commands it runs
+            // now also include debugmode and nocost). Unbound this session, so read it as an orphan.
+            var oldDevMode = ReadOrphanRaw("General", "EnableDevCommandsAndGodMode")?.Trim();
+            if (!string.IsNullOrEmpty(oldDevMode) && bool.TryParse(oldDevMode, out var devModeOn))
+                EnableDevMode.Value = devModeOn;
+            PurgeOrphanedKey("General", "EnableDevCommandsAndGodMode");
+
             Config.Save();
 
             // Removed: the Fable Bunny hybrid Lox mode was dropped after user review (the swap
@@ -1728,7 +1735,7 @@ public class Plugin : BaseUnityPlugin
             }
         }
 
-        if (!EnableDevCommandsAndGodMode.Value) return;
+        if (!EnableDevMode.Value) return;
 
         if (!inWorld)
         {
@@ -1741,8 +1748,8 @@ public class Plugin : BaseUnityPlugin
         if (Console.instance != null)
         {
             Console.instance.TryRunCommand("devcommands");
-            Invoke(nameof(RunGodCommand), 1f);
-            Log.LogInfo("[Ashlands Reborn] Ran devcommands, god in 1s");
+            Invoke(nameof(RunDevModeCommands), 1f);
+            Log.LogInfo("[Ashlands Reborn] Ran devcommands; god, debugmode, nocost in 1s");
         }
     }
 
@@ -1774,13 +1781,14 @@ public class Plugin : BaseUnityPlugin
         }
     }
 
-    private void RunGodCommand()
+    // god/debugmode/nocost are all gated behind devcommands, which is run a second earlier.
+    private void RunDevModeCommands()
     {
-        if (Console.instance != null && Player.m_localPlayer != null)
-        {
-            Console.instance.TryRunCommand("god");
-            Log.LogInfo("[Ashlands Reborn] Ran god");
-        }
+        if (Console.instance == null || Player.m_localPlayer == null) return;
+
+        foreach (var cmd in new[] { "god", "debugmode", "nocost" })
+            Console.instance.TryRunCommand(cmd);
+        Log.LogInfo("[Ashlands Reborn] Ran god, debugmode, nocost");
     }
 
     // Live config toggles for the Fable Bunny (enable, donor, star look, lash style) rebuild

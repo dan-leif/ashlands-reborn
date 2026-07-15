@@ -164,7 +164,7 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 
 | File | Patches | Purpose |
 |---|---|---|
-| `EnvManPatches.cs` | `EnvMan.Update` | Forces "Clear" environment when player is in Ashlands biome |
+| `EnvManPatches.cs` | `EnvMan.Update` | Forces "Clear" environment in every biome (the terrain-regen half of the postfix stays Ashlands-only) |
 | `HeightmapPatches.cs` | Heightmap build/rebuild | Rewrites terrain vertex colors per the active `TerrainTransitionStyle`; detects lava via vegetation mask (see "Terrain transition styles") |
 | `TerrainTransition.cs` | None (style engine) | Band ramps, mask blur, Perlin edge jitter, grass rule, and per-style material tint shared by Heightmap/Clutter patches |
 | `TreePatches.cs` | `ClutterSystem`, zone generation | Replaces Ashlands tree spawns with Beech/Oak at configurable density and ratio |

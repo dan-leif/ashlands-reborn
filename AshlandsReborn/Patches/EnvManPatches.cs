@@ -7,7 +7,8 @@ using UnityEngine;
 namespace AshlandsReborn.Patches;
 
 /// <summary>
-/// Harmony patches to override Ashlands environment to Meadows-like (clear sky, no cinder rain, no lava fog).
+/// Harmony patches to override the environment to Meadows-like (clear sky, no cinder rain, no lava fog).
+/// The weather override applies in every biome; the terrain override stays Ashlands-only.
 /// </summary>
 [HarmonyPatch]
 internal static class EnvManPatches
@@ -167,7 +168,7 @@ internal static class EnvManPatches
     }
 
     /// <summary>
-    /// Clear the force override when leaving Ashlands so the game uses the real biome env again.
+    /// Clear the force override so the game uses the real biome env again.
     /// </summary>
     internal static void ClearForceEnvironment()
     {
@@ -260,19 +261,12 @@ internal static class EnvManPatches
             _terrainRegenRetryFrames = 0;
         }
 
-        // Weather override: SetForceEnvironment when in Ashlands, clear when exiting
+        // Weather override: force the clear env everywhere, not just in the Ashlands
         if (Plugin.IsWeatherOverrideActive)
-        {
-            if (inAshlands)
-                ForceMeadowsEnvironment();
-            else if (_wasInAshlands)
-                ClearForceEnvironment();
-        }
+            ForceMeadowsEnvironment();
         else
-        {
-            // Override disabled or mod off - clear any force we set so Ashlands weather returns
+            // Override disabled or mod off - clear any force we set so real weather returns
             ClearForceEnvironment();
-        }
 
         _wasInAshlands = inAshlands;
 

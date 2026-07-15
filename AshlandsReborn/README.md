@@ -15,8 +15,8 @@ BepInEx plugin that overrides Ashlands environment to Meadows-like weather (clea
 
 ## Configuration
 
-- **MasterSwitch** (default: true) - Master toggle: turn the entire mod on or off. When off, Ashlands uses default weather and terrain.
-- **EnableWeatherOverride** (default: true) - Override Ashlands weather to Meadows-like (clear sky, no cinder rain, no lava fog).
+- **MasterSwitch** (default: true) - Master toggle: turn the entire mod on or off. When off, the game uses its default weather and terrain everywhere.
+- **EnableWeatherOverride** (default: true) - Override the weather to Meadows-like (clear sky, no cinder rain, no lava fog) in every biome, not just the Ashlands.
 - **EnableTerrainOverride** (default: true) - Override Ashlands terrain and grass to Meadows-like (green ground, green grass).
 - **TerrainTransitionStyle** (default: LegacySmooth) - How green terrain fades into ash/lava. `LegacySmooth` = green blends straight into ash across one smooth curved fade, no mud stage (the yellow plains tinge the blend would produce mid-fade is re-textured as a matched grass/ash mix - see LegacySmoothSwapSlices and the LegacySmoothLine* sliders). `MudBlend` = grass -> scorched mud -> ash -> lava with organic noisy edges. `AshBlend` = the same fade but with no mud at all: grass fades directly into ash (the mod re-textures the mud layer as tone-graded ash on Ashlands chunks). `RockBlend` = a tight gray-rock rim between grass and lava, imitating the look of pickaxe-dug ground at the lava's edge. `GrassToLava` = grass runs almost to the lava rivers with a tight mud/ash rim. `Legacy` = the original binary stamp (blocky edges + yellow fringe). `DebugGradient` = dev calibration strips. Changing it live-rebuilds nearby terrain.
 - **TransitionNoiseScale / TransitionNoiseStrength** (defaults: 0.08 / 0.08) - Frequency and amplitude of the edge-breakup noise on the transition contours.
@@ -29,7 +29,7 @@ BepInEx plugin that overrides Ashlands environment to Meadows-like weather (clea
 - **RockBlendSwapSlices / RockBlendBandBrightness** (defaults: 3:5 / 1.0) - RockBlend's rock texture pick (3:5 = scaly base rock, 3:12 = cobblestone) and optional tone grading.
 - **LegacySmoothSwapSlices** (default: 8:0) - Hides the yellow plains line that LegacySmooth's green->ash blend would otherwise draw mid-fade, by rendering the plains texture layer as grass-toned content on Ashlands chunks. Empty = vanilla textures (the line returns); '8:0,3:0' also re-textures the weak mud overlay (but makes hoe paths render grassy).
 - **LegacySmoothLineGrass / LegacySmoothLineAsh / LegacySmoothLineMud / LegacySmoothLineKhaki** (defaults: 0.65 / 0.25 / 0.05 / 0.05) - The texture baked into the swapped LegacySmooth line slice is a weighted mix of meadows grass, light ash, swamp mud, and plains khaki (weights normalized by their sum). Pure grass reads slightly more saturated than the ash-diluted ground the old line runs through, so diluting the line texture the same way makes it vanish; more ash dims the green pop but darkens the line at low camera angles. All-grass (1/0/0/0) = the pure-grass fast path.
-- **EnableDevCommandsAndGodMode** (default: true) - When loading a world, run devcommands and god for easier testing.
+- **EnableDevMode** (default: true) - When loading a world, run devcommands, god, debugmode and nocost for easier testing.
 
 Use **ConfigurationManager** (F1 in-game) to toggle these at runtime without restarting.
 
