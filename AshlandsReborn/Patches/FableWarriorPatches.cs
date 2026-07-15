@@ -753,7 +753,10 @@ internal static class FableWarriorPatches
                 var ratio = JointLossyRatio(marker.PuppetVis.m_rightHand, prefabVis != null ? prefabVis.m_rightHand : null);
                 t.localScale = t.localScale * ratio * (profile?.WeaponScale() ?? 1f);
                 if (profile?.StaffOrientation() == true)
+                {
                     ApplyStaffOrientation(t, profile.RightItem());
+                    ApplyStaffFxSuppression(rightGo, profile.RightItem());
+                }
             }
             marker.LastFixedRightItem = rightGo;
             Plugin.Log?.LogInfo($"[Fable Warrior] Right-hand item fixed on {marker.gameObject.name} ({profile?.Label})");
@@ -953,6 +956,37 @@ internal static class FableWarriorPatches
         t.localPosition += pos;
         if (rot != Vector3.zero || pos != Vector3.zero)
             Plugin.Log?.LogInfo($"[Fable Warrior] Staff orientation '{itemName}' ({family}): rot={rot} pos={pos}");
+    }
+
+    /// <summary>
+    /// Hide the mage staff's extra head effects per the FableMageStaffHide* configs. Targets
+    /// descendant GameObjects that carry a ParticleSystem, matched by name (case-insensitive):
+    /// HideGlow = "flare" / "smoke*" (the misty white glow, e.g. DvergerStaffSupport's
+    /// flare + smoke_expl), HideFlakes = "*flakes*" (DvergerStaffSupport's purple/white
+    /// square "pixel flakes" swirl). Deactivation is per-instance, so re-equips/rebuilds
+    /// (SettingChanged recreates the attach instance) restore anything re-enabled.
+    /// </summary>
+    private static void ApplyStaffFxSuppression(GameObject staffGo, string itemName)
+    {
+        var hideGlow = Plugin.FableMageStaffHideGlow?.Value == true;
+        var hideFlakes = Plugin.FableMageStaffHideFlakes?.Value == true;
+        if (!hideGlow && !hideFlakes) return;
+
+        var hidden = new List<string>();
+        foreach (var ps in staffGo.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            var name = ps.gameObject.name;
+            var isGlow = name.IndexOf("flare", StringComparison.OrdinalIgnoreCase) >= 0
+                         || name.IndexOf("smoke", StringComparison.OrdinalIgnoreCase) >= 0;
+            var isFlakes = name.IndexOf("flakes", StringComparison.OrdinalIgnoreCase) >= 0;
+            if ((hideGlow && isGlow) || (hideFlakes && isFlakes))
+            {
+                ps.gameObject.SetActive(false);
+                hidden.Add(name);
+            }
+        }
+        if (hidden.Count > 0)
+            Plugin.Log?.LogInfo($"[Fable Warrior] Staff FX hidden on '{itemName}': {string.Join(", ", hidden)}");
     }
 
     // Vanilla VisEquipment.AttachItem only mounts a child literally named "attach" (or

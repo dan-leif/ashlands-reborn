@@ -623,6 +623,15 @@ bronze is `New Material 5` (gold tint 1.0/0.76/0.27, metallic 1.0, pale-marble `
 name matches nothing, the full armor material/texture catalog is logged to the BepInEx log
 (`[Fable Warrior] Armor texture copy ... matched nothing`).
 
+**`FableMageStaffHideGlow` / `FableMageStaffHideFlakes`** (section "Fable Mage", defaults true,
+live rebuild): hide the mage staff's extra head effects. `ApplyStaffFxSuppression` (run in the
+mage's right-hand fixup, after `ApplyStaffOrientation`) deactivates ParticleSystem-bearing
+children by name: HideGlow = `flare`/`smoke*` (the misty white glow), HideFlakes = `*flakes*`
+(the purple/white square swirl). UnityPy recon of DvergerStaffSupport's `attach_r.hand`:
+children are `flare`, `smoke_expl`, `pixel flakes` (all ParticleSystems) plus the kept `hull`
+(orb shell) and `default` (staff mesh) meshes. Deactivation is per attach instance, so
+SettingChanged rebuilds (fresh instances) restore anything re-enabled.
+
 ### Fable Race config (section "Fable Race")
 
 A single global section that defines the **body** of all four Fable Charred puppets (NOT the

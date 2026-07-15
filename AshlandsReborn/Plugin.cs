@@ -106,6 +106,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableMageWeaponScale { get; private set; } = null!;
     public static ConfigEntry<string> FableMageTextureCopyFrom { get; private set; } = null!;
     public static ConfigEntry<string> FableMageTextureCopyTo { get; private set; } = null!;
+    public static ConfigEntry<bool> FableMageStaffHideGlow { get; private set; } = null!;
+    public static ConfigEntry<bool> FableMageStaffHideFlakes { get; private set; } = null!;
     // Staff orientation, per source family (player Staff* / DvergerStaff* / charred_magestaff*).
     // These ARE the whole orientation - there is no hidden baked layer underneath. All-zero =
     // the staff's raw attach orientation.
@@ -877,6 +879,20 @@ public class Plugin : BaseUnityPlugin
             "frostmagechest's ice material (the right gauntlet). Only the puppet is affected - " +
             "the same armor worn by the player keeps its vanilla look.");
 
+        FableMageStaffHideGlow = Config.Bind(
+            "Fable Mage",
+            "FableMageStaffHideGlow",
+            true,
+            "Hide the misty white glow emanating from the mage staff's head (particle children named " +
+            "'flare'/'smoke*', e.g. DvergerStaffSupport's orb glow). Applies live.");
+
+        FableMageStaffHideFlakes = Config.Bind(
+            "Fable Mage",
+            "FableMageStaffHideFlakes",
+            true,
+            "Hide the square particles swirling off the mage staff's head (particle children named " +
+            "'*flakes*', e.g. DvergerStaffSupport's purple/white pixel flakes). Applies live.");
+
         // Orientation knobs, one group per staff source family. Each group affects ONLY its family
         // and IS the complete orientation (no hidden built-in layer): 0 on every axis = the staff's
         // raw attach orientation. Defaults are neutral except the Dvergr family, whose values are
@@ -1623,6 +1639,8 @@ public class Plugin : BaseUnityPlugin
         FableMageWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageTextureCopyFrom.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageTextureCopyTo.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageStaffHideGlow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageStaffHideFlakes.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         foreach (var knob in new[] {
                      FableMagePlayerStaffRotX, FableMagePlayerStaffRotY, FableMagePlayerStaffRotZ,
                      FableMagePlayerStaffOffsetX, FableMagePlayerStaffOffsetY, FableMagePlayerStaffOffsetZ,
