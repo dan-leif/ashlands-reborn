@@ -203,32 +203,51 @@ set here directly between launches instead of sweeping).
 - [ ] Commit
 
 ### M3 — Per-staff tuning loop (bulk of the work; several runs)
+
+**User config change before M3 (2026-07-14)**: the user emptied the Fable Mage armor slots
+(FableMageHelmet/Chest/Legs/Shoulders = "") and set a plain default race (HairNone/BeardNone,
+light skin) so the grip is readable — the bulky antlered/frostmage look hid the hands. M1
+`screenshots/fable-mage-staffs/baseline/` shots show the OLD armored look; the defect
+analysis is unaffected (rig-level). M3 sweep shots + the M4 final gallery use the bare look.
+Do not "fix" the empty armor slots — they're intentional.
 Per staff, must-pass set first: compare baseline vs reference from multiple yaws → if off,
 find rot/offset via `MageWeaponRotSweep` (coarse `0,0,0|0,90,0|0,180,0|0,270,0|90,0,0|-90,0,0`,
 then refine) or direct cfg edits between launches → bake winners into
 `StaffOrientationDefaults` → rebuild → re-run with knobs at 0 → PASS.
-- [ ] All must-pass staffs PASS; extras PASS or DROPPED
-- [ ] Commit per tuned batch (each is a valid resume point), and at milestone end
+- [x] All must-pass staffs PASS (13/13); Blocker/Nova DROPPED
+- [x] Commit at milestone end
 
 **Per-staff status table** (legend: PENDING / BASELINED / TUNING(values inline) / PASS / DROPPED)
 
 | Staff | Must-pass | Reference | Status | Baked rot | Baked pos |
 |---|---|---|---|---|---|
-| StaffIceShards | yes | ref_player | BASELINED (horizontal lance; want vertical head-up) | — | — |
-| StaffFireball | yes | ref_player | BASELINED (assumed same defect) | — | — |
-| StaffShield | yes | ref_player | BASELINED (assumed same defect) | — | — |
-| StaffSkeleton | yes | ref_player | BASELINED (assumed same defect) | — | — |
-| StaffRedTroll | yes | ref_player | BASELINED (assumed same defect) | — | — |
-| StaffGreenRoots | yes | ref_player | BASELINED (assumed same defect) | — | — |
-| StaffLightning | yes | ref_player | BASELINED (assumed same defect) | — | — |
-| StaffClusterbomb | yes | ref_player | BASELINED (assumed same defect) | — | — |
-| DvergerStaffFire | yes | ref_DvergerMageFire | BASELINED (inverted; want head up-forward ~35°) | — | — |
-| DvergerStaffIce | yes | ref_DvergerMageIce | BASELINED (family defect assumed) | — | — |
-| DvergerStaffSupport (green orb) | yes | ref_DvergerMageSupport | BASELINED (family defect assumed) | — | — |
-| DvergerStaffHeal (lamp) | yes | ref_DvergerMageSupport | BASELINED (inverted, lamp at knees) | — | — |
-| charred_magestaff_fire | yes | ref_Charred_Mage | BASELINED (flipped + grip at head; want head-down mid-shaft) | — | — |
+| StaffIceShards | yes | ref_player | PASS (vertical head-up, matches player) | prefix "Staff" (90,0,0) | 0 |
+| StaffFireball | yes | ref_player | PASS | prefix "Staff" (90,0,0) | 0 |
+| StaffShield | yes | ref_player | PASS (short staff, orb at hip = player carry) | prefix "Staff" (90,0,0) | 0 |
+| StaffSkeleton | yes | ref_player | PASS (skull at hand height = player carry) | prefix "Staff" (90,0,0) | 0 |
+| StaffRedTroll | yes | ref_player | PASS | prefix "Staff" (90,0,0) | 0 |
+| StaffGreenRoots | yes | ref_player | PASS | prefix "Staff" (90,0,0) | 0 |
+| StaffLightning | yes | ref_player | PASS | prefix "Staff" (90,0,0) | 0 |
+| StaffClusterbomb | yes | ref_player | PASS | prefix "Staff" (90,0,0) | 0 |
+| DvergerStaffFire | yes | ref_DvergerMageFire | PASS (head up-forward ~40°, mid-shaft grip) | prefix "DvergerStaff" (0,130,0) | 0 |
+| DvergerStaffIce | yes | ref_DvergerMageIce | PASS | prefix "DvergerStaff" (0,130,0) | 0 |
+| DvergerStaffSupport (green orb) | yes | ref_DvergerMageSupport | PASS | prefix "DvergerStaff" (0,130,0) | 0 |
+| DvergerStaffHeal (lamp) | yes | ref_DvergerMageSupport | PASS (lantern up-forward, glowing) | prefix "DvergerStaff" (0,130,0) | 0 |
+| charred_magestaff_fire | yes | ref_Charred_Mage | PASS (head-down mid-shaft like vanilla; claw tip grazes flat ground in idle — accepted, see note) | prefix "charred_magestaff" (0,75,0) | 0 |
 | DvergerStaffBlocker | no | — | DROPPED (no attach child, cannot mount) | — | — |
 | DvergerStaffNova | no | — | DROPPED (no attach child, cannot mount) | — | — |
+
+**M3 notes (2026-07-14):**
+- Axis recon (sweep run 1): player staffs pitch about hand-local X (X+90 = vertical head-up);
+  Dverger + charred staffs pitch about Y with OPPOSITE signs per family (Dverger head up at
+  +130, charred head down-forward at +75); Dverger staffs spin in place about X (their shaft
+  IS the hand-local X axis).
+- charred graze: probed grip offsets ±0.15 on every axis (offset sweep run) — the shaft is
+  not joint-axis-aligned, so every single-axis offset visibly disconnects the hand from the
+  shaft, which reads worse than the tine graze. Vanilla also hangs the claw near the ground.
+  Accepted with no offset; `FableMageWeaponOffsetX/Y/Z` knobs remain for user tweaks.
+- Do NOT re-derive: rotations compose as localRotation *= Euler(def)*Euler(knob) AFTER
+  equipoffset; a knob sweep therefore probes RELATIVE to the baked default.
 
 ### M4 — Finalize: dropdown trim, docs, gallery
 - [ ] Remove DROPPED staffs from the AcceptableValueList (and MageWeaponTestList default)

@@ -797,7 +797,13 @@ internal static class FableWarriorPatches
     /// </summary>
     private static readonly (string Key, bool Prefix, Vector3 Rot, Vector3 Pos)[] StaffOrientationDefaults =
     {
-        // Filled during the M3 tuning loop (MAGE_STAFF_PLAN.md status table mirrors these values).
+        // M3 sweep results (MAGE_STAFF_PLAN.md). The charred idle pose holds the hand joint so a
+        // vanilla-attached player staff reads as a horizontal lance; X+90 stands it upright, head
+        // up, matching the player's own carry. The attach_r.hand creature staffs hang head-down;
+        // Y rotations pitch the head through the vertical plane (opposite signs per family).
+        ("Staff", true, new Vector3(90f, 0f, 0f), Vector3.zero),            // player staffs: vertical, head up
+        ("DvergerStaff", true, new Vector3(0f, 130f, 0f), Vector3.zero),    // Dvergr carry: head up-forward ~40°
+        ("charred_magestaff", true, new Vector3(0f, 75f, 0f), Vector3.zero), // vanilla Charred: head down at feet, butt up-back
     };
 
     private static bool TryGetStaffOrientationDefault(string itemName, out Vector3 rot, out Vector3 pos)
