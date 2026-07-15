@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
@@ -80,6 +81,11 @@ internal static class FableWarriorPatches
         /// with its staff family's FableMage[Player|Dverger|Charred]Staff Rot/Offset configs, in the
         /// hand-attach local frame (see ApplyStaffOrientation).</summary>
         public Func<bool> StaffOrientation = () => false;
+        /// <summary>Mage CustomEquipment only: on the puppet's equipped armor pieces, replace every
+        /// material slot matching TextureCopyTo with the material matching TextureCopyFrom (matched
+        /// by material name or main-texture name; see ApplyArmorTextureCopy). Either empty = off.</summary>
+        public Func<string> TextureCopyFrom = () => "";
+        public Func<string> TextureCopyTo = () => "";
     }
 
     private static readonly CreatureProfile[] Profiles =
@@ -166,6 +172,10 @@ internal static class FableWarriorPatches
             ShoulderItem = () => Plugin.FableMageShoulders?.Value ?? "",
             KeepClonedHands = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.ClonePlayer,
             StaffOrientation = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment,
+            TextureCopyFrom = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment
+                ? (Plugin.FableMageTextureCopyFrom?.Value ?? "") : "",
+            TextureCopyTo = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment
+                ? (Plugin.FableMageTextureCopyTo?.Value ?? "") : "",
         },
     };
 
@@ -772,6 +782,115 @@ internal static class FableWarriorPatches
                 $"[Fable Warrior] Helmet fixed on {marker.gameObject.name} ({profile?.Label}): jointLossyRatio={ratio:F3}, " +
                 $"localScale {before:F3} -> {t.localScale:F3}");
         }
+
+        ApplyArmorTextureCopy(marker);
+    }
+
+    /// <summary>
+    /// Re-texture the puppet's equipped armor per the profile's TextureCopyFrom/To names (Fable
+    /// Mage: FableMageTextureCopyFrom/To). Every material slot on the armor attach instances whose
+    /// material name OR main texture (_MainTex) name matches "to" is pointed at the slot material
+    /// matching "from". This is a reference swap on the renderer's own sharedMaterials ARRAY - no
+    /// material is mutated or instanced, so the same armor worn by the player keeps its vanilla look.
+    ///
+    /// Name matching ignores Unity's " (Instance)"/" (Clone)" suffixes. Matching on material names
+    /// (not just texture names) matters for the default case: frostmagechest's ice gauntlet is the
+    /// texture-LESS tinted material "FrostMage", which no texture name could address; the bronze
+    /// source is its "New Material 5" (gold-tinted metal). If either name fails to match, the full
+    /// material/texture catalog of the armor instances is logged once so the right names can be
+    /// read straight from the BepInEx log.
+    /// </summary>
+    private static void ApplyArmorTextureCopy(AshlandsRebornFableWarrior marker)
+    {
+        var profile = marker.Profile;
+        var from = profile?.TextureCopyFrom() ?? "";
+        var to = profile?.TextureCopyTo() ?? "";
+        if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to) || marker.PuppetVis == null) return;
+
+        // All armor attach instances (chest/legs/shoulder/utility). Re-equips recreate these, so a
+        // fresh first instance is the "run once per instance set" guard (same idiom as LastFixed*).
+        var instances = new List<GameObject>();
+        foreach (var field in InstanceListFields)
+            if (field?.GetValue(marker.PuppetVis) is List<GameObject> gos)
+                foreach (var go in gos)
+                    if (go != null) instances.Add(go);
+        if (instances.Count == 0) return;
+        if (ReferenceEquals(instances[0], marker.LastTextureCopyArmor)) return;
+        marker.LastTextureCopyArmor = instances[0];
+
+        var renderers = new List<Renderer>();
+        foreach (var go in instances)
+            renderers.AddRange(go.GetComponentsInChildren<Renderer>(true));
+
+        Material? source = null;
+        foreach (var r in renderers)
+        {
+            foreach (var m in r.sharedMaterials)
+                if (MaterialMatches(m, from)) { source = m; break; }
+            if (source != null) break;
+        }
+
+        var replaced = 0;
+        if (source != null)
+        {
+            foreach (var r in renderers)
+            {
+                var mats = r.sharedMaterials;
+                var changed = false;
+                for (var i = 0; i < mats.Length; i++)
+                {
+                    if (!MaterialMatches(mats[i], to)) continue;
+                    mats[i] = source;
+                    changed = true;
+                    replaced++;
+                }
+                if (changed) r.sharedMaterials = mats;
+            }
+        }
+
+        if (source == null || replaced == 0)
+        {
+            var sb = new StringBuilder();
+            sb.Append($"[Fable Warrior] Armor texture copy '{from}' -> '{to}' matched nothing on " +
+                      $"{marker.gameObject.name} ({profile?.Label}). Armor material catalog:");
+            foreach (var r in renderers)
+                foreach (var m in r.sharedMaterials)
+                {
+                    if (m == null) continue;
+                    var tex = m.HasProperty("_MainTex") ? m.GetTexture("_MainTex") : null;
+                    sb.Append($"\n  {r.name}: material '{m.name}' mainTex '{(tex != null ? tex.name : "<none>")}'");
+                }
+            Plugin.Log?.LogWarning(sb.ToString());
+        }
+        else
+        {
+            Plugin.Log?.LogInfo($"[Fable Warrior] Armor texture copy on {marker.gameObject.name} " +
+                                $"({profile?.Label}): '{from}' -> '{to}', {replaced} slot(s) replaced");
+        }
+    }
+
+    /// <summary>Match a material by its own name or its main texture's name, ignoring Unity's
+    /// " (Instance)"/" (Clone)" suffixes.</summary>
+    private static bool MaterialMatches(Material? m, string name)
+    {
+        if (m == null) return false;
+        if (BaseNameEquals(m.name, name)) return true;
+        var tex = m.HasProperty("_MainTex") ? m.GetTexture("_MainTex") : null;
+        return tex != null && BaseNameEquals(tex.name, name);
+    }
+
+    private static bool BaseNameEquals(string actual, string expected)
+    {
+        var trimmed = actual;
+        while (trimmed.EndsWith(" (Instance)", StringComparison.Ordinal) ||
+               trimmed.EndsWith(" (Clone)", StringComparison.Ordinal) ||
+               trimmed.EndsWith("(Clone)", StringComparison.Ordinal))
+        {
+            trimmed = trimmed.EndsWith(" (Instance)", StringComparison.Ordinal)
+                ? trimmed.Substring(0, trimmed.Length - " (Instance)".Length)
+                : trimmed.Substring(0, trimmed.LastIndexOf("(Clone)", StringComparison.Ordinal)).TrimEnd();
+        }
+        return string.Equals(trimmed.Trim(), expected.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -1300,6 +1419,7 @@ internal class AshlandsRebornFableWarrior : MonoBehaviour
     public GameObject? LastFixedRightItem;
     public GameObject? LastFixedLeftItem;
     public GameObject? LastFixedHelmet;
+    public GameObject? LastTextureCopyArmor;
     public bool Built;
 
     private void OnEnable() => FableWarriorPatches.Register(this);

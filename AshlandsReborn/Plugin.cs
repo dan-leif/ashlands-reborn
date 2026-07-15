@@ -104,6 +104,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableMageShoulders { get; private set; } = null!;
     public static ConfigEntry<string> FableMageWeapon { get; private set; } = null!;
     public static ConfigEntry<float> FableMageWeaponScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableMageTextureCopyFrom { get; private set; } = null!;
+    public static ConfigEntry<string> FableMageTextureCopyTo { get; private set; } = null!;
     // Staff orientation, per source family (player Staff* / DvergerStaff* / charred_magestaff*).
     // These ARE the whole orientation - there is no hidden baked layer underneath. All-zero =
     // the staff's raw attach orientation.
@@ -855,6 +857,26 @@ public class Plugin : BaseUnityPlugin
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
 
+        FableMageTextureCopyFrom = Config.Bind(
+            "Fable Mage",
+            "FableMageTextureCopyFrom",
+            "New Material 5",
+            "SOURCE material/texture for the mage armor re-texture: on the mage puppet's equipped " +
+            "armor pieces, every material slot matching FableMageTextureCopyTo is replaced by the " +
+            "material matching this name (matches the material name or its main texture name). " +
+            "Empty = feature off. Default 'New Material 5' = frostmagechest's bronze shoulder metal. " +
+            "The default pairing re-textures frostmagechest's ice right gauntlet to bronze. " +
+            "Unmatched names log the armor's full material/texture catalog to the BepInEx log.");
+
+        FableMageTextureCopyTo = Config.Bind(
+            "Fable Mage",
+            "FableMageTextureCopyTo",
+            "FrostMage",
+            "TARGET material/texture to be replaced (matched by material name or main texture name) " +
+            "on the mage puppet's equipped armor. Empty = feature off. Default 'FrostMage' = " +
+            "frostmagechest's ice material (the right gauntlet). Only the puppet is affected - " +
+            "the same armor worn by the player keeps its vanilla look.");
+
         // Orientation knobs, one group per staff source family. Each group affects ONLY its family
         // and IS the complete orientation (no hidden built-in layer): 0 on every axis = the staff's
         // raw attach orientation. Defaults are neutral except the Dvergr family, whose values are
@@ -1599,6 +1621,8 @@ public class Plugin : BaseUnityPlugin
         FableMageShoulders.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageTextureCopyFrom.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageTextureCopyTo.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         foreach (var knob in new[] {
                      FableMagePlayerStaffRotX, FableMagePlayerStaffRotY, FableMagePlayerStaffRotZ,
                      FableMagePlayerStaffOffsetX, FableMagePlayerStaffOffsetY, FableMagePlayerStaffOffsetZ,

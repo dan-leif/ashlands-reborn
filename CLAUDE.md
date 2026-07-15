@@ -609,6 +609,20 @@ family's orientation configs — `FableMage{Player,Dverger,Charred}Staff{RotX/Y/
 Dvergr family ships non-zero defaults (see "Mage staff orientation" above). BepInEx clamps any
 out-of-list value to the FIRST list entry both on file read and on programmatic set.
 
+**`FableMageTextureCopyFrom` / `FableMageTextureCopyTo`** (section "Fable Mage", CustomEquipment
+only, live rebuild; either empty = off): re-texture the mage puppet's equipped armor by replacing
+every material slot matching `To` with the slot material matching `From` (`ApplyArmorTextureCopy`
+in `FableWarriorPatches.cs`, run from `FixupPuppetAttaches`). Names match the material name OR its
+`_MainTex` texture name, ignoring `(Instance)`/`(Clone)` suffixes. It's a reference swap on the
+renderer's own `sharedMaterials` array — no material is mutated, so the player wearing the same
+armor is unaffected. Defaults `"New Material 5"` → `"FrostMage"` turn frostmagechest's ice right
+gauntlet bronze: recon (UnityPy on the SouthsilArmor DLL's embedded `frostmagechest` bundle) shows
+the ice is the texture-LESS transparent material `FrostMage` (tint 0.44/0.90/1.0, gloss 1.0) — no
+texture name could address it, which is why matching includes material names — and the shoulder
+bronze is `New Material 5` (gold tint 1.0/0.76/0.27, metallic 1.0, pale-marble `_MainTex`). If a
+name matches nothing, the full armor material/texture catalog is logged to the BepInEx log
+(`[Fable Warrior] Armor texture copy ... matched nothing`).
+
 ### Fable Race config (section "Fable Race")
 
 A single global section that defines the **body** of all four Fable Charred puppets (NOT the
