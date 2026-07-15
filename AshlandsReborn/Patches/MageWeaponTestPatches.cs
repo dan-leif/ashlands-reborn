@@ -60,6 +60,9 @@ internal static class MageWeaponTestPatches
 
             var dir = Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location) ?? ".", "AR_MageWeapon");
             Directory.CreateDirectory(dir);
+            // Stale DONE.txt from a previous run would satisfy the outer loop's poll instantly.
+            var doneFile = Path.Combine(dir, "DONE.txt");
+            if (File.Exists(doneFile)) File.Delete(doneFile);
 
             var weapons = (Plugin.MageWeaponTestList?.Value ?? "StaffIceShards")
                 .Split(',').Select(s => s.Trim()).Where(s => s.Length > 0)
@@ -67,15 +70,22 @@ internal static class MageWeaponTestPatches
 
             DumpStaffCatalog(dir, weapons);
 
+            var shotPaths = new List<string>();
+
+            yield return PhotoModePatches.TeleportToIslandRoutine(player);
+            yield return PhotoModePatches.ForceClearSkyRoutine();
+
+            // Reference phase must run BEFORE the force-puppet-on block below: its vanilla
+            // Charred_Mage shot needs EnableFableMage temporarily Disabled.
+            if (Plugin.MageWeaponRefCapture?.Value == true)
+                yield return CaptureReferences(player, dir, weapons, shotPaths);
+
             // Force the mage puppet ON so the harness works regardless of the saved config.
             if (Plugin.MasterSwitch != null) Plugin.MasterSwitch.Value = true;
             if (Plugin.FableRaceMode != null &&
                 string.Equals(Plugin.FableRaceMode.Value, "Vanilla", StringComparison.OrdinalIgnoreCase))
                 Plugin.FableRaceMode.Value = "CustomRace";
             if (Plugin.EnableFableMage != null) Plugin.EnableFableMage.Value = "CustomEquipment";
-
-            yield return PhotoModePatches.TeleportToIslandRoutine(player);
-            yield return PhotoModePatches.ForceClearSkyRoutine();
 
             // Spawn one mage; keep it still so it stays framed and doesn't cast/wander.
             var prefab = ZNetScene.instance?.GetPrefab(MagePrefab);
@@ -90,14 +100,8 @@ internal static class MageWeaponTestPatches
             yield return new WaitForSeconds(3f);
             if (go == null) { Plugin.Log?.LogError("[AR MageWeapon] mage destroyed before capture"); yield break; }
 
-            // Freeze it hard: disable AI, make the body kinematic, and re-pin position/rotation each
-            // capture (disabling MonsterAI alone still let it slide off the platform over the cycle).
-            var ai = go.GetComponent<MonsterAI>();
-            if (ai != null) ai.enabled = false;
-            var rb = go.GetComponent<Rigidbody>();
-            if (rb != null) { rb.velocity = Vector3.zero; rb.isKinematic = true; }
+            Freeze(go);
 
-            var shotPaths = new List<string>();
             foreach (var weapon in weapons)
             {
                 if (go == null) break;
@@ -107,24 +111,7 @@ internal static class MageWeaponTestPatches
                 //   -> FixupPuppetAttaches (10f wait) -> creature-weapon fallback. Give it margin.
                 yield return new WaitForSeconds(4f);
                 if (go == null) break;
-                go.transform.SetPositionAndRotation(spawnPos, spawnRot); // undo any drift from the rebuild
-
-                PhotoModePatches.EnableCameraOverride();
-                // 90/270 = both sides (staff-in-hand reads best), 180 = front. Fixed close distance
-                // (particle FX on the staffs inflate renderer bounds, so bounds-based framing pulls
-                // the camera too far to judge the staff).
-                foreach (var yaw in Yaws)
-                {
-                    if (go == null) break;
-                    go.transform.SetPositionAndRotation(spawnPos, spawnRot);
-                    AimClose(go, yaw);
-                    yield return new WaitForSeconds(0.3f);
-                    var p = Path.Combine(dir, $"{Sanitize(weapon)}_full_{yaw}.png");
-                    ScreenCapture.CaptureScreenshot(p);
-                    shotPaths.Add(p);
-                    for (var f = 0; f < 5; f++) yield return null;
-                }
-                PhotoModePatches.ClearCameraOverride();
+                yield return CaptureSubject(dir, $"{Sanitize(weapon)}_full", go, null, shotPaths, spawnPos, spawnRot);
             }
 
             if (go != null) ZNetScene.instance?.Destroy(go);
@@ -247,14 +234,153 @@ internal static class MageWeaponTestPatches
             SearchStaffNodes(t.GetChild(i), here, lines);
     }
 
-    /// <summary>Frame the mage's upper body at a fixed close distance from a given yaw, focusing on
-    /// the right-hand staff. Uses the puppet's right-hand joint as the look target when available so
-    /// the staff is centered; falls back to chest height.</summary>
-    private static void AimClose(GameObject go, int yaw)
+    /// <summary>
+    /// Reference phase (MageWeaponRefCapture): ground-truth shots for judging the puppet's staff
+    /// placement - the PLAYER equipping each player staff (their "attach" child is authored for the
+    /// player rig, which the puppet is), the vanilla Dvergr mages holding their own staffs, and a
+    /// vanilla (puppet-disabled) Charred_Mage. Same freeze + AimClose framing as the puppet shots so
+    /// everything compares side-by-side. Runs BEFORE the force-puppet-on block because it toggles
+    /// EnableFableMage around the vanilla Charred_Mage spawn.
+    /// </summary>
+    private static IEnumerator CaptureReferences(Player player, string dir, List<string> weapons, List<string> shotPaths)
     {
-        var marker = go.GetComponent<AshlandsRebornFableWarrior>();
-        var hand = marker != null && marker.PuppetVis != null ? marker.PuppetVis.m_rightHand : null;
-        // Aim between the torso and the hand so both the mage and the staff are in frame.
+        Plugin.Log?.LogInfo("[AR MageWeapon] --- reference phase ---");
+
+        // 1) Player holding each player staff. Only names starting with "Staff" (the player set);
+        //    creature staffs have no plain "attach" child, so the player's hand would come up empty.
+        var prevWeapon = player.GetCurrentWeapon();
+        foreach (var weapon in weapons)
+        {
+            if (!weapon.StartsWith("Staff", StringComparison.OrdinalIgnoreCase)) continue;
+            var prefabGo = ObjectDB.instance?.GetItemPrefab(weapon);
+            var drop = prefabGo != null ? prefabGo.GetComponent<ItemDrop>() : null;
+            if (drop == null)
+            {
+                Plugin.Log?.LogWarning($"[AR MageWeapon] ref: {weapon} is not an ObjectDB item - skipped");
+                continue;
+            }
+            var item = drop.m_itemData.Clone();
+            item.m_dropPrefab = prefabGo;
+            item.m_durability = item.GetMaxDurability();
+            if (!player.GetInventory().AddItem(item))
+            {
+                Plugin.Log?.LogWarning($"[AR MageWeapon] ref: inventory full - {weapon} skipped");
+                continue;
+            }
+            player.EquipItem(item, false);
+            yield return new WaitForSeconds(1.5f); // VisEquipment attach + idle pose settle
+            var hand = player.GetComponent<VisEquipment>()?.m_rightHand;
+            yield return CaptureSubject(dir, $"ref_player_{Sanitize(weapon)}", player.gameObject, hand, shotPaths);
+            player.UnequipItem(item, false);
+            player.GetInventory().RemoveItem(item);
+        }
+        if (prevWeapon != null && player.GetInventory().ContainsItem(prevWeapon))
+            player.EquipItem(prevWeapon, false);
+
+        // 2) Vanilla Dvergr mages with their native staffs (Fire/Ice; Support carries the
+        //    Heal-lamp/Support-orb family).
+        foreach (var creature in new[] { "DvergerMageFire", "DvergerMageIce", "DvergerMageSupport" })
+            yield return CaptureCreatureRef(player, dir, creature, shotPaths);
+
+        // 3) Vanilla Charred_Mage: puppet disabled around the spawn, restored after (the force-on
+        //    block that follows overwrites it anyway - the restore is defensive).
+        var mageBefore = Plugin.EnableFableMage?.Value;
+        try
+        {
+            if (Plugin.EnableFableMage != null) Plugin.EnableFableMage.Value = "Disabled";
+            yield return CaptureCreatureRef(player, dir, MagePrefab, shotPaths);
+        }
+        finally
+        {
+            if (Plugin.EnableFableMage != null && mageBefore != null) Plugin.EnableFableMage.Value = mageBefore;
+        }
+        Plugin.Log?.LogInfo("[AR MageWeapon] --- reference phase done ---");
+    }
+
+    /// <summary>Spawn a vanilla creature 5m ahead, freeze it, and capture the standard yaw set of
+    /// it holding its native staff, then despawn it.</summary>
+    private static IEnumerator CaptureCreatureRef(Player player, string dir, string prefabName, List<string> shotPaths)
+    {
+        var prefab = ZNetScene.instance?.GetPrefab(prefabName);
+        if (prefab == null) { Plugin.Log?.LogWarning($"[AR MageWeapon] ref: creature {prefabName} not found"); yield break; }
+
+        var spawnPos = player.transform.position + player.transform.forward * 5f + Vector3.up * 0.3f;
+        var toPlayer = player.transform.position - spawnPos; toPlayer.y = 0f;
+        var spawnRot = toPlayer.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toPlayer.normalized) : Quaternion.identity;
+        var go = UObject.Instantiate(prefab, spawnPos, spawnRot);
+        Plugin.Log?.LogInfo($"[AR MageWeapon] ref: spawned {prefabName}");
+        yield return new WaitForSeconds(3f); // default-item VisEquipment attach
+        if (go == null) { Plugin.Log?.LogWarning($"[AR MageWeapon] ref: {prefabName} vanished before capture"); yield break; }
+
+        Freeze(go);
+        DestroyNearbyMistiles(spawnPos); // DvergerMageSupport's orbiting guards photobomb
+
+        var hand = go.GetComponent<VisEquipment>()?.m_rightHand;
+        yield return CaptureSubject(dir, $"ref_{Sanitize(prefabName)}", go, hand, shotPaths, spawnPos, spawnRot);
+        if (go != null) ZNetScene.instance?.Destroy(go);
+    }
+
+    /// <summary>Capture the standard yaw set of a subject: enable the camera override, optionally
+    /// re-pin the subject's position/rotation before each shot (spawned creatures drift), aim via
+    /// AimClose, screenshot, and release the override.</summary>
+    private static IEnumerator CaptureSubject(string dir, string baseName, GameObject subject, Transform? hand,
+        List<string> shotPaths, Vector3? pinPos = null, Quaternion? pinRot = null)
+    {
+        PhotoModePatches.EnableCameraOverride();
+        // 90/270 = both sides (staff-in-hand reads best), 180 = front. Fixed close distance
+        // (particle FX on the staffs inflate renderer bounds, so bounds-based framing pulls
+        // the camera too far to judge the staff).
+        foreach (var yaw in Yaws)
+        {
+            if (subject == null) break;
+            if (pinPos.HasValue)
+                subject.transform.SetPositionAndRotation(pinPos.Value, pinRot ?? subject.transform.rotation);
+            AimClose(subject, hand, yaw);
+            yield return new WaitForSeconds(0.3f);
+            var p = Path.Combine(dir, $"{baseName}_{yaw}.png");
+            ScreenCapture.CaptureScreenshot(p);
+            shotPaths.Add(p);
+            for (var f = 0; f < 5; f++) yield return null;
+        }
+        PhotoModePatches.ClearCameraOverride();
+    }
+
+    /// <summary>Freeze a spawned creature hard: disable AI and make the body kinematic. Position/
+    /// rotation still get re-pinned per capture (disabling MonsterAI alone let it slide off the
+    /// platform over a long cycle).</summary>
+    private static void Freeze(GameObject go)
+    {
+        var ai = go.GetComponent<MonsterAI>();
+        if (ai != null) ai.enabled = false;
+        var rb = go.GetComponent<Rigidbody>();
+        if (rb != null) { rb.velocity = Vector3.zero; rb.isKinematic = true; }
+    }
+
+    /// <summary>DvergerMageSupport spawns orbiting DvergerMistile guards that photobomb the shot -
+    /// despawn any near the capture spot.</summary>
+    private static void DestroyNearbyMistiles(Vector3 pos)
+    {
+        foreach (var view in UObject.FindObjectsOfType<ZNetView>())
+        {
+            if (view == null) continue;
+            if (!view.name.StartsWith("DvergerMistile", StringComparison.OrdinalIgnoreCase)) continue;
+            if (Vector3.Distance(view.transform.position, pos) > 40f) continue;
+            ZNetScene.instance?.Destroy(view.gameObject);
+        }
+    }
+
+    /// <summary>Frame the subject's upper body at a fixed close distance from a given yaw, focusing
+    /// on the right-hand staff. <paramref name="hand"/> overrides the look target (player/vanilla-
+    /// creature refs); when null, the Fable puppet's right-hand joint is used if present; falls back
+    /// to chest height.</summary>
+    private static void AimClose(GameObject go, Transform? hand, int yaw)
+    {
+        if (hand == null)
+        {
+            var marker = go.GetComponent<AshlandsRebornFableWarrior>();
+            hand = marker != null && marker.PuppetVis != null ? marker.PuppetVis.m_rightHand : null;
+        }
+        // Aim between the torso and the hand so both the subject and the staff are in frame.
         var body = go.transform.position + Vector3.up * 1.7f;
         var center = hand != null ? Vector3.Lerp(body, hand.position, 0.5f) : body;
         var rot = Quaternion.Euler(0f, yaw, 0f);

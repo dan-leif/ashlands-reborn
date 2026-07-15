@@ -163,17 +163,31 @@ set here directly between launches instead of sweeping).
 - [ ] Confirm clean `git status` on master
 - [ ] Commit: `Plan: Fable Mage staff dropdown + orientation tuning (MAGE_STAFF_PLAN.md)`
 
-### M1 — Harness extension + reference gallery + lamp identification
-- [ ] `MageWeaponTestPatches.cs`: reference phase per D3 (player refs → Dvergr refs →
+### M1 — Harness extension + reference gallery + lamp identification — DONE (2026-07-14)
+- [x] `MageWeaponTestPatches.cs`: reference phase per D3 (player refs → Dvergr refs →
       vanilla Charred_Mage with snapshot/restore), stale-DONE self-delete
-- [ ] `Plugin.cs`: bind `MageWeaponRefCapture`; expand `MageWeaponTestList` default
-- [ ] Build + full run (`MageWeaponTest=true`, `MageWeaponRefCapture=true`)
-- [ ] All reference shots + 15 puppet baseline shots captured and readable
-- [ ] **DECISION recorded here**: do DvergerStaffBlocker / DvergerStaffNova render at all?
-      Blocker: ______  Nova: ______ (non-rendering → DROPPED)
-- [ ] Curate `screenshots/fable-mage-staffs/refs/` + `.../baseline/` in the repo
-- [ ] Initialize the per-staff status table (below) from the baseline vs reference comparison
-- [ ] Commit (harness + gallery + updated plan)
+- [x] `Plugin.cs`: bind `MageWeaponRefCapture`; expand `MageWeaponTestList` default
+- [x] Build + full run (`MageWeaponTest=true`, `MageWeaponRefCapture=true`)
+- [x] All reference shots + puppet baseline shots captured and readable (81 shots)
+- [x] **DECISION**: Blocker: NO — "no recognized attach child - cannot mount it" → DROPPED.
+      Nova: NO — same warning → DROPPED. (Log-confirmed; their `_full_*` shots show an empty
+      hand.) Both stay in the harness gallery as evidence; remove from dropdown in M4.
+- [x] Curate `screenshots/fable-mage-staffs/refs/` (16) + `.../baseline/` (22)
+- [x] Per-staff status table initialized from baseline vs reference comparison
+- [x] Commit
+
+**M1 findings (baseline vs reference):**
+- Player staffs (all 8, verified via StaffIceShards): player carries VERTICAL head-up; the
+  puppet holds them HORIZONTAL like a lance (head forward, waist height) — the Charred idle
+  animation orients the hand joint differently than the player idle, so even player staffs
+  need a corrective rotation (~90° pitch family).
+- DvergerStaff Fire/Heal (Ice/Support assumed same family, verify post-fix): vanilla Dvergr
+  grips mid-shaft, head pointing UP-FORWARD ~35°; puppet has them INVERTED (head at knees,
+  butt-cap over the shoulder) → ~180° flip + angle match.
+- Lamp confirmed visually: ref_DvergerMageSupport shows the lantern staff = DvergerStaffHeal.
+- charred_magestaff_fire: vanilla Charred Warlock grips mid-shaft with the claw head hanging
+  DOWN near the ground, pale butt up past the shoulder; puppet grips at the claw head with
+  the butt hanging down → flip + likely grip position offset along the shaft.
 
 ### M2 — Config surface: dropdown + orientation knobs (behavior-neutral at knob=0)
 - [ ] `Plugin.cs:805-822`: FableMageWeapon → ConfigDescription + AcceptableValueList per D1;
@@ -200,21 +214,21 @@ then refine) or direct cfg edits between launches → bake winners into
 
 | Staff | Must-pass | Reference | Status | Baked rot | Baked pos |
 |---|---|---|---|---|---|
-| StaffIceShards | yes | ref_player | PENDING | — | — |
-| StaffFireball | yes | ref_player | PENDING | — | — |
-| StaffShield | yes | ref_player | PENDING | — | — |
-| StaffSkeleton | yes | ref_player | PENDING | — | — |
-| StaffRedTroll | yes | ref_player | PENDING | — | — |
-| StaffGreenRoots | yes | ref_player | PENDING | — | — |
-| StaffLightning | yes | ref_player | PENDING | — | — |
-| StaffClusterbomb | yes | ref_player | PENDING | — | — |
-| DvergerStaffFire | yes | ref_DvergerMageFire | PENDING | — | — |
-| DvergerStaffIce | yes | ref_DvergerMageIce | PENDING | — | — |
-| DvergerStaffSupport (green orb) | yes | ref_DvergerMageSupport | PENDING | — | — |
-| DvergerStaffHeal (lamp) | yes | ref_DvergerMageSupport | PENDING | — | — |
-| charred_magestaff_fire | yes | ref_Charred_Mage | PENDING | — | — |
-| DvergerStaffBlocker | try; drop if no render | Dvergr family | PENDING | — | — |
-| DvergerStaffNova | try; drop if no render | Dvergr family | PENDING | — | — |
+| StaffIceShards | yes | ref_player | BASELINED (horizontal lance; want vertical head-up) | — | — |
+| StaffFireball | yes | ref_player | BASELINED (assumed same defect) | — | — |
+| StaffShield | yes | ref_player | BASELINED (assumed same defect) | — | — |
+| StaffSkeleton | yes | ref_player | BASELINED (assumed same defect) | — | — |
+| StaffRedTroll | yes | ref_player | BASELINED (assumed same defect) | — | — |
+| StaffGreenRoots | yes | ref_player | BASELINED (assumed same defect) | — | — |
+| StaffLightning | yes | ref_player | BASELINED (assumed same defect) | — | — |
+| StaffClusterbomb | yes | ref_player | BASELINED (assumed same defect) | — | — |
+| DvergerStaffFire | yes | ref_DvergerMageFire | BASELINED (inverted; want head up-forward ~35°) | — | — |
+| DvergerStaffIce | yes | ref_DvergerMageIce | BASELINED (family defect assumed) | — | — |
+| DvergerStaffSupport (green orb) | yes | ref_DvergerMageSupport | BASELINED (family defect assumed) | — | — |
+| DvergerStaffHeal (lamp) | yes | ref_DvergerMageSupport | BASELINED (inverted, lamp at knees) | — | — |
+| charred_magestaff_fire | yes | ref_Charred_Mage | BASELINED (flipped + grip at head; want head-down mid-shaft) | — | — |
+| DvergerStaffBlocker | no | — | DROPPED (no attach child, cannot mount) | — | — |
+| DvergerStaffNova | no | — | DROPPED (no attach child, cannot mount) | — | — |
 
 ### M4 — Finalize: dropdown trim, docs, gallery
 - [ ] Remove DROPPED staffs from the AcceptableValueList (and MageWeaponTestList default)

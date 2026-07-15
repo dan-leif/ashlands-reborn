@@ -143,6 +143,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> PhotoModeSpawnDistance { get; private set; } = null!;
     public static ConfigEntry<bool> MageWeaponTest { get; private set; } = null!;
     public static ConfigEntry<string> MageWeaponTestList { get; private set; } = null!;
+    public static ConfigEntry<bool> MageWeaponRefCapture { get; private set; } = null!;
     public static ConfigEntry<string> PhotoModeIslandPos { get; private set; } = null!;
     public static ConfigEntry<bool> TerrainPhotoAuto { get; private set; } = null!;
     public static ConfigEntry<KeyCode> TerrainPhotoKey { get; private set; } = null!;
@@ -1081,9 +1082,22 @@ public class Plugin : BaseUnityPlugin
         MageWeaponTestList = Config.Bind(
             "Dev Automation",
             "MageWeaponTestList",
-            "StaffIceShards,StaffFireball,DvergerStaffFire,DvergerStaffIce,DvergerStaffSupport,charred_magestaff_fire",
+            "StaffIceShards,StaffFireball,StaffShield,StaffSkeleton,StaffRedTroll,StaffGreenRoots," +
+            "StaffLightning,StaffClusterbomb,DvergerStaffFire,DvergerStaffIce,DvergerStaffSupport," +
+            "DvergerStaffHeal,DvergerStaffNova,DvergerStaffBlocker,charred_magestaff_fire",
             "Comma-separated staff/weapon prefab IDs the MageWeaponTest harness cycles through the Fable " +
-            "Mage's hand.");
+            "Mage's hand. Must stay a subset of the FableMageWeapon dropdown list (values outside the " +
+            "list are clamped to its first entry when set).");
+
+        MageWeaponRefCapture = Config.Bind(
+            "Dev Automation",
+            "MageWeaponRefCapture",
+            false,
+            "Dev: prepend a reference phase to the MageWeaponTest run - ground-truth shots for judging " +
+            "the puppet's staff placement: the PLAYER equipping each player staff in MageWeaponTestList " +
+            "(ref_player_*.png), vanilla DvergerMageFire/Ice/Support spawns holding their own staffs " +
+            "(ref_DvergerMage*.png), and a vanilla puppet-disabled Charred_Mage (ref_Charred_Mage_*.png). " +
+            "Same framing as the puppet shots so they compare side-by-side.");
 
         FableBunnyReconDump = Config.Bind(
             "Dev Automation",
