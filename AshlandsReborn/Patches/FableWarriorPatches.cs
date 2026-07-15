@@ -960,26 +960,28 @@ internal static class FableWarriorPatches
 
     /// <summary>
     /// Hide the mage staff's extra head effects per the FableMageStaffHide* configs. Targets
-    /// descendant GameObjects that carry a ParticleSystem, matched by name (case-insensitive):
-    /// HideGlow = "flare" / "smoke*" (the misty white glow, e.g. DvergerStaffSupport's
-    /// flare + smoke_expl), HideFlakes = "*flakes*" (DvergerStaffSupport's purple/white
-    /// square "pixel flakes" swirl). Deactivation is per-instance, so re-equips/rebuilds
-    /// (SettingChanged recreates the attach instance) restore anything re-enabled.
+    /// descendant GameObjects that carry a ParticleSystem, matched by name (case-insensitive),
+    /// one config per system: HideFlare = "*flare*" (the bright orb flare), HideSmoke =
+    /// "*smoke*" (the misty glow, e.g. DvergerStaffSupport's smoke_expl), HideFlakes =
+    /// "*flakes*" (DvergerStaffSupport's purple/white square "pixel flakes" swirl).
+    /// Deactivation is per-instance, so re-equips/rebuilds (SettingChanged recreates the
+    /// attach instance) restore anything re-enabled.
     /// </summary>
     private static void ApplyStaffFxSuppression(GameObject staffGo, string itemName)
     {
-        var hideGlow = Plugin.FableMageStaffHideGlow?.Value == true;
+        var hideFlare = Plugin.FableMageStaffHideFlare?.Value == true;
+        var hideSmoke = Plugin.FableMageStaffHideSmoke?.Value == true;
         var hideFlakes = Plugin.FableMageStaffHideFlakes?.Value == true;
-        if (!hideGlow && !hideFlakes) return;
+        if (!hideFlare && !hideSmoke && !hideFlakes) return;
 
         var hidden = new List<string>();
         foreach (var ps in staffGo.GetComponentsInChildren<ParticleSystem>(true))
         {
             var name = ps.gameObject.name;
-            var isGlow = name.IndexOf("flare", StringComparison.OrdinalIgnoreCase) >= 0
-                         || name.IndexOf("smoke", StringComparison.OrdinalIgnoreCase) >= 0;
-            var isFlakes = name.IndexOf("flakes", StringComparison.OrdinalIgnoreCase) >= 0;
-            if ((hideGlow && isGlow) || (hideFlakes && isFlakes))
+            var hide = (hideFlare && name.IndexOf("flare", StringComparison.OrdinalIgnoreCase) >= 0)
+                       || (hideSmoke && name.IndexOf("smoke", StringComparison.OrdinalIgnoreCase) >= 0)
+                       || (hideFlakes && name.IndexOf("flakes", StringComparison.OrdinalIgnoreCase) >= 0);
+            if (hide)
             {
                 ps.gameObject.SetActive(false);
                 hidden.Add(name);

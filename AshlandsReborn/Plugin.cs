@@ -106,7 +106,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableMageWeaponScale { get; private set; } = null!;
     public static ConfigEntry<string> FableMageTextureCopyFrom { get; private set; } = null!;
     public static ConfigEntry<string> FableMageTextureCopyTo { get; private set; } = null!;
-    public static ConfigEntry<bool> FableMageStaffHideGlow { get; private set; } = null!;
+    public static ConfigEntry<bool> FableMageStaffHideFlare { get; private set; } = null!;
+    public static ConfigEntry<bool> FableMageStaffHideSmoke { get; private set; } = null!;
     public static ConfigEntry<bool> FableMageStaffHideFlakes { get; private set; } = null!;
     // Staff orientation, per source family (player Staff* / DvergerStaff* / charred_magestaff*).
     // These ARE the whole orientation - there is no hidden baked layer underneath. All-zero =
@@ -879,12 +880,19 @@ public class Plugin : BaseUnityPlugin
             "frostmagechest's ice material (the right gauntlet). Only the puppet is affected - " +
             "the same armor worn by the player keeps its vanilla look.");
 
-        FableMageStaffHideGlow = Config.Bind(
+        FableMageStaffHideFlare = Config.Bind(
             "Fable Mage",
-            "FableMageStaffHideGlow",
+            "FableMageStaffHideFlare",
             true,
-            "Hide the misty white glow emanating from the mage staff's head (particle children named " +
-            "'flare'/'smoke*', e.g. DvergerStaffSupport's orb glow). Applies live.");
+            "Hide the bright flare glow at the mage staff's head (particle children named '*flare*', " +
+            "e.g. DvergerStaffSupport's orb flare). Applies live.");
+
+        FableMageStaffHideSmoke = Config.Bind(
+            "Fable Mage",
+            "FableMageStaffHideSmoke",
+            true,
+            "Hide the misty smoke emanating from the mage staff's head (particle children named " +
+            "'*smoke*', e.g. DvergerStaffSupport's smoke_expl). Applies live.");
 
         FableMageStaffHideFlakes = Config.Bind(
             "Fable Mage",
@@ -1551,6 +1559,17 @@ public class Plugin : BaseUnityPlugin
                 "FableMageWeaponOffsetX", "FableMageWeaponOffsetY", "FableMageWeaponOffsetZ" })
                 PurgeOrphanedKey("Fable Mage", oldKey);
 
+            // FableMageStaffHideGlow was split into HideFlare + HideSmoke (this release, one
+            // release after it was added): it covered both the flare and smoke_expl particle
+            // children, so its value carries into both new keys.
+            var oldHideGlow = ReadOrphanRaw("Fable Mage", "FableMageStaffHideGlow")?.Trim();
+            if (!string.IsNullOrEmpty(oldHideGlow) && bool.TryParse(oldHideGlow, out var hideGlowOn))
+            {
+                FableMageStaffHideFlare.Value = hideGlowOn;
+                FableMageStaffHideSmoke.Value = hideGlowOn;
+            }
+            PurgeOrphanedKey("Fable Mage", "FableMageStaffHideGlow");
+
             // FableRaceSex (global) was split into per-class Fable[Class]Sex (this release). No
             // carry: the per-class defaults (Archer = Female, others = Male) are intentional.
             PurgeOrphanedKey("Fable Race", "FableRaceSex");
@@ -1639,7 +1658,8 @@ public class Plugin : BaseUnityPlugin
         FableMageWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageTextureCopyFrom.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageTextureCopyTo.SettingChanged += (_, _) => OnFableWarriorModeChanged();
-        FableMageStaffHideGlow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageStaffHideFlare.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageStaffHideSmoke.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageStaffHideFlakes.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         foreach (var knob in new[] {
                      FableMagePlayerStaffRotX, FableMagePlayerStaffRotY, FableMagePlayerStaffRotZ,
