@@ -1,5 +1,9 @@
 # Fable Mage Staff Plan — dropdown, per-staff orientation, reference-verified in-game loop
 
+**STATUS: COMPLETE (2026-07-14).** All milestones done; all 13 dropdown staffs verified PASS
+against vanilla-carry references; Blocker/Nova dropped (no attach child). Final galleries in
+`screenshots/fable-mage-staffs/{refs,baseline,final}`. Docs in CLAUDE.md.
+
 ## Recovery anchor (read this first if resuming a fresh session)
 
 This plan doubles as the resume document if a session dies mid-work. **M0 copies this file
@@ -249,14 +253,16 @@ then refine) or direct cfg edits between launches → bake winners into
 - Do NOT re-derive: rotations compose as localRotation *= Euler(def)*Euler(knob) AFTER
   equipoffset; a knob sweep therefore probes RELATIVE to the baked default.
 
-### M4 — Finalize: dropdown trim, docs, gallery
-- [ ] Remove DROPPED staffs from the AcceptableValueList (and MageWeaponTestList default)
-- [ ] Final full harness run at pure defaults (knobs 0, refs off) → curate
-      `screenshots/fable-mage-staffs/final/`
-- [ ] CLAUDE.md updates: Fable Mage config rows (dropdown semantics + 6 knobs), Dev
-      Automation rows (`MageWeaponRefCapture`, `MageWeaponRotSweep`, new TestList default),
+### M4 — Finalize: dropdown trim, docs, gallery — DONE (2026-07-14)
+- [x] DROPPED staffs excluded: Blocker/Nova were never added to the M2 dropdown (drop decided
+      in M1, before the list was authored); MageWeaponTestList default holds the 13 real staffs
+- [x] Final full harness run at pure defaults (the M3 confirm run, knobs 0, refs off) →
+      curated `screenshots/fable-mage-staffs/final/` (13 staffs × yaws 90/180)
+- [x] CLAUDE.md updates: FableMageWeapon dropdown paragraph + "Mage staff orientation" section,
+      Dev Automation rows (`MageWeaponRefCapture`, `MageWeaponRotSweep`, TestList default),
       MageWeaponTestPatches description line
-- [ ] Mark this plan COMPLETE at top of MAGE_STAFF_PLAN.md; final commit
+- [x] cfg restored: MageWeaponTest/RefCapture=false, RotSweep empty, TestList=13, knobs 0
+- [x] Plan marked COMPLETE; final commit
 
 ## Files to modify
 - `AshlandsReborn/Plugin.cs` — binds :805-831 area + :1081-1086; SettingChanged block :1497-1505
