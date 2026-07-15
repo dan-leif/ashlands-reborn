@@ -175,7 +175,7 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `FableBunnyPatches.cs` | `Character.Awake`, `Humanoid.StartAttack`, `Ragdoll.Awake` (all manually applied with null-guards), `MonoUpdaters.LateUpdate` | Fable Bunny: replaces the Morgen's visuals with a giant self-animating Hare (+ optional hybrid Lox for bite/roll). See "Fable Bunny" below |
 | `PhotoModePatches.cs` | `GameCamera.LateUpdate` (prefix) | Dev verification harness: spawns a warrior, orbits the camera, captures full-body + close-up screenshots autonomously |
 | `LifecycleTestPatches.cs` | None (no Harmony patches) | Dev M4 self-test: spawns 3 warriors (incl. 2★), asserts toggle/refresh/sync/scale lifecycle invariants |
-| `MageWeaponTestPatches.cs` | None (no Harmony patches) | Dev harness (`MageWeaponTest`): dumps the ObjectDB/ZNetScene staff catalog + candidate prefab hierarchies, then spawns a pinned Charred_Mage and cycles `MageWeaponTestList` through `FableMageWeapon`, screenshotting each staff in-hand. `MageWeaponRefCapture` prepends vanilla-carry references (player equipping each player staff; DvergerMageFire/Ice/Support; puppet-disabled Charred_Mage); `MageWeaponRotSweep` captures each staff once per rot/offset knob combination (tuning mode). Output: `AR_MageWeapon\` |
+| `MageWeaponTestPatches.cs` | None (no Harmony patches) | Dev harness (`MageWeaponTest`): dumps the ObjectDB/ZNetScene staff catalog + candidate prefab hierarchies, then spawns a pinned Charred_Mage and cycles `MageWeaponTestList` through `FableMageWeapon`, screenshotting each staff in-hand. `MageWeaponRefCapture` prepends vanilla-carry references (player equipping each player staff; DvergerMageFire/Ice/Support; puppet-disabled Charred_Mage); `MageWeaponRotSweep` captures each staff once per rot/offset combination, written to the swept staff's own family knobs (tuning mode). Output: `AR_MageWeapon\` |
 | `DevAutoLoadPatches.cs` | None (no Harmony patches) | State machine called from `Plugin.Update()` that auto-navigates FejdStartup menus on startup |
 
 **Note on `DevAutoLoadPatches.cs`:** This file has no `[HarmonyPatch]` attributes. Harmony-patching `FejdStartup.Start()` (a coroutine) and `FejdStartup.Update()` (not defined as an override) fails silently. Instead it exposes a `Tick()` method called from `Plugin.Update()` each frame, checking `FejdStartup.instance` directly.
@@ -398,18 +398,25 @@ Key mechanics (details in the file's doc comments):
   SkinnedMeshRenderer baked into the creature (path `BogWitch/BogWitch/staff`), not an item, so it
   can't be equipped this way; `DvergerStaffNova`/`DvergerStaffBlocker` have no recognized attach
   child at all (nothing to mount — excluded from the dropdown).
-- **Mage staff orientation** (`StaffOrientationDefaults` in `FableWarriorPatches.cs`): the mage's
-  (non-grip) right-hand fixup applies a built-in per-staff-family rotation after the rig-normalize
-  scale, because the Charred idle pose holds the hand joint so staffs read wrong otherwise:
-  `Staff*` (player) X+90 = vertical head-up matching the player's own carry; `DvergerStaff*`
-  Y+130 = head up-forward ~40° matching the Dvergr mages; `charred_magestaff*` Y+75 = head-down
-  mid-shaft matching the vanilla Charred Warlock (claw hangs at the ground — vanilla-like).
-  Composition contract: `localRotation *= Euler(default) * Euler(knob)`, `localPosition +=
-  defaultPos + knobPos`, applied AFTER the attach's equipoffset; the knobs are the
-  `FableMageWeaponRotX/Y/Z` / `OffsetX/Y/Z` configs (live rebuild). Sweep-verified per staff
-  against vanilla-carry references; galleries in `screenshots/fable-mage-staffs/`
-  (refs/ = ground truth, final/ = shipped defaults). Grip position offsets for the charred staff
-  were probed (±0.15 every axis) and rejected — the shaft is not joint-axis-aligned, so
+- **Mage staff orientation** (`ApplyStaffOrientation` in `FableWarriorPatches.cs`): the mage's
+  (non-grip) right-hand fixup orients the staff from **config alone** — there is NO hardcoded
+  table (v1's `StaffOrientationDefaults` was rejected by the user and deleted; do not reintroduce
+  a hidden baked layer). `ClassifyStaff` sorts the prefab by name prefix into one of three source
+  families — `DvergerStaff*` → Dvergr, `charred_magestaff*` → Charred, `Staff*` → player,
+  anything else → no-op (the families cannot overlap: "DvergerStaffFire" does not start with
+  "Staff") — and applies that family's six configs. Composition contract:
+  `localRotation *= Euler(familyRot)`, `localPosition += familyPos`, applied AFTER the attach's
+  equipoffset and the rig-normalize scale. **All-zero = the staff's raw attach orientation**, which
+  is the shipped default for the player (`FableMagePlayerStaff*`) and Charred
+  (`FableMageCharredStaff*`) families — the untouched attach pose is the one the user wants, and
+  v1's corrective rotations (player X+90, charred Y+75) read WORSE. Only the Dvergr family ships
+  non-zero: `FableMageDvergerStaffRotY = -95`, `OffsetX = -0.075`, `OffsetY = -0.15` — the user's
+  own in-game tuning, folded from v1's baked Y+130 ∘ knob Y+135 (same-axis rotations sum exactly).
+  All 18 knobs live-rebuild via F1. Galleries in `screenshots/fable-mage-staffs/` (refs/ = vanilla
+  carry ground truth, baseline/ = pre-orientation attach poses, final/ = shipped defaults).
+  **Lesson (v2): do not overrule the user on staff aesthetics from screenshot judgment** — ship
+  neutral defaults + per-family knobs and let them tune. Grip position offsets for the charred
+  staff were probed (±0.15 every axis) and rejected — the shaft is not joint-axis-aligned, so
   single-axis offsets visibly disconnect the hand from the shaft.
 - **Charred suppression**: pure-skip prefixes on the 7 private `VisEquipment.Set*Equipped`
   methods, gated on the `AshlandsRebornFableWarrior` marker; glow FX (EyeGlow ×2,
@@ -554,7 +561,7 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 | `MageWeaponTest` | false | Run the mage-weapon harness once after world load: dumps the staff catalog, spawns a Charred_Mage, cycles `MageWeaponTestList` through `FableMageWeapon`, shoots each in-hand into `AR_MageWeapon\` |
 | `MageWeaponTestList` | (13 staffs) | CSV of staff prefab IDs the mage-weapon harness cycles. Must stay a subset of the `FableMageWeapon` dropdown (BepInEx clamps out-of-list values to the list's FIRST entry on set) |
 | `MageWeaponRefCapture` | false | Prepend a reference phase to the harness run: player equipping each player staff (`ref_player_*`), vanilla DvergerMageFire/Ice/Support (`ref_DvergerMage*`), puppet-disabled Charred_Mage (`ref_Charred_Mage_*`) — same framing as the puppet shots |
-| `MageWeaponRotSweep` | "" | `rx,ry,rz[,ox,oy,oz]` entries separated by `\|`: capture each staff once per entry with the FableMageWeaponRot/Offset knobs set to it (knobs restored after). Sweeps are RELATIVE to the baked per-staff defaults |
+| `MageWeaponRotSweep` | "" | `rx,ry,rz[,ox,oy,oz]` entries separated by `\|`: capture each staff once per entry with the orientation knobs of THAT staff's own source family set to it (all 18 restored after). Sweep values are ABSOLUTE orientations — there is no baked base underneath |
 | `PhotoModeIslandPos` | "2736,40,2580" | Test island teleport target; empty disables |
 | `TerrainPhotoAuto` | false | Run the terrain photo harness once after world load (suppressed by PhotoModeAuto/M4Test) |
 | `TerrainPhotoKey` | F7 | Run the terrain photo harness on demand |
@@ -583,7 +590,8 @@ Old keys auto-migrate on first load and are purged from the cfg orphan store:
 Sections **"Fable Archer" / "Fable Twitcher" / "Fable Mage"** mirror the Warrior's keys
 (`EnableFable[Class]` tri-state, `Fable[Class]Scale`, `Fable[Class]Sex`, `Fable[Class]Helmet/
 HelmetScale/Chest/Legs/Shoulders`, `Fable[Class]Weapon`, `Fable[Class]WeaponScale`) — but with
-**no grip knobs** (Warrior-only). CustomEquipment defaults: Archer =
+**no grip knobs** (Warrior-only; the Mage instead has its own 18 staff-orientation keys, below).
+CustomEquipment defaults: Archer =
 `norahhelmalt`/`norahchest`/`norahlegs` + `BowAshlands` (LEFT hand, `WeaponScale` 1.3); Mage =
 `chiefhelmdeer`/`frostmagechest`/`frostmagelegs` + `StaffIceShards` (right hand); Twitcher =
 `HelmetFenring`/`ArmorFenringChest`/`ArmorFenringLegs` + `FistFenrirClaw` (right hand).
@@ -595,10 +603,11 @@ default **Female for the Archer**, Male for the others — driving `VisEquipment
 `StaffRedTroll`, `StaffGreenRoots`, `StaffLightning`, `StaffClusterbomb`), the creature staffs
 `DvergerStaffFire/Ice/Support/Heal` (`Heal` = the support mage's lamp staff, `Support` = the
 green orb) + `charred_magestaff_fire` (via the attach fallback above), and `None` = bare hand
-(the profile maps it to ""). Every entry ships with a baked orientation so it sits naturally in
-the mage's hand (see "Mage staff orientation" above); `FableMageWeaponRotX/Y/Z` and
-`FableMageWeaponOffsetX/Y/Z` (section "Fable Mage", live rebuild) fine-tune on top. BepInEx
-clamps any out-of-list value to the FIRST list entry both on file read and on programmatic set.
+(the profile maps it to ""). How each staff sits in the hand comes entirely from its source
+family's orientation configs — `FableMage{Player,Dverger,Charred}Staff{RotX/Y/Z,OffsetX/Y/Z}`
+(section "Fable Mage", 18 keys, live rebuild); zero = the raw attach orientation, and only the
+Dvergr family ships non-zero defaults (see "Mage staff orientation" above). BepInEx clamps any
+out-of-list value to the FIRST list entry both on file read and on programmatic set.
 
 ### Fable Race config (section "Fable Race")
 
