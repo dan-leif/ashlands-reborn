@@ -634,6 +634,15 @@ the kept `hull` (orb shell) and `default` (staff mesh) meshes. Deactivation is p
 instance, so SettingChanged rebuilds (fresh instances) restore anything re-enabled. The earlier
 combined `FableMageStaffHideGlow` (flare+smoke) migrates into both new keys and is purged.
 
+**`FableMageStaffGreenFx`** (section "Fable Mage", default true, live rebuild): graft the vanilla
+charred mage staff's green orbiting particle effect onto the mage staff's head.
+`ApplyStaffGreenFx` instantiates `charred_magestaff_fire`'s `Orbiting Bits` child (UnityPy recon:
+`attach/TheCharred_Staff/Orbiting Bits`, a ParticleSystem with a nested green `flare`) as
+`AR_StaffGreenFx` under the staff's `hull` child when present (DvergerStaffSupport's green orb),
+else the attach root. MUST run AFTER `ApplyStaffFxSuppression` — the graft's own nested `flare`
+would otherwise be deactivated by the HideFlare name-match; the graft answers only to its own
+toggle.
+
 ### Fable Race config (section "Fable Race")
 
 A single global section that defines the **body** of all four Fable Charred puppets (NOT the

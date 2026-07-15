@@ -756,6 +756,7 @@ internal static class FableWarriorPatches
                 {
                     ApplyStaffOrientation(t, profile.RightItem());
                     ApplyStaffFxSuppression(rightGo, profile.RightItem());
+                    ApplyStaffGreenFx(rightGo, profile.RightItem());
                 }
             }
             marker.LastFixedRightItem = rightGo;
@@ -989,6 +990,40 @@ internal static class FableWarriorPatches
         }
         if (hidden.Count > 0)
             Plugin.Log?.LogInfo($"[Fable Warrior] Staff FX hidden on '{itemName}': {string.Join(", ", hidden)}");
+    }
+
+    private const string GreenFxName = "AR_StaffGreenFx";
+
+    /// <summary>
+    /// Graft the vanilla charred mage staff's green orbiting particle effect
+    /// (charred_magestaff_fire's "Orbiting Bits", incl. its nested green flare) onto the
+    /// equipped staff's head, per FableMageStaffGreenFx. Anchors to the "hull" child when
+    /// present (DvergerStaffSupport's green orb), else the staff attach root. MUST run AFTER
+    /// ApplyStaffFxSuppression: the graft carries its own child named "flare", which the
+    /// HideFlare name-match would otherwise deactivate - the graft is controlled only by its
+    /// own toggle. Per-instance like the other fixups: rebuilds recreate the attach instance,
+    /// so toggling off simply grafts nothing onto the fresh instance.
+    /// </summary>
+    private static void ApplyStaffGreenFx(GameObject staffGo, string itemName)
+    {
+        if (Plugin.FableMageStaffGreenFx?.Value != true) return;
+        if (FindChildRecursive(staffGo.transform, GreenFxName) != null) return;
+
+        var srcPrefab = ZNetScene.instance?.GetPrefab("charred_magestaff_fire");
+        var srcBits = srcPrefab != null ? FindChildRecursive(srcPrefab.transform, "Orbiting Bits") : null;
+        if (srcBits == null)
+        {
+            Plugin.Log?.LogWarning("[Fable Warrior] Staff green FX source 'Orbiting Bits' not found on charred_magestaff_fire.");
+            return;
+        }
+
+        var anchor = FindChildRecursive(staffGo.transform, "hull") ?? staffGo.transform;
+        var fx = UObject.Instantiate(srcBits.gameObject, anchor);
+        fx.name = GreenFxName;
+        fx.transform.localPosition = Vector3.zero;
+        fx.transform.localRotation = Quaternion.identity;
+        fx.SetActive(true);
+        Plugin.Log?.LogInfo($"[Fable Warrior] Staff green FX grafted onto '{itemName}' at '{anchor.name}'.");
     }
 
     // Vanilla VisEquipment.AttachItem only mounts a child literally named "attach" (or

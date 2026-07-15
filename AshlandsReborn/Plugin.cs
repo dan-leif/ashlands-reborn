@@ -109,6 +109,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> FableMageStaffHideFlare { get; private set; } = null!;
     public static ConfigEntry<bool> FableMageStaffHideSmoke { get; private set; } = null!;
     public static ConfigEntry<bool> FableMageStaffHideFlakes { get; private set; } = null!;
+    public static ConfigEntry<bool> FableMageStaffGreenFx { get; private set; } = null!;
     // Staff orientation, per source family (player Staff* / DvergerStaff* / charred_magestaff*).
     // These ARE the whole orientation - there is no hidden baked layer underneath. All-zero =
     // the staff's raw attach orientation.
@@ -901,6 +902,15 @@ public class Plugin : BaseUnityPlugin
             "Hide the square particles swirling off the mage staff's head (particle children named " +
             "'*flakes*', e.g. DvergerStaffSupport's purple/white pixel flakes). Applies live.");
 
+        FableMageStaffGreenFx = Config.Bind(
+            "Fable Mage",
+            "FableMageStaffGreenFx",
+            true,
+            "Add the vanilla charred mage staff's green orbiting particle effect " +
+            "(charred_magestaff_fire's 'Orbiting Bits') to the mage staff's head - on " +
+            "DvergerStaffSupport it rides the green orb. Unaffected by the FableMageStaffHide* " +
+            "toggles. Applies live.");
+
         // Orientation knobs, one group per staff source family. Each group affects ONLY its family
         // and IS the complete orientation (no hidden built-in layer): 0 on every axis = the staff's
         // raw attach orientation. Defaults are neutral except the Dvergr family, whose values are
@@ -1661,6 +1671,7 @@ public class Plugin : BaseUnityPlugin
         FableMageStaffHideFlare.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageStaffHideSmoke.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageStaffHideFlakes.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageStaffGreenFx.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         foreach (var knob in new[] {
                      FableMagePlayerStaffRotX, FableMagePlayerStaffRotY, FableMagePlayerStaffRotZ,
                      FableMagePlayerStaffOffsetX, FableMagePlayerStaffOffsetY, FableMagePlayerStaffOffsetZ,
