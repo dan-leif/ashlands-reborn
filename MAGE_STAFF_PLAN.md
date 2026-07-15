@@ -1,8 +1,11 @@
 # Fable Mage Staff Plan — dropdown, per-staff orientation, reference-verified in-game loop
 
-**STATUS: COMPLETE (2026-07-14).** All milestones done; all 13 dropdown staffs verified PASS
-against vanilla-carry references; Blocker/Nova dropped (no attach child). Final galleries in
-`screenshots/fable-mage-staffs/{refs,baseline,final}`. Docs in CLAUDE.md.
+**STATUS: v1 COMPLETE (2026-07-14), orientation half SUPERSEDED BY v2 (see the "v2" section at
+the bottom of this file).** The dropdown, the harness, and the reference galleries stand. The
+v1 *baked orientation table* (`StaffOrientationDefaults`) was REJECTED by the user and has been
+deleted from the code — the per-staff PASS claims in the M3 table below are retracted for
+player and charred staffs. Galleries in `screenshots/fable-mage-staffs/{refs,baseline,final}`
+(`final/` re-captured at v2 defaults). Docs in CLAUDE.md.
 
 ## Recovery anchor (read this first if resuming a fresh session)
 
@@ -221,7 +224,13 @@ then refine) or direct cfg edits between launches → bake winners into
 - [x] All must-pass staffs PASS (13/13); Blocker/Nova DROPPED
 - [x] Commit at milestone end
 
-**Per-staff status table** (legend: PENDING / BASELINED / TUNING(values inline) / PASS / DROPPED)
+**Per-staff status table — SUPERSEDED BY v2.** The "Baked rot" column no longer exists in code
+(`StaffOrientationDefaults` deleted); the user rejected the player (X+90) and charred (Y+75)
+bakes as WORSE than the untouched attach orientation, and the Dverger bake survives only folded
+into a config default (see v2). The PASS verdicts here were the executing session's own
+screenshot judgment and did not hold up. Kept verbatim as history.
+
+(legend: PENDING / BASELINED / TUNING(values inline) / PASS / DROPPED)
 
 | Staff | Must-pass | Reference | Status | Baked rot | Baked pos |
 |---|---|---|---|---|---|
@@ -289,3 +298,65 @@ then refine) or direct cfg edits between launches → bake winners into
   child or visible mesh. Non-rendering = DROPPED in M1's decision box, removed in M4.
 - **equipoffset composition order** is a fixed contract (D2); changing it invalidates all
   baked values.
+
+---
+
+# v2 — per-source knobs, user-approved defaults (2026-07-14)
+
+**STATUS: COMPLETE (2026-07-14).** All 18 per-source knobs shipped; Dverger anchor-verified
+against the user-approved capture; player/charred verified against the M1 baselines.
+
+## Context
+
+v1 shipped hardcoded per-family orientations (`StaffOrientationDefaults`: Staff* X+90,
+DvergerStaff* Y+130, charred_magestaff* Y+75) plus six global tweak knobs that composed on top.
+**User verdict: the baked orientations are bad — for player and charred staffs, WORSE than the
+untouched attach orientation.** The user then hand-tuned the Dverger family in-game with the
+global knobs (knob Rot Y=135 on top of the baked Y+130 → Y+265 total; knob Offset
+(-0.075,-0.15,0)) and approved THAT look. v2 therefore:
+
+1. Replaces the 6 global knobs with 18 per-source knobs, one family each.
+2. Deletes every hidden baked layer. **Knob = the entire orientation; knob 0 = raw attach
+   orientation.**
+3. Ships the user's approved values as the Dverger DEFAULTS, neutral (zero) elsewhere.
+
+**Lesson: do not trust screenshot judgment to overrule the user on staff aesthetics.** Ship
+neutral defaults + per-family knobs and let the user tune. v2 verification was anchor-diffing
+against user-approved captures, never aesthetic judgment.
+
+## Final defaults (LOCKED IN — user-specified, do not "improve" them)
+
+| Family (prefix) | Rot X/Y/Z | Offset X/Y/Z | Rationale |
+|---|---|---|---|
+| Player (`Staff*`) — `FableMagePlayerStaff*` | 0 / 0 / 0 | 0 / 0 / 0 | the pre-v1 untouched attach orientation was correct |
+| Dvergr (`DvergerStaff*`) — `FableMageDvergerStaff*` | 0 / **−95** / 0 | **−0.075** / **−0.15** / 0 | the user's approved look, folded: baked Y+130 ∘ knob Y+135 = Y+265 ≡ Y−95 (same-axis rotations sum exactly; −95 fits the −180..180 slider). Offsets are pure addition and the baked pos was zero, so the knob value carries over unchanged |
+| Charred (`charred_magestaff*`) — `FableMageCharredStaff*` | 0 / 0 / 0 | 0 / 0 / 0 | same as player |
+
+Composition contract (v2, simplified): after the vanilla attach + equipoffset and the
+rig-normalize scale, `localRotation *= Quaternion.Euler(familyRot); localPosition += familyPos;`
+Classification is by prefab-name prefix, checked Dverger → Charred → Player (`DvergerStaffFire`
+does not start with `Staff`, so the ordering is safe); anything unrecognized is a no-op.
+
+## Changes shipped
+
+- `Plugin.cs`: 6 old fields/binds → 18 fields/binds (`BindMageKnob` now takes a default);
+  all 18 wired to `OnFableWarriorModeChanged()`; the 6 old keys added to the orphan-purge list
+  (no value migration by design — the user's knob values live on as the Dverger defaults).
+- `FableWarriorPatches.cs`: `StaffOrientationDefaults` + `TryGetStaffOrientationDefault`
+  deleted; `ApplyStaffOrientation` classifies by prefix and applies that family's 6 configs.
+  The `StaffOrientation` profile flag and its call site are unchanged.
+- `MageWeaponTestPatches.cs`: `MageWeaponRotSweep` writes the knobs of the **swept staff's own
+  family** (sweeps are now ABSOLUTE — no hidden base); snapshot/restore covers all 18.
+
+## Verification (anchor-diffing)
+
+- **Anchor capture (pre-change, run 1)**: the live cfg turned out to hold knobs at 0, not the
+  approved Y135/offsets (the user's in-game tuning was never written to disk). The approved
+  state was reproduced exactly by setting knob RotY=135 / OffsetX=−0.075 / OffsetY=−0.15 with
+  the v1 DLL; the log line `defRot=(0,130,0) knobRot=(0,135,0) knobPos=(-0.08,-0.15,0)`
+  confirms the composition. Shots saved aside as the Dverger ground truth.
+- **Run 2 (post-change, pure defaults, all 13 staffs)**: Dverger shots match the anchors;
+  player + charred shots match the M1 `baseline/` staff poses (bodies differ — armor config
+  changed between M1 and now; the STAFF pose is the comparison). `[Fable Warrior] Staff
+  orientation` logs appear for Dverger staffs only (other families are all-zero → silent).
+- cfg confirmed: 6 old keys gone, 18 new keys present at the specified defaults.
