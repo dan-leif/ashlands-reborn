@@ -161,6 +161,15 @@ internal static class PhotoModePatches
             yield break;
         }
 
+        // Programmatic eye-glow assertion, right before the first capture (null = the creature
+        // has no eye-glowing Fable puppet, e.g. Morgen - log nothing).
+        var eyeCheck = FableWarriorPatches.EyeCheck(go);
+        if (eyeCheck != null)
+        {
+            Plugin.Log?.LogInfo($"[AR PhotoMode] EYECHECK {prefabName} {eyeCheck}");
+            animLines.Add($"{prefabName} EYECHECK {eyeCheck}");
+        }
+
         _cameraOverrideActive = true;
 
         foreach (var yaw in Yaws)

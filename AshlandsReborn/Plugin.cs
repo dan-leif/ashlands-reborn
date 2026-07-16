@@ -91,6 +91,13 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableArcherShoulders { get; private set; } = null!;
     public static ConfigEntry<string> FableArcherWeapon { get; private set; } = null!;
     public static ConfigEntry<float> FableArcherWeaponScale { get; private set; } = null!;
+    public static ConfigEntry<bool> FableArcherEyeGlow { get; private set; } = null!;
+    public static ConfigEntry<float> FableArcherEyeOffsetX { get; private set; } = null!;
+    public static ConfigEntry<float> FableArcherEyeOffsetY { get; private set; } = null!;
+    public static ConfigEntry<float> FableArcherEyeOffsetZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableArcherEyeSeparation { get; private set; } = null!;
+    public static ConfigEntry<float> FableArcherEyeScale { get; private set; } = null!;
+    public static ConfigEntry<float> FableArcherEyeIntensity { get; private set; } = null!;
     public static ConfigEntry<string> EnableFableTwitcher { get; private set; } = null!;
     public static ConfigEntry<float> FableTwitcherScale { get; private set; } = null!;
     public static ConfigEntry<string> FableTwitcherSex { get; private set; } = null!;
@@ -101,6 +108,13 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableTwitcherShoulders { get; private set; } = null!;
     public static ConfigEntry<string> FableTwitcherWeapon { get; private set; } = null!;
     public static ConfigEntry<float> FableTwitcherWeaponScale { get; private set; } = null!;
+    public static ConfigEntry<bool> FableTwitcherEyeGlow { get; private set; } = null!;
+    public static ConfigEntry<float> FableTwitcherEyeOffsetX { get; private set; } = null!;
+    public static ConfigEntry<float> FableTwitcherEyeOffsetY { get; private set; } = null!;
+    public static ConfigEntry<float> FableTwitcherEyeOffsetZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableTwitcherEyeSeparation { get; private set; } = null!;
+    public static ConfigEntry<float> FableTwitcherEyeScale { get; private set; } = null!;
+    public static ConfigEntry<float> FableTwitcherEyeIntensity { get; private set; } = null!;
     public static ConfigEntry<string> EnableFableMage { get; private set; } = null!;
     public static ConfigEntry<float> FableMageScale { get; private set; } = null!;
     public static ConfigEntry<string> FableMageSex { get; private set; } = null!;
@@ -111,6 +125,13 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableMageShoulders { get; private set; } = null!;
     public static ConfigEntry<string> FableMageWeapon { get; private set; } = null!;
     public static ConfigEntry<float> FableMageWeaponScale { get; private set; } = null!;
+    public static ConfigEntry<bool> FableMageEyeGlow { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageEyeOffsetX { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageEyeOffsetY { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageEyeOffsetZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageEyeSeparation { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageEyeScale { get; private set; } = null!;
+    public static ConfigEntry<float> FableMageEyeIntensity { get; private set; } = null!;
     public static ConfigEntry<string> FableMageTextureCopyFrom { get; private set; } = null!;
     public static ConfigEntry<string> FableMageTextureCopyTo { get; private set; } = null!;
     public static ConfigEntry<bool> FableMageStaffHideFlare { get; private set; } = null!;
@@ -749,6 +770,65 @@ public class Plugin : BaseUnityPlugin
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
 
+        FableArcherEyeGlow = Config.Bind(
+            "Fable Archer",
+            "FableArcherEyeGlow",
+            true,
+            "Give the Fable Archer the vanilla Charred eye glow, recolored white: the Charred's own " +
+            "EyeGlow particle systems are cloned onto the puppet's head at the position set by the " +
+            "FableArcherEye* settings below.");
+
+        FableArcherEyeOffsetX = Config.Bind(
+            "Fable Archer",
+            "FableArcherEyeOffsetX",
+            0.005f,
+            new ConfigDescription(
+                "Sideways offset of the eye-glow pair from the head bone, in meters (face's right " +
+                "direction; negative = left). Applies to both eyes together - use FableArcherEyeSeparation " +
+                "to spread them apart.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableArcherEyeOffsetY = Config.Bind(
+            "Fable Archer",
+            "FableArcherEyeOffsetY",
+            0.15f,
+            new ConfigDescription(
+                "Vertical offset of the eye-glow pair from the head bone, in meters (up positive).",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableArcherEyeOffsetZ = Config.Bind(
+            "Fable Archer",
+            "FableArcherEyeOffsetZ",
+            0.22f,
+            new ConfigDescription(
+                "Forward/back offset of the eye-glow pair from the head bone, in meters (toward the face " +
+                "positive). Push forward until the glow clears the face instead of being buried in the skull.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableArcherEyeSeparation = Config.Bind(
+            "Fable Archer",
+            "FableArcherEyeSeparation",
+            0.1f,
+            new ConfigDescription(
+                "Distance between the two eye glows, in meters.",
+                new AcceptableValueRange<float>(0f, 0.4f)));
+
+        FableArcherEyeScale = Config.Bind(
+            "Fable Archer",
+            "FableArcherEyeScale",
+            2.0f,
+            new ConfigDescription(
+                "Size multiplier for each eye glow. 1.0 = the vanilla Charred glow size.",
+                new AcceptableValueRange<float>(0.1f, 3f)));
+
+        FableArcherEyeIntensity = Config.Bind(
+            "Fable Archer",
+            "FableArcherEyeIntensity",
+            5.0f,
+            new ConfigDescription(
+                "Brightness of the white eye glow (material tint alpha; 0 = invisible, 5 = max).",
+                new AcceptableValueRange<float>(0f, 5f)));
+
         // --- Fable Twitcher ---
         EnableFableTwitcher = Config.Bind(
             "Fable Twitcher",
@@ -830,6 +910,65 @@ public class Plugin : BaseUnityPlugin
                 "CustomEquipment only: multiplier on the twitcher's weapon size, applied after the weapon is " +
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
+
+        FableTwitcherEyeGlow = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherEyeGlow",
+            true,
+            "Give the Fable Twitcher the vanilla Charred eye glow, recolored white: the Charred's own " +
+            "EyeGlow particle systems are cloned onto the puppet's head at the position set by the " +
+            "FableTwitcherEye* settings below.");
+
+        FableTwitcherEyeOffsetX = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherEyeOffsetX",
+            0.005f,
+            new ConfigDescription(
+                "Sideways offset of the eye-glow pair from the head bone, in meters (face's right " +
+                "direction; negative = left). Applies to both eyes together - use FableTwitcherEyeSeparation " +
+                "to spread them apart.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableTwitcherEyeOffsetY = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherEyeOffsetY",
+            0.15f,
+            new ConfigDescription(
+                "Vertical offset of the eye-glow pair from the head bone, in meters (up positive).",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableTwitcherEyeOffsetZ = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherEyeOffsetZ",
+            0.22f,
+            new ConfigDescription(
+                "Forward/back offset of the eye-glow pair from the head bone, in meters (toward the face " +
+                "positive). Push forward until the glow clears the face instead of being buried in the skull.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableTwitcherEyeSeparation = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherEyeSeparation",
+            0.1f,
+            new ConfigDescription(
+                "Distance between the two eye glows, in meters.",
+                new AcceptableValueRange<float>(0f, 0.4f)));
+
+        FableTwitcherEyeScale = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherEyeScale",
+            2.0f,
+            new ConfigDescription(
+                "Size multiplier for each eye glow. 1.0 = the vanilla Charred glow size.",
+                new AcceptableValueRange<float>(0.1f, 3f)));
+
+        FableTwitcherEyeIntensity = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherEyeIntensity",
+            5.0f,
+            new ConfigDescription(
+                "Brightness of the white eye glow (material tint alpha; 0 = invisible, 5 = max).",
+                new AcceptableValueRange<float>(0f, 5f)));
 
         // --- Fable Mage ---
         EnableFableMage = Config.Bind(
@@ -926,6 +1065,65 @@ public class Plugin : BaseUnityPlugin
                 "CustomEquipment only: multiplier on the mage's weapon size, applied after the weapon is " +
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
+
+        FableMageEyeGlow = Config.Bind(
+            "Fable Mage",
+            "FableMageEyeGlow",
+            true,
+            "Give the Fable Mage the vanilla Charred eye glow, recolored white: the Charred's own " +
+            "EyeGlow particle systems are cloned onto the puppet's head at the position set by the " +
+            "FableMageEye* settings below.");
+
+        FableMageEyeOffsetX = Config.Bind(
+            "Fable Mage",
+            "FableMageEyeOffsetX",
+            0.005f,
+            new ConfigDescription(
+                "Sideways offset of the eye-glow pair from the head bone, in meters (face's right " +
+                "direction; negative = left). Applies to both eyes together - use FableMageEyeSeparation " +
+                "to spread them apart.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableMageEyeOffsetY = Config.Bind(
+            "Fable Mage",
+            "FableMageEyeOffsetY",
+            0.15f,
+            new ConfigDescription(
+                "Vertical offset of the eye-glow pair from the head bone, in meters (up positive).",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableMageEyeOffsetZ = Config.Bind(
+            "Fable Mage",
+            "FableMageEyeOffsetZ",
+            0.22f,
+            new ConfigDescription(
+                "Forward/back offset of the eye-glow pair from the head bone, in meters (toward the face " +
+                "positive). Push forward until the glow clears the face instead of being buried in the skull.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableMageEyeSeparation = Config.Bind(
+            "Fable Mage",
+            "FableMageEyeSeparation",
+            0.1f,
+            new ConfigDescription(
+                "Distance between the two eye glows, in meters.",
+                new AcceptableValueRange<float>(0f, 0.4f)));
+
+        FableMageEyeScale = Config.Bind(
+            "Fable Mage",
+            "FableMageEyeScale",
+            2.0f,
+            new ConfigDescription(
+                "Size multiplier for each eye glow. 1.0 = the vanilla Charred glow size.",
+                new AcceptableValueRange<float>(0.1f, 3f)));
+
+        FableMageEyeIntensity = Config.Bind(
+            "Fable Mage",
+            "FableMageEyeIntensity",
+            5.0f,
+            new ConfigDescription(
+                "Brightness of the white eye glow (material tint alpha; 0 = invisible, 5 = max).",
+                new AcceptableValueRange<float>(0f, 5f)));
 
         FableMageTextureCopyFrom = Config.Bind(
             "Fable Mage",
@@ -1724,6 +1922,13 @@ public class Plugin : BaseUnityPlugin
         FableArcherShoulders.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableArcherWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableArcherWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherEyeGlow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherEyeOffsetX.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableArcherEyeOffsetY.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableArcherEyeOffsetZ.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableArcherEyeSeparation.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableArcherEyeScale.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableArcherEyeIntensity.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
         EnableFableTwitcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableTwitcherScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableTwitcherHelmet.SettingChanged += (_, _) => OnFableWarriorModeChanged();
@@ -1733,6 +1938,13 @@ public class Plugin : BaseUnityPlugin
         FableTwitcherShoulders.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableTwitcherWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableTwitcherWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherEyeGlow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherEyeOffsetX.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableTwitcherEyeOffsetY.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableTwitcherEyeOffsetZ.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableTwitcherEyeSeparation.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableTwitcherEyeScale.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableTwitcherEyeIntensity.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
         EnableFableMage.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageHelmet.SettingChanged += (_, _) => OnFableWarriorModeChanged();
@@ -1742,6 +1954,13 @@ public class Plugin : BaseUnityPlugin
         FableMageShoulders.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageEyeGlow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageEyeOffsetX.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableMageEyeOffsetY.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableMageEyeOffsetZ.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableMageEyeSeparation.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableMageEyeScale.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableMageEyeIntensity.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
         FableMageTextureCopyFrom.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageTextureCopyTo.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageStaffHideFlare.SettingChanged += (_, _) => OnFableWarriorModeChanged();

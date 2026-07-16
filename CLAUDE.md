@@ -578,15 +578,19 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 | `FableWarriorWeapon` | "THSwordKrom" | CustomEquipment right-hand weapon item ID (empty = bare hand); default Krom |
 | `FableWarriorWeaponScale` | 1.16 | CustomEquipment weapon size (ClonePlayer weapons keep natural size) |
 | `FableWarriorWeaponGripRotX/Y/Z` | -17.75 / 15.21 / -121.69 | CustomEquipment weapon grip rotation (deg, hand-attach frame); calibrates the shoulder rest (grip tuning WIP) |
-| `FableWarriorEyeGlow` | true | White eye glow: the Charred's own vanilla `EyeGlow` particle systems (kept deactivated under the hidden skeleton) are cloned onto the puppet's Head bone and recolored (startColor white + instanced material `_TintColor`); `ApplyFableEyes` in `FableWarriorPatches.cs`, warrior-only via the profile's `EyeFx` |
+| `FableWarriorEyeGlow` | true | White eye glow: the Charred's own vanilla `EyeGlow` particle systems (kept deactivated under the hidden skeleton) are cloned onto the puppet's Head bone and recolored (startColor white + instanced material `_TintColor`); `ApplyFableEyes` in `FableWarriorPatches.cs`, gated per class via the profile's `EyeFx` (all four classes have their own `Fable[Class]Eye*` set) |
 | `FableWarriorEyeOffsetX/Y/Z` | 0.005 / 0.15 / 0.22 | Eye-pair position relative to the puppet Head bone, meters along the FACE's right/up/forward — head-local axes computed once from the Player prefab's rest pose (`EnsureHeadFaceAxes`), NEVER from the live pose: fixups re-run mid-animation (spawn anim; player equip changes re-clone all puppets) and a live-pose world bake freezes the head's momentary orientation into the offsets (eyes behind the ear) |
 | `FableWarriorEyeSeparation` | 0.1 | Distance between the two eye glows (m) |
 | `FableWarriorEyeScale` | 2.0 | Glow size multiplier (via `startSizeMultiplier`, so it works regardless of the ParticleSystem scaling mode; the clone's lossyScale is normalized to the vanilla source's for a vanilla-size baseline) |
 | `FableWarriorEyeIntensity` | 5.0 | Glow brightness (tint alpha = intensity/5, the proven old-CharredWarriorPatches recipe) |
 
-The 6 eye tuning sliders route through `UpdateFableEyes` (adjust the live clones in place —
-transform + material only, absolute size from a captured base so nothing compounds); only the
-`FableWarriorEyeGlow` toggle does a full puppet rebuild. A rebuild restarts the glow particle
+The 6 eye tuning sliders of every class route through `UpdateFableEyes` (adjust the live clones
+in place — transform + material only, absolute size from a captured base so nothing compounds);
+only the `Fable[Class]EyeGlow` toggles do a full puppet rebuild. The eye code reads per-class
+values via `CreatureProfile` funcs (`EyeFx`/`EyeOffset`/`EyeSeparation`/`EyeScale`/`EyeIntensity`);
+the photo harness logs a programmatic `[AR PhotoMode] EYECHECK <prefab> PASS|FAIL` per Fable
+creature (`FableWarriorPatches.EyeCheck`: clones alive + emitting, separation ≈ config ±30%,
+eyes in front of the face plane, within 0.6 m of the head). A rebuild restarts the glow particle
 systems, which refill over seconds (and not at all while paused), so slider-driven rebuilds made
 the eyes blink out mid-tuning. Fresh clones are prewarmed (`ps.Simulate(2f)`) so spawned warriors
 glow at full brightness immediately.
@@ -607,7 +611,9 @@ Old keys auto-migrate on first load and are purged from the cfg orphan store:
 
 Sections **"Fable Archer" / "Fable Twitcher" / "Fable Mage"** mirror the Warrior's keys
 (`EnableFable[Class]` tri-state, `Fable[Class]Scale`, `Fable[Class]Sex`, `Fable[Class]Helmet/
-HelmetScale/Chest/Legs/Shoulders`, `Fable[Class]Weapon`, `Fable[Class]WeaponScale`) — but with
+HelmetScale/Chest/Legs/Shoulders`, `Fable[Class]Weapon`, `Fable[Class]WeaponScale`, plus the 7
+eye keys `Fable[Class]EyeGlow/EyeOffsetX/Y/Z/EyeSeparation/EyeScale/EyeIntensity` seeded with the
+Warrior's tuned values) — but with
 **no grip knobs** (Warrior-only; the Mage instead has its own 18 staff-orientation keys, below).
 CustomEquipment defaults: Archer =
 `norahhelmalt`/`norahchest`/`norahlegs` + `BowAshlands` (LEFT hand, `WeaponScale` 1.3); Mage =

@@ -86,9 +86,15 @@ internal static class FableWarriorPatches
         /// by material name or main-texture name; see ApplyArmorTextureCopy). Either empty = off.</summary>
         public Func<string> TextureCopyFrom = () => "";
         public Func<string> TextureCopyTo = () => "";
-        /// <summary>Warrior only: re-add the vanilla Charred eye glow (recolored white) on the
-        /// puppet's head, positioned by the FableWarriorEye* configs (see ApplyFableEyes).</summary>
+        /// <summary>Re-add the vanilla Charred eye glow (recolored white) on the puppet's head,
+        /// positioned by that class's Fable[Class]Eye* configs (see ApplyFableEyes).</summary>
         public Func<bool> EyeFx = () => false;
+        /// <summary>Eye-glow pair position relative to the head bone, meters along the face's
+        /// right/up/forward rest-pose axes (see EyeLocalPos).</summary>
+        public Func<Vector3> EyeOffset = () => Vector3.zero;
+        public Func<float> EyeSeparation = () => 0.1f;
+        public Func<float> EyeScale = () => 2f;
+        public Func<float> EyeIntensity = () => 5f;
     }
 
     private static readonly CreatureProfile[] Profiles =
@@ -113,6 +119,13 @@ internal static class FableWarriorPatches
             KeepClonedHands = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.ClonePlayer,
             WeaponGrip = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.CustomEquipment,
             EyeFx = () => Plugin.FableWarriorEyeGlow?.Value == true,
+            EyeOffset = () => new Vector3(
+                Plugin.FableWarriorEyeOffsetX?.Value ?? 0.005f,
+                Plugin.FableWarriorEyeOffsetY?.Value ?? 0.15f,
+                Plugin.FableWarriorEyeOffsetZ?.Value ?? 0.22f),
+            EyeSeparation = () => Plugin.FableWarriorEyeSeparation?.Value ?? 0.1f,
+            EyeScale = () => Plugin.FableWarriorEyeScale?.Value ?? 2f,
+            EyeIntensity = () => Plugin.FableWarriorEyeIntensity?.Value ?? 5f,
         },
         new()
         {
@@ -133,6 +146,14 @@ internal static class FableWarriorPatches
             LegItem = () => Plugin.FableArcherLegs?.Value ?? "",
             ShoulderItem = () => Plugin.FableArcherShoulders?.Value ?? "",
             KeepClonedHands = () => ParseMode(Plugin.EnableFableArcher?.Value) == FableMode.ClonePlayer,
+            EyeFx = () => Plugin.FableArcherEyeGlow?.Value == true,
+            EyeOffset = () => new Vector3(
+                Plugin.FableArcherEyeOffsetX?.Value ?? 0.005f,
+                Plugin.FableArcherEyeOffsetY?.Value ?? 0.15f,
+                Plugin.FableArcherEyeOffsetZ?.Value ?? 0.22f),
+            EyeSeparation = () => Plugin.FableArcherEyeSeparation?.Value ?? 0.1f,
+            EyeScale = () => Plugin.FableArcherEyeScale?.Value ?? 2f,
+            EyeIntensity = () => Plugin.FableArcherEyeIntensity?.Value ?? 5f,
         },
         new()
         {
@@ -153,6 +174,14 @@ internal static class FableWarriorPatches
             LegItem = () => Plugin.FableTwitcherLegs?.Value ?? "",
             ShoulderItem = () => Plugin.FableTwitcherShoulders?.Value ?? "",
             KeepClonedHands = () => ParseMode(Plugin.EnableFableTwitcher?.Value) == FableMode.ClonePlayer,
+            EyeFx = () => Plugin.FableTwitcherEyeGlow?.Value == true,
+            EyeOffset = () => new Vector3(
+                Plugin.FableTwitcherEyeOffsetX?.Value ?? 0.005f,
+                Plugin.FableTwitcherEyeOffsetY?.Value ?? 0.15f,
+                Plugin.FableTwitcherEyeOffsetZ?.Value ?? 0.22f),
+            EyeSeparation = () => Plugin.FableTwitcherEyeSeparation?.Value ?? 0.1f,
+            EyeScale = () => Plugin.FableTwitcherEyeScale?.Value ?? 2f,
+            EyeIntensity = () => Plugin.FableTwitcherEyeIntensity?.Value ?? 5f,
         },
         new()
         {
@@ -180,6 +209,14 @@ internal static class FableWarriorPatches
                 ? (Plugin.FableMageTextureCopyFrom?.Value ?? "") : "",
             TextureCopyTo = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment
                 ? (Plugin.FableMageTextureCopyTo?.Value ?? "") : "",
+            EyeFx = () => Plugin.FableMageEyeGlow?.Value == true,
+            EyeOffset = () => new Vector3(
+                Plugin.FableMageEyeOffsetX?.Value ?? 0.005f,
+                Plugin.FableMageEyeOffsetY?.Value ?? 0.15f,
+                Plugin.FableMageEyeOffsetZ?.Value ?? 0.22f),
+            EyeSeparation = () => Plugin.FableMageEyeSeparation?.Value ?? 0.1f,
+            EyeScale = () => Plugin.FableMageEyeScale?.Value ?? 2f,
+            EyeIntensity = () => Plugin.FableMageEyeIntensity?.Value ?? 5f,
         },
     };
 
@@ -825,22 +862,21 @@ internal static class FableWarriorPatches
     /// <summary>One eye's position relative to the head bone: config meters along the face's
     /// right/up/forward, converted to head-local units via the live head lossyScale (uniform on
     /// the puppet rig). side = -0.5 (left) / +0.5 (right) applies the separation.</summary>
-    private static Vector3 EyeLocalPos(Transform head, float side)
+    private static Vector3 EyeLocalPos(CreatureProfile p, Transform head, float side)
     {
-        var ox = Plugin.FableWarriorEyeOffsetX?.Value ?? 0.005f;
-        var oy = Plugin.FableWarriorEyeOffsetY?.Value ?? 0.15f;
-        var oz = Plugin.FableWarriorEyeOffsetZ?.Value ?? 0.22f;
-        var sep = Plugin.FableWarriorEyeSeparation?.Value ?? 0.1f;
-        var meters = _headLocalRight * (ox + side * sep) + _headLocalUp * oy + _headLocalFwd * oz;
+        var o = p.EyeOffset();
+        var sep = p.EyeSeparation();
+        var meters = _headLocalRight * (o.x + side * sep) + _headLocalUp * o.y + _headLocalFwd * o.z;
         return meters / Mathf.Max(1e-5f, Mathf.Abs(head.lossyScale.y));
     }
 
     /// <summary>
-    /// Fable eye glow (warrior only): clone the vanilla Charred EyeGlow particle system onto the
-    /// puppet's Head bone, one per eye, recolored white (the old CharredWarriorPatches recipe:
-    /// startColor white + instanced material _TintColor alpha = intensity/5). Positioning cannot
-    /// come from the vanilla nodes (they sit on the CHARRED head, not the puppet's); the pair is
-    /// placed head-locally by the FableWarriorEye* configs via the pose-independent rest-pose
+    /// Fable eye glow (all four classes, gated per profile): clone the vanilla Charred EyeGlow
+    /// particle system onto the puppet's Head bone, one per eye, recolored white (the old
+    /// CharredWarriorPatches recipe: startColor white + instanced material _TintColor alpha =
+    /// intensity/5). Positioning cannot come from the vanilla nodes (they sit on the CHARRED
+    /// head, not the puppet's); the pair is placed head-locally by the profile's
+    /// Fable[Class]Eye* configs via the pose-independent rest-pose
     /// axes above. Clone lossyScale is normalized to the source's for a vanilla-size baseline;
     /// the size knob goes through startSizeMultiplier (works for any PS scaling mode). Clones
     /// are prewarmed (Simulate) so fresh warriors glow at full brightness immediately.
@@ -929,14 +965,16 @@ internal static class FableWarriorPatches
 
     private static void UpdateFableEyeInstance(AshlandsRebornFableWarrior marker, Transform head)
     {
-        var sizeMul = Plugin.FableWarriorEyeScale?.Value ?? 2f;
-        var intensity = Plugin.FableWarriorEyeIntensity?.Value ?? 5f;
+        var profile = marker.Profile;
+        if (profile == null) return;
+        var sizeMul = profile.EyeScale();
+        var intensity = profile.EyeIntensity();
         var tint = new Color(1f, 1f, 1f, Mathf.Clamp01(intensity / 5f));
         for (var i = 0; i < 2; i++)
         {
             var eye = marker.EyeClones[i];
             if (eye == null) continue;
-            eye.transform.localPosition = EyeLocalPos(head, i == 0 ? -0.5f : 0.5f);
+            eye.transform.localPosition = EyeLocalPos(profile, head, i == 0 ? -0.5f : 0.5f);
 
             var ps = eye.GetComponent<ParticleSystem>();
             if (ps != null)
@@ -952,6 +990,58 @@ internal static class FableWarriorPatches
                 else if (mat.HasProperty("_Color")) mat.SetColor("_Color", tint);
             }
         }
+    }
+
+    /// <summary>
+    /// Programmatic eye-glow assertion for the photo harness (positions are the user's to tune;
+    /// this only catches structural failures - missing/dead clones, eyes behind the face plane
+    /// (the round-2 bug class), or a separation that doesn't match the config). Returns null for
+    /// creatures without an eye-glowing Fable puppet (harness logs nothing), else a
+    /// "PASS ..."/"FAIL ..." summary line.
+    /// </summary>
+    internal static string? EyeCheck(GameObject creatureRoot)
+    {
+        if (creatureRoot == null) return null;
+        var marker = creatureRoot.GetComponent<AshlandsRebornFableWarrior>();
+        if (marker == null || !marker.Built || marker.Profile?.EyeFx() != true) return null;
+
+        var head = marker.EyeAnchor != null ? marker.EyeAnchor.parent : null;
+        if (head == null) return "FAIL no eye anchor (ApplyFableEyes never ran or was skipped)";
+        if (!EnsureHeadFaceAxes()) return "FAIL head face axes unavailable";
+
+        var problems = new List<string>();
+        var positions = new Vector3[2];
+        var faceFwd = head.TransformDirection(_headLocalFwd);
+        for (var i = 0; i < 2; i++)
+        {
+            var tag = i == 0 ? "L" : "R";
+            var eye = marker.EyeClones[i];
+            if (eye == null) { problems.Add($"{tag} clone missing"); continue; }
+            positions[i] = eye.transform.position;
+            if (!eye.activeInHierarchy) problems.Add($"{tag} inactive");
+            var ps = eye.GetComponent<ParticleSystem>();
+            if (ps == null) problems.Add($"{tag} has no ParticleSystem");
+            else if (ps.particleCount <= 0) problems.Add($"{tag} particleCount=0 (prewarm should guarantee particles)");
+            var headDist = Vector3.Distance(positions[i], head.position);
+            if (headDist > 0.6f) problems.Add($"{tag} {headDist:F2}m from head (>0.6m)");
+            if (Vector3.Dot(faceFwd, positions[i] - head.position) <= 0f)
+                problems.Add($"{tag} behind the face plane");
+        }
+
+        var sep = -1f;
+        if (marker.EyeClones[0] != null && marker.EyeClones[1] != null)
+        {
+            sep = Vector3.Distance(positions[0], positions[1]);
+            var want = marker.Profile.EyeSeparation();
+            // Config meters survive the puppet scale normalization by design (EyeLocalPos
+            // divides by the head lossyScale), so world distance should match within 30%.
+            if (want > 1e-4f && Mathf.Abs(sep - want) > want * 0.3f)
+                problems.Add($"separation {sep:F3}m vs config {want:F3}m (>30% off)");
+        }
+
+        return problems.Count == 0
+            ? $"PASS ({marker.Profile.Label}) both eyes active+emitting, sep={sep:F3}m, in front of face"
+            : $"FAIL ({marker.Profile.Label}) " + string.Join("; ", problems);
     }
 
     /// <summary>
