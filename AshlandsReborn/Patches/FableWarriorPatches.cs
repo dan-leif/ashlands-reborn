@@ -86,6 +86,9 @@ internal static class FableWarriorPatches
         /// by material name or main-texture name; see ApplyArmorTextureCopy). Either empty = off.</summary>
         public Func<string> TextureCopyFrom = () => "";
         public Func<string> TextureCopyTo = () => "";
+        /// <summary>Warrior only: re-add the vanilla Charred eye glow (recolored white) on the
+        /// puppet's head, positioned by the FableWarriorEye* configs (see ApplyFableEyes).</summary>
+        public Func<bool> EyeFx = () => false;
     }
 
     private static readonly CreatureProfile[] Profiles =
@@ -109,6 +112,7 @@ internal static class FableWarriorPatches
             ShoulderItem = () => Plugin.FableWarriorShoulders?.Value ?? "",
             KeepClonedHands = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.ClonePlayer,
             WeaponGrip = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.CustomEquipment,
+            EyeFx = () => Plugin.FableWarriorEyeGlow?.Value == true,
         },
         new()
         {
@@ -567,6 +571,11 @@ internal static class FableWarriorPatches
     /// </summary>
     private static void SuppressCharredExtras(Humanoid humanoid, VisEquipment charredVis, AshlandsRebornFableWarrior marker)
     {
+        // Keep a handle to the vanilla eye glow before it goes dark: ApplyFableEyes clones it
+        // onto the puppet's head (recolored white). The deactivated original stays intact under
+        // the hidden charred skeleton, so Instantiate works on it at any later time.
+        marker.CharredEyeGlowSource = FindChildRecursive(humanoid.transform, "EyeGlow");
+
         CollectGlowFx(humanoid.transform, marker.DisabledFx);
         foreach (var fx in marker.DisabledFx)
             fx.SetActive(false);
@@ -788,6 +797,161 @@ internal static class FableWarriorPatches
         }
 
         ApplyArmorTextureCopy(marker);
+        ApplyFableEyes(marker);
+    }
+
+    // Face axes of the player rig's Head bone, expressed in head-LOCAL space, computed once
+    // from the Player PREFAB's rest pose. InverseTransformDirection is rotation-only, so these
+    // are rig constants - valid for every puppet instance in ANY animation pose. Never sample
+    // the live pose for eye placement: fixups re-run mid-animation (spawn anim; player equip
+    // changes re-clone all puppets), and a live-pose world bake freezes the head's momentary
+    // orientation into the offsets (round-2 bug: eyes behind the ear / back of the skull).
+    private static bool _headAxesCached;
+    private static Vector3 _headLocalRight, _headLocalUp, _headLocalFwd;
+
+    private static bool EnsureHeadFaceAxes()
+    {
+        if (_headAxesCached) return true;
+        var prefab = Game.instance != null ? Game.instance.m_playerPrefab : ZNetScene.instance?.GetPrefab("Player");
+        var head = prefab != null ? FindChildRecursive(prefab.transform, "Head") : null;
+        if (prefab == null || head == null) return false;
+        _headLocalRight = head.InverseTransformDirection(prefab.transform.right);
+        _headLocalUp = head.InverseTransformDirection(prefab.transform.up);
+        _headLocalFwd = head.InverseTransformDirection(prefab.transform.forward);
+        _headAxesCached = true;
+        return true;
+    }
+
+    /// <summary>One eye's position relative to the head bone: config meters along the face's
+    /// right/up/forward, converted to head-local units via the live head lossyScale (uniform on
+    /// the puppet rig). side = -0.5 (left) / +0.5 (right) applies the separation.</summary>
+    private static Vector3 EyeLocalPos(Transform head, float side)
+    {
+        var ox = Plugin.FableWarriorEyeOffsetX?.Value ?? 0.005f;
+        var oy = Plugin.FableWarriorEyeOffsetY?.Value ?? 0.15f;
+        var oz = Plugin.FableWarriorEyeOffsetZ?.Value ?? 0.22f;
+        var sep = Plugin.FableWarriorEyeSeparation?.Value ?? 0.1f;
+        var meters = _headLocalRight * (ox + side * sep) + _headLocalUp * oy + _headLocalFwd * oz;
+        return meters / Mathf.Max(1e-5f, Mathf.Abs(head.lossyScale.y));
+    }
+
+    /// <summary>
+    /// Fable eye glow (warrior only): clone the vanilla Charred EyeGlow particle system onto the
+    /// puppet's Head bone, one per eye, recolored white (the old CharredWarriorPatches recipe:
+    /// startColor white + instanced material _TintColor alpha = intensity/5). Positioning cannot
+    /// come from the vanilla nodes (they sit on the CHARRED head, not the puppet's); the pair is
+    /// placed head-locally by the FableWarriorEye* configs via the pose-independent rest-pose
+    /// axes above. Clone lossyScale is normalized to the source's for a vanilla-size baseline;
+    /// the size knob goes through startSizeMultiplier (works for any PS scaling mode). Clones
+    /// are prewarmed (Simulate) so fresh warriors glow at full brightness immediately.
+    /// Rebuilt from scratch on every fixup pass (idempotent via marker.EyeAnchor); the tuning
+    /// sliders instead go through UpdateFableEyes, which adjusts these clones in place.
+    /// </summary>
+    private static void ApplyFableEyes(AshlandsRebornFableWarrior marker)
+    {
+        if (marker.Puppet == null) return;
+        if (marker.EyeAnchor != null)
+        {
+            UObject.Destroy(marker.EyeAnchor.gameObject);
+            marker.EyeAnchor = null;
+        }
+        marker.EyeClones[0] = marker.EyeClones[1] = null;
+        if (marker.Profile?.EyeFx() != true) return;
+
+        var head = FindChildRecursive(marker.Puppet.transform, "Head");
+        var src = marker.CharredEyeGlowSource;
+        if (head == null || src == null || !EnsureHeadFaceAxes())
+        {
+            Plugin.Log?.LogWarning(
+                $"[Fable Warrior] Eye glow skipped on {marker.gameObject.name}: " +
+                $"head={(head != null)}, source={(src != null)}, axes={_headAxesCached}");
+            return;
+        }
+
+        var anchor = new GameObject("AR_FableEyes").transform;
+        anchor.SetParent(head, worldPositionStays: false);
+        anchor.localPosition = Vector3.zero;
+        anchor.localRotation = Quaternion.identity;
+        anchor.localScale = Vector3.one;
+        marker.EyeAnchor = anchor;
+
+        var srcLossy = Mathf.Max(1e-5f, Mathf.Abs(src.lossyScale.y));
+        var anchorLossy = Mathf.Max(1e-5f, Mathf.Abs(anchor.lossyScale.y));
+
+        for (var i = 0; i < 2; i++)
+        {
+            var eye = UObject.Instantiate(src.gameObject, anchor);
+            eye.name = i == 0 ? "AR_FableEyeGlow_L" : "AR_FableEyeGlow_R";
+            eye.transform.localRotation = Quaternion.identity;
+            eye.transform.localScale = Vector3.one * (srcLossy / anchorLossy);
+
+            var ps = eye.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                var main = ps.main;
+                main.startColor = new ParticleSystem.MinMaxGradient(Color.white);
+                marker.EyeBaseSize[i] = main.startSizeMultiplier; // base for the absolute size knob
+            }
+            var psr = eye.GetComponent<ParticleSystemRenderer>();
+            if (psr != null && psr.sharedMaterial != null)
+                psr.sharedMaterial = UObject.Instantiate(psr.sharedMaterial); // tint set in update
+
+            eye.SetActive(true); // the suppressed source is inactive, so clones start inactive
+            if (ps != null)
+            {
+                ps.Simulate(2f, withChildren: true, restart: true);
+                ps.Play(withChildren: true);
+            }
+            marker.EyeClones[i] = eye;
+        }
+        UpdateFableEyeInstance(marker, head);
+        Plugin.Log?.LogInfo($"[Fable Warrior] Eye glow applied on {marker.gameObject.name}");
+    }
+
+    /// <summary>
+    /// Live re-apply of the eye tuning configs (offset/separation/scale/intensity SettingChanged)
+    /// on every built warrior's EXISTING eye clones - transform + material only, no rebuild and
+    /// no particle restart, so the glow never blinks out while dragging the F1 sliders (a full
+    /// RefreshAll restarts the particle systems, which refill over seconds and not at all while
+    /// paused). Falls back to a fresh ApplyFableEyes when a marker has no clones yet.
+    /// </summary>
+    internal static void UpdateFableEyes()
+    {
+        for (var i = 0; i < Registry.Count; i++)
+        {
+            var m = Registry[i];
+            if (m == null || !m.Built || m.Profile?.EyeFx() != true) continue;
+            var head = m.EyeAnchor != null ? m.EyeAnchor.parent : null;
+            if (head == null || m.EyeClones[0] == null) ApplyFableEyes(m);
+            else UpdateFableEyeInstance(m, head);
+        }
+    }
+
+    private static void UpdateFableEyeInstance(AshlandsRebornFableWarrior marker, Transform head)
+    {
+        var sizeMul = Plugin.FableWarriorEyeScale?.Value ?? 2f;
+        var intensity = Plugin.FableWarriorEyeIntensity?.Value ?? 5f;
+        var tint = new Color(1f, 1f, 1f, Mathf.Clamp01(intensity / 5f));
+        for (var i = 0; i < 2; i++)
+        {
+            var eye = marker.EyeClones[i];
+            if (eye == null) continue;
+            eye.transform.localPosition = EyeLocalPos(head, i == 0 ? -0.5f : 0.5f);
+
+            var ps = eye.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                var main = ps.main;
+                main.startSizeMultiplier = marker.EyeBaseSize[i] * sizeMul; // absolute: no compounding
+            }
+            var psr = eye.GetComponent<ParticleSystemRenderer>();
+            var mat = psr != null ? psr.sharedMaterial : null; // our instance from ApplyFableEyes
+            if (mat != null)
+            {
+                if (mat.HasProperty("_TintColor")) mat.SetColor("_TintColor", tint);
+                else if (mat.HasProperty("_Color")) mat.SetColor("_Color", tint);
+            }
+        }
     }
 
     /// <summary>
@@ -1487,6 +1651,10 @@ internal class AshlandsRebornFableWarrior : MonoBehaviour
     public string PrefabName = "";
     public bool EquipPending;
     public string? AppliedEquipSignature;
+    public Transform? CharredEyeGlowSource;
+    public Transform? EyeAnchor;
+    public readonly GameObject?[] EyeClones = new GameObject?[2];
+    public readonly float[] EyeBaseSize = new float[2];
     public GameObject? LastFixedRightItem;
     public GameObject? LastFixedLeftItem;
     public GameObject? LastFixedHelmet;

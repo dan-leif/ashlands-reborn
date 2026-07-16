@@ -73,6 +73,13 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableWarriorWeaponGripRotX { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorWeaponGripRotY { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorWeaponGripRotZ { get; private set; } = null!;
+    public static ConfigEntry<bool> FableWarriorEyeGlow { get; private set; } = null!;
+    public static ConfigEntry<float> FableWarriorEyeOffsetX { get; private set; } = null!;
+    public static ConfigEntry<float> FableWarriorEyeOffsetY { get; private set; } = null!;
+    public static ConfigEntry<float> FableWarriorEyeOffsetZ { get; private set; } = null!;
+    public static ConfigEntry<float> FableWarriorEyeSeparation { get; private set; } = null!;
+    public static ConfigEntry<float> FableWarriorEyeScale { get; private set; } = null!;
+    public static ConfigEntry<float> FableWarriorEyeIntensity { get; private set; } = null!;
     // Archer/Twitcher/Mage mirror the Fable Warrior tri-state (Disabled/ClonePlayer/CustomEquipment).
     public static ConfigEntry<string> EnableFableArcher { get; private set; } = null!;
     public static ConfigEntry<float> FableArcherScale { get; private set; } = null!;
@@ -600,6 +607,65 @@ public class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "CustomEquipment only: rotation (degrees) of the warrior's weapon around the hand-attach local Z axis.",
                 new AcceptableValueRange<float>(-180f, 180f)));
+
+        FableWarriorEyeGlow = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorEyeGlow",
+            true,
+            "Give the Fable Warrior the vanilla Charred eye glow, recolored white: the Charred's own " +
+            "EyeGlow particle systems are cloned onto the puppet's head at the position set by the " +
+            "FableWarriorEye* settings below.");
+
+        FableWarriorEyeOffsetX = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorEyeOffsetX",
+            0.005f,
+            new ConfigDescription(
+                "Sideways offset of the eye-glow pair from the head bone, in meters (face's right " +
+                "direction; negative = left). Applies to both eyes together - use FableWarriorEyeSeparation " +
+                "to spread them apart.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableWarriorEyeOffsetY = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorEyeOffsetY",
+            0.15f,
+            new ConfigDescription(
+                "Vertical offset of the eye-glow pair from the head bone, in meters (up positive).",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableWarriorEyeOffsetZ = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorEyeOffsetZ",
+            0.22f,
+            new ConfigDescription(
+                "Forward/back offset of the eye-glow pair from the head bone, in meters (toward the face " +
+                "positive). Push forward until the glow clears the face instead of being buried in the skull.",
+                new AcceptableValueRange<float>(-0.5f, 0.5f)));
+
+        FableWarriorEyeSeparation = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorEyeSeparation",
+            0.1f,
+            new ConfigDescription(
+                "Distance between the two eye glows, in meters.",
+                new AcceptableValueRange<float>(0f, 0.4f)));
+
+        FableWarriorEyeScale = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorEyeScale",
+            2.0f,
+            new ConfigDescription(
+                "Size multiplier for each eye glow. 1.0 = the vanilla Charred glow size.",
+                new AcceptableValueRange<float>(0.1f, 3f)));
+
+        FableWarriorEyeIntensity = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorEyeIntensity",
+            5.0f,
+            new ConfigDescription(
+                "Brightness of the white eye glow (material tint alpha; 0 = invisible, 5 = max).",
+                new AcceptableValueRange<float>(0f, 5f)));
 
         // --- Fable Archer ---
         EnableFableArcher = Config.Bind(
@@ -1639,6 +1705,16 @@ public class Plugin : BaseUnityPlugin
         FableWarriorWeaponGripRotX.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorWeaponGripRotY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorWeaponGripRotZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableWarriorEyeGlow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        // Eye tuning sliders adjust the live clones in place (no puppet rebuild - a rebuild
+        // restarts the glow particle systems, which refill over seconds and blink out while
+        // dragging sliders in the pause menu).
+        FableWarriorEyeOffsetX.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableWarriorEyeOffsetY.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableWarriorEyeOffsetZ.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableWarriorEyeSeparation.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableWarriorEyeScale.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
+        FableWarriorEyeIntensity.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
         EnableFableArcher.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableArcherScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableArcherHelmet.SettingChanged += (_, _) => OnFableWarriorModeChanged();

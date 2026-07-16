@@ -578,6 +578,24 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 | `FableWarriorWeapon` | "THSwordKrom" | CustomEquipment right-hand weapon item ID (empty = bare hand); default Krom |
 | `FableWarriorWeaponScale` | 1.16 | CustomEquipment weapon size (ClonePlayer weapons keep natural size) |
 | `FableWarriorWeaponGripRotX/Y/Z` | -17.75 / 15.21 / -121.69 | CustomEquipment weapon grip rotation (deg, hand-attach frame); calibrates the shoulder rest (grip tuning WIP) |
+| `FableWarriorEyeGlow` | true | White eye glow: the Charred's own vanilla `EyeGlow` particle systems (kept deactivated under the hidden skeleton) are cloned onto the puppet's Head bone and recolored (startColor white + instanced material `_TintColor`); `ApplyFableEyes` in `FableWarriorPatches.cs`, warrior-only via the profile's `EyeFx` |
+| `FableWarriorEyeOffsetX/Y/Z` | 0.005 / 0.15 / 0.22 | Eye-pair position relative to the puppet Head bone, meters along the FACE's right/up/forward — head-local axes computed once from the Player prefab's rest pose (`EnsureHeadFaceAxes`), NEVER from the live pose: fixups re-run mid-animation (spawn anim; player equip changes re-clone all puppets) and a live-pose world bake freezes the head's momentary orientation into the offsets (eyes behind the ear) |
+| `FableWarriorEyeSeparation` | 0.1 | Distance between the two eye glows (m) |
+| `FableWarriorEyeScale` | 2.0 | Glow size multiplier (via `startSizeMultiplier`, so it works regardless of the ParticleSystem scaling mode; the clone's lossyScale is normalized to the vanilla source's for a vanilla-size baseline) |
+| `FableWarriorEyeIntensity` | 5.0 | Glow brightness (tint alpha = intensity/5, the proven old-CharredWarriorPatches recipe) |
+
+The 6 eye tuning sliders route through `UpdateFableEyes` (adjust the live clones in place —
+transform + material only, absolute size from a captured base so nothing compounds); only the
+`FableWarriorEyeGlow` toggle does a full puppet rebuild. A rebuild restarts the glow particle
+systems, which refill over seconds (and not at all while paused), so slider-driven rebuilds made
+the eyes blink out mid-tuning. Fresh clones are prewarmed (`ps.Simulate(2f)`) so spawned warriors
+glow at full brightness immediately.
+
+Recon note (UnityPy, bundle `c4210710`): the vanilla red eyes are TWO things — the `EyeGlow`/
+`EyeGlow (1)` ParticleSystems on the Charred Head bone (this feature clones those), and a separate
+`Eyes` SkinnedMeshRenderer skinned to the full 56-bone Charred skeleton with the red baked into the
+`Charred_mat` texture. The latter can neither be re-parented to the puppet nor recolored white,
+which is why there is no "eyeballs" toggle — glow only.
 
 Every key in the Fable Warrior/Archer/Twitcher/Mage sections applies **instantly** via
 `SettingChanged` (rebuilds the affected puppets live) — there is no manual refresh hotkey.
