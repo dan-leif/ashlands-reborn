@@ -275,10 +275,15 @@ internal static class FortressStonePatches
 
             if (active && applied > 0)
             {
+                var glowInfo = "";
+                if (family.HasGlow)
+                {
+                    var g = ResolveGlowColor(new Color(1f, 0f, 0.235f));
+                    glowInfo = $" glow={Plugin.FortressStoneGlowStyle?.Value} ({g.r:0.##},{g.g:0.##},{g.b:0.##})";
+                }
                 Plugin.Log?.LogInfo(
                     $"[Fortress Stone] applied {family.Name}: {applied} mats, brightness={brightness:0.###} " +
-                    $"tint=({tint.x:0.###},{tint.y:0.###},{tint.z:0.###})" +
-                    (family.HasGlow ? $" glow={Plugin.FortressStoneGlowStyle?.Value}" : ""));
+                    $"tint=({tint.x:0.###},{tint.y:0.###},{tint.z:0.###})" + glowInfo);
             }
         }
     }

@@ -1607,7 +1607,7 @@ public class Plugin : BaseUnityPlugin
         RuinsStoneMaterials = Config.Bind(
             "Ruins Stone",
             "RuinsStoneMaterials",
-            "Ashlands_Stone_mat,Ashlands_Stone_Ashen_mat,Ashlands_Stone_Ashen_half_mat," +
+            "Ashlands_Stone_Ashen_mat,Ashlands_Stone_Ashen_half_mat," +
             "Ashlands_Stone_Ashen_Rough_mat,Ashlands_Stone_Ashen_Destroyed_mat,Ashlands_RoofSlab_mat",
             "Advanced: CSV of material base names in the ruins family.");
 
