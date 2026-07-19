@@ -1048,7 +1048,7 @@ internal static class FableBunnyPatches
     /// <summary>Strip a decorative clone to pure visuals: all MonoBehaviours, colliders,
     /// rigidbodies, force fields, and audio go; renderers/particles/lights stay. Lighter
     /// cousin of StripDonor for non-creature prefabs (no Animator to preserve).</summary>
-    private static void StripToVisual(GameObject clone)
+    internal static void StripToVisual(GameObject clone)
     {
         for (var pass = 0; pass < 5; pass++)
         {

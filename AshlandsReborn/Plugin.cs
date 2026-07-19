@@ -186,6 +186,14 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableBunnyRollStyle { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyMode { get; private set; } = null!;
 
+    // --- Fable Ballista ---
+    public static ConfigEntry<bool> EnableFableBallista { get; private set; } = null!;
+    public static ConfigEntry<float> FableBallistaScale { get; private set; } = null!;
+    public static ConfigEntry<float> FableBallistaYOffset { get; private set; } = null!;
+    public static ConfigEntry<float> FableBallistaRecoilAmplitude { get; private set; } = null!;
+    public static ConfigEntry<string> FableBallistaSourcePrefab { get; private set; } = null!;
+    public static ConfigEntry<string> FableBallistaDonorPrefab { get; private set; } = null!;
+
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
     public static ConfigEntry<bool> FableBunnyReconDump { get; private set; } = null!;
@@ -225,6 +233,9 @@ public class Plugin : BaseUnityPlugin
     // Global gate for the Fable Bunny (Morgen -> donor creature) swap.
     public static bool IsFableBunnyActive =>
         MasterSwitch?.Value == true && EnableFableBunny?.Value == true;
+    // Global gate for the Fable Ballista (Skugg -> Ballista piece) swap.
+    public static bool IsFableBallistaActive =>
+        MasterSwitch?.Value == true && EnableFableBallista?.Value == true;
 
     private static readonly Harmony Harmony = new(PluginInfo.PLUGIN_GUID);
 
@@ -1395,6 +1406,55 @@ public class Plugin : BaseUnityPlugin
                 "following the hidden Morgen skeleton. Changing this live rebuilds all swapped Morgens.",
                 new AcceptableValueList<string>("Bunny", "LightElemental", "LightningElemental")));
 
+        // --- Fable Ballista ---
+        EnableFableBallista = Config.Bind(
+            "Fable Ballista",
+            "EnableFableBallista",
+            true,
+            "Replace the Skugg's flesh-ballista visuals with the player Ballista buildable (piece_turret). " +
+            "The Skugg is the Charred Ballista piece found in Ashlands fortresses; its aiming, shooting, " +
+            "and destructibility are untouched - only the look changes.");
+
+        FableBallistaScale = Config.Bind(
+            "Fable Ballista",
+            "FableBallistaScale",
+            1.0f,
+            new ConfigDescription(
+                "Multiplier on the auto-computed scale (the donor ballista is sized to the Skugg's " +
+                "visual height). 1.0 = exact height match.",
+                new AcceptableValueRange<float>(0.25f, 3.0f)));
+
+        FableBallistaYOffset = Config.Bind(
+            "Fable Ballista",
+            "FableBallistaYOffset",
+            0.0f,
+            new ConfigDescription(
+                "Vertical offset (meters) for the ballista visual.",
+                new AcceptableValueRange<float>(-2f, 2f)));
+
+        FableBallistaRecoilAmplitude = Config.Bind(
+            "Fable Ballista",
+            "FableBallistaRecoilAmplitude",
+            1.0f,
+            new ConfigDescription(
+                "Strength of the procedural fire-recoil (pitch kick + pushback) when the Skugg shoots. " +
+                "0 disables it.",
+                new AcceptableValueRange<float>(0f, 3f)));
+
+        FableBallistaSourcePrefab = Config.Bind(
+            "Fable Ballista",
+            "FableBallistaSourcePrefab",
+            "piece_Charred_Balista",
+            "Advanced: prefab name of the piece to replace ('Skugg' is accepted as an alias). If the " +
+            "configured name is not found in ZNetScene, candidates are logged to the BepInEx log so " +
+            "this can be corrected without a rebuild.");
+
+        FableBallistaDonorPrefab = Config.Bind(
+            "Fable Ballista",
+            "FableBallistaDonorPrefab",
+            "piece_turret",
+            "Advanced: prefab whose visuals stand in for the Skugg (default: the Ballista buildable).");
+
         DevAutoLoad = Config.Bind(
             "Dev Automation",
             "DevAutoLoad",
@@ -1864,6 +1924,11 @@ public class Plugin : BaseUnityPlugin
                 var def = new ConfigDefinition("Fable Bunny", dead);
                 if (Config.ContainsKey(def)) Config.Remove(def);
             }
+
+            // Removed: the Skugg turned out to be a Turret piece, not a creature - the
+            // creature-only knobs (move bob, ragdoll hide) never shipped.
+            PurgeOrphanedKey("Fable Ballista", "FableBallistaMoveBob");
+            PurgeOrphanedKey("Fable Ballista", "FableBallistaHideRagdoll");
         }
         catch
         {
@@ -1887,6 +1952,15 @@ public class Plugin : BaseUnityPlugin
         FableBunnyMoveAnimSpeed.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyRollStyle.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyHideRagdoll.SettingChanged += (_, _) => OnFableBunnyChanged();
+
+        // Every Fable Ballista config applies instantly (OnFableBallistaChanged rebuilds
+        // swapped Skuggs, re-reading all ballista config).
+        EnableFableBallista.SettingChanged += (_, _) => OnFableBallistaChanged();
+        FableBallistaScale.SettingChanged += (_, _) => OnFableBallistaChanged();
+        FableBallistaYOffset.SettingChanged += (_, _) => OnFableBallistaChanged();
+        FableBallistaRecoilAmplitude.SettingChanged += (_, _) => OnFableBallistaChanged();
+        FableBallistaSourcePrefab.SettingChanged += (_, _) => OnFableBallistaChanged();
+        FableBallistaDonorPrefab.SettingChanged += (_, _) => OnFableBallistaChanged();
 
         // Every Fable Warrior/Archer/Twitcher/Mage config applies instantly
         // (OnFableWarriorModeChanged rebuilds the puppets, re-reading all config getters).
@@ -2018,6 +2092,7 @@ public class Plugin : BaseUnityPlugin
             ApplyTerrainPatches();
             ApplyTreePatches();
             Patches.FableBunnyPatches.ApplyBunnyPatches(Harmony);
+            Patches.FableBallistaPatches.ApplyBallistaPatches(Harmony);
 
             Log.LogInfo($"{PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION} loaded. Mod: {(MasterSwitch.Value ? "ON" : "OFF")}, Weather: {(EnableWeatherOverride.Value ? "ON" : "OFF")}, Terrain: {(EnableTerrainOverride.Value ? "ON" : "OFF")}, Trees: {(EnableTreeReplacement.Value ? "ON" : "OFF")}, Valkyrie: {EnableValkyrieSwap.Value}, FableWarrior: {EnableFableWarrior.Value}");
         }
@@ -2204,6 +2279,7 @@ public class Plugin : BaseUnityPlugin
                 _lastBracerScaleUpdateTime = Time.time;
                 Patches.FableWarriorPatches.PeriodicUpdate();
                 Patches.FableBunnyPatches.PeriodicUpdate();
+                Patches.FableBallistaPatches.PeriodicUpdate();
             }
         }
 
@@ -2239,6 +2315,7 @@ public class Plugin : BaseUnityPlugin
             Patches.ValkyriePatches.RefreshValkyries();
             Patches.FableWarriorPatches.RefreshAll();
             Patches.FableBunnyPatches.RefreshAll();
+            Patches.FableBallistaPatches.RefreshAll();
             Log.LogInfo("[Ashlands Reborn] Master switch ON - all overrides applied");
         }
         else
@@ -2249,6 +2326,7 @@ public class Plugin : BaseUnityPlugin
             Patches.ValkyriePatches.RevertAllValkyries();
             Patches.FableWarriorPatches.RevertAll();
             Patches.FableBunnyPatches.RevertAll();
+            Patches.FableBallistaPatches.RevertAll();
             Log.LogInfo("[Ashlands Reborn] Master switch OFF - all overrides reverted");
         }
     }
@@ -2269,6 +2347,14 @@ public class Plugin : BaseUnityPlugin
     {
         if (!MasterSwitch.Value || Player.m_localPlayer == null) return;
         Patches.FableBunnyPatches.RefreshAll();
+    }
+
+    // Live config toggles for the Fable Ballista rebuild every swapped Skugg; RefreshAll
+    // itself reverts-only when the gate is off.
+    private void OnFableBallistaChanged()
+    {
+        if (!MasterSwitch.Value || Player.m_localPlayer == null) return;
+        Patches.FableBallistaPatches.RefreshAll();
     }
 
     private void OnTerrainTransitionChanged()
