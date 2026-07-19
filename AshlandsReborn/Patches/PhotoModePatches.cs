@@ -111,6 +111,8 @@ internal static class PhotoModePatches
             foreach (var prefabName in prefabNames)
                 yield return CaptureCreature(player, prefabName, dir, shotPaths, animLines);
 
+            yield return FortressStoneSweepRoutine(player, dir, shotPaths);
+
             var donePath = Path.Combine(dir, "DONE.txt");
             File.WriteAllLines(
                 donePath,
@@ -258,6 +260,69 @@ internal static class PhotoModePatches
 
         Plugin.Log?.LogInfo($"[AR PhotoMode] {animLine}");
         animLines.Add(animLine);
+    }
+
+    /// <summary>
+    /// Dev brightness sweep (FortressStoneSweep CSV, e.g. "1.0,1.4,1.8,2.2,2.8"): keeps one
+    /// spawned fortress wall pillar and captures a full-body shot per brightness value by
+    /// writing Fortress+Ruins Brightness live (SettingChanged re-applies instantly). The
+    /// original brightness values are restored in a finally, so an aborted sweep can't leave
+    /// the config mutated (TerrainPhotoPatches.ProbeAshBrightness shape).
+    /// </summary>
+    private static IEnumerator FortressStoneSweepRoutine(Player player, string dir, List<string> shotPaths)
+    {
+        var csv = Plugin.FortressStoneSweep?.Value?.Trim() ?? "";
+        if (csv.Length == 0) yield break;
+
+        var values = new List<float>();
+        foreach (var part in csv.Split(','))
+            if (float.TryParse(part.Trim(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var v))
+                values.Add(v);
+        if (values.Count == 0) yield break;
+
+        var prefab = ZNetScene.instance?.GetPrefab("Ashlands_Fortress_Wall_Pillar");
+        if (prefab == null)
+        {
+            Plugin.Log?.LogError("[AR PhotoMode] Sweep: Ashlands_Fortress_Wall_Pillar prefab not found - skipping");
+            yield break;
+        }
+
+        var dist = Plugin.PhotoModeSpawnDistance?.Value ?? 5f;
+        var spawnPos = player.transform.position + player.transform.forward * dist + Vector3.up * 0.3f;
+        var go = UObject.Instantiate(prefab, spawnPos, Quaternion.identity);
+        Plugin.Log?.LogInfo($"[AR PhotoMode] Sweep: spawned wall pillar, {values.Count} brightness values");
+        yield return new WaitForSeconds(2f);
+
+        var origFortress = Plugin.FortressStoneBrightness.Value;
+        var origRuins = Plugin.RuinsStoneBrightness.Value;
+        try
+        {
+            _cameraOverrideActive = true;
+            foreach (var v in values)
+            {
+                if (go == null) break;
+                Plugin.FortressStoneBrightness.Value = v;
+                Plugin.RuinsStoneBrightness.Value = v;
+                yield return null;
+                yield return null;
+
+                AimCameraAt(go, 0);
+                yield return new WaitForSeconds(0.3f);
+                var path = Path.Combine(dir, $"fortress_sweep_b{v.ToString("0.0#", System.Globalization.CultureInfo.InvariantCulture)}.png");
+                ScreenCapture.CaptureScreenshot(path);
+                shotPaths.Add(path);
+                Plugin.Log?.LogInfo($"[AR PhotoMode] Sweep: brightness {v:0.0#} captured");
+                for (var f = 0; f < 5; f++) yield return null;
+            }
+        }
+        finally
+        {
+            Plugin.FortressStoneBrightness.Value = origFortress;
+            Plugin.RuinsStoneBrightness.Value = origRuins;
+            _cameraOverrideActive = false;
+            if (go != null) ZNetScene.instance?.Destroy(go);
+        }
     }
 
     /// <summary>

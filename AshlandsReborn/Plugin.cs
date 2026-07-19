@@ -242,6 +242,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> TerrainPhotoProbeAshBrightness { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoProbeLegacySpecs { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoProbeLineMixes { get; private set; } = null!;
+    public static ConfigEntry<string> FortressStoneSweep { get; private set; } = null!;
 
     public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && EnableWeatherOverride?.Value == true;
     public static bool IsForceNoonActive => MasterSwitch?.Value == true && ForceNoon?.Value == true;
@@ -1839,6 +1840,14 @@ public class Plugin : BaseUnityPlugin
             "'1,0,0,0;0.65,0.25,0.05,0.05'). When non-empty, the terrain photo run appends a LegacySmooth " +
             "capture set per tuple (the LegacySmoothLine* sliders are set, terrain refreshed, then " +
             "restored). Include '1,0,0,0' as the pure-grass reference for the difference-based line mask.");
+
+        FortressStoneSweep = Config.Bind(
+            "Dev Automation",
+            "FortressStoneSweep",
+            "",
+            "Dev: CSV of Fortress/Ruins Stone brightness values (e.g. \"1.0,1.4,1.8,2.2,2.8\"). When " +
+            "non-empty, the photo harness appends one wall-pillar shot per value after its normal " +
+            "captures (brightness set live, originals restored afterwards). Output: fortress_sweep_b*.png.");
 
         LegacySmoothDebugRamp = Config.Bind(
             "Dev Automation",
