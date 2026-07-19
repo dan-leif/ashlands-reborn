@@ -174,6 +174,7 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `FableWarriorPatches.cs` | `Humanoid.Awake`, `MonoUpdaters.LateUpdate`, `VisEquipment.Set*Equipped` | Charred Warrior system: scaled Player-rig puppet dressed via native VisEquipment, driven by the Charred's animation (see below) |
 | `FableBunnyPatches.cs` | `Character.Awake`, `Humanoid.StartAttack`, `Ragdoll.Awake` (all manually applied with null-guards), `MonoUpdaters.LateUpdate` | Fable Bunny: replaces the Morgen's visuals with a giant self-animating Hare (+ optional hybrid Lox for bite/roll). See "Fable Bunny" below |
 | `FableBallistaPatches.cs` | `Turret.Awake`, `Turret.ShootProjectile` (manually applied with null-guards), `MonoUpdaters.LateUpdate` | Fable Ballista: replaces the Skugg (the Charred Ballista PIECE, not a creature) with the player Ballista buildable. See "Fable Ballista" below |
+| `FortressStonePatches.cs` | None (no Harmony patches) | Fortress Stone Recolor: lightens/tints the shared Ashlands stone materials in place (fortress / ruins / grausten families + fortress crack-glow restyle). See "Fortress Stone Recolor" below |
 | `PhotoModePatches.cs` | `GameCamera.LateUpdate` (prefix) | Dev verification harness: spawns a warrior, orbits the camera, captures full-body + close-up screenshots autonomously |
 | `LifecycleTestPatches.cs` | None (no Harmony patches) | Dev M4 self-test: spawns 3 warriors (incl. 2★), asserts toggle/refresh/sync/scale lifecycle invariants |
 | `MageWeaponTestPatches.cs` | None (no Harmony patches) | Dev harness (`MageWeaponTest`): dumps the ObjectDB/ZNetScene staff catalog + candidate prefab hierarchies, then spawns a pinned Charred_Mage and cycles `MageWeaponTestList` through `FableMageWeapon`, screenshotting each staff in-hand. `MageWeaponRefCapture` prepends vanilla-carry references (player equipping each player staff; DvergerMageFire/Ice/Support; puppet-disabled Charred_Mage); `MageWeaponRotSweep` captures each staff once per rot/offset combination, written to the swept staff's own family knobs (tuning mode). Output: `AR_MageWeapon\` |
@@ -584,6 +585,70 @@ same `Turret.Awake` path as world instances (the Animator check logs "unavailabl
 have no Animator — expected). Gallery: `screenshots/fable-ballista/` (`refs/` = native
 Skugg bone-spider + native piece_turret ground truth, `swapped/` = the shipped look).
 
+### Fortress Stone Recolor (fortress / ruins / grausten stone)
+
+`FortressStonePatches.cs` (patchless — DevAutoLoadPatches precedent) recolors the dark-gray
+Ashlands stone toward a "thriving beautiful castle" look by mutating the SHARED Material
+assets in place — no Harmony patches, no per-instance work: `Fortresswall1` alone covers
+every fortress wall/floor/gate/stair piece including all `_frac` fractured variants, so a
+single `SetColor` recolors every placed piece instantly, destruction states included.
+Lightening = HDR `_Color` multiply (Standard shader on fortress mats, Custom/Piece on
+ruins/grausten — both multiply albedo by `_Color`).
+
+Three independent families, each its own F1 section:
+- **Fortress Stone** (`Fortresswall1`, `Fortresswall_Big_mat`, `Fortress_Door_mat`; 28
+  prefabs): brightness (default 1.8) + per-axis tint + **crack-glow restyle** —
+  `FortressStoneGlowStyle` dropdown (Vanilla red / Off / **Ember** warm gold (1, 0.55,
+  0.18), the shipped default / Custom = `FortressStoneGlowR/G/B`). Glow writes only to
+  materials whose VANILLA `_EmissionColor` is non-black (the red cracks, `_EMISSION`
+  keyword already on), so the other families can never gain a glow.
+- **Ruins Stone** (`Ashlands_Stone_Ashen_mat/_half/_Rough/_Destroyed`,
+  `Ashlands_RoofSlab_mat`; 78 prefabs): brightness 1.8 + tint. NOTE: the recon'd
+  `Ashlands_Stone_mat` does NOT exist in ZNetScene (near-miss catalog verified) — it is
+  not in the default CSV; don't re-add it.
+- **Grausten Stone** (`Grausten_mat/_Broken/_RoofSlab`; 33 prefabs): player-built stone,
+  **default DISABLED** = vanilla per user.
+
+Mechanics: `ResolveMaterials()` runs once per session from `PeriodicUpdate()` (~2s tick)
+when `ZNetScene.instance` appears — scans every prefab's `sharedMaterials`, matches base
+names (Instance/Clone suffixes stripped) against per-family CSVs (`*StoneMaterials`),
+dedupes by reference, caches original `_Color`/`_EmissionColor` per material. A world
+reload re-arms via the tracked ZNetScene instance. `ApplyAll()` is idempotent — always
+computed from cached originals (alpha preserved; disabled family or MasterSwitch off =
+restore); apply/restore only ever touch cached materials (other mods' materials are never
+blind-written). Every key live-applies via `SettingChanged` → `OnFortressStoneChanged`
+(CSV changes restore + re-resolve first); wired into `ApplyMasterSwitch` both branches.
+CSV entries that match nothing log a warning + a one-time near-miss catalog, so a game
+update rename is fixable from the cfg.
+
+**Verification**: the standard photo harness (`PhotoModePrefabs =
+Ashlands_Fortress_Wall_Pillar,Ashlands_Fortress_Floor,Ashland_Stair` — pieces spawn fine;
+Animator check logs "unavailable", expected). Log asserts: `[Fortress Stone] resolved:
+fortress=3 mats (28 prefabs), ruins=5 (78), grausten=3 (33)` + per-family apply lines with
+final brightness/tint/glow values. `FortressStoneSweep` (Dev Automation, CSV of brightness
+values) appends one wall-pillar shot per value after the normal captures, driving the
+Brightness keys live and restoring them in a finally. Sweep verdict (dusk, pillar-face
+luma): 1.0→48.5, 1.4→53.2, 1.8→59.1, 2.2→66.3, 2.8→79.6 — monotonic, no washout in range;
+1.8 shipped. Known capture limitation: the crack-glow emission (vanilla red AND ember
+gold) is invisible in dusk-fog Test Island shots — verify glow changes by the logged
+resolved color or in-game at night. Gallery: `screenshots/fortress-stone/` (`refs/` =
+vanilla, `recolored/` = defaults, `sweep/` + labeled composite).
+
+### Fortress Stone config (sections "Fortress Stone" / "Ruins Stone" / "Grausten Stone")
+
+| Config key | Default | Effect |
+|---|---|---|
+| `FortressStoneEnable` | true | Recolor the charred fortress piece family |
+| `FortressStoneBrightness` | 1.8 | HDR multiplier on vanilla `_Color` (0.25–4.0) |
+| `FortressStoneTintR/G/B` | 1.0 each | Per-axis tint multiplier (0–2), applied with brightness |
+| `FortressStoneGlowStyle` | "Ember" | Crack emission: Vanilla / Off / Ember / Custom |
+| `FortressStoneGlowR/G/B` | 1.0 / 0.55 / 0.18 | Custom glow color (0–3) |
+| `FortressStoneMaterials` | Fortresswall1,Fortresswall_Big_mat,Fortress_Door_mat | Advanced CSV |
+| `RuinsStoneEnable` | true | Recolor world-gen Ashlands ruins stone |
+| `RuinsStoneBrightness` / `TintR/G/B` / `Materials` | 1.8 / 1.0 / (5 Ashen+RoofSlab mats) | As above |
+| `GraustenStoneEnable` | **false** | Player-built grausten — vanilla unless opted in |
+| `GraustenStoneBrightness` / `TintR/G/B` / `Materials` | 1.0 / 1.0 / (3 Grausten mats) | As above |
+
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 
 | Config key | Default hotkey | Effect |
@@ -613,6 +678,7 @@ Skugg bone-spider + native piece_turret ground truth, `swapped/` = the shipped l
 | `TerrainPhotoAuto` | false | Run the terrain photo harness once after world load (suppressed by PhotoModeAuto/M4Test) |
 | `TerrainPhotoKey` | F7 | Run the terrain photo harness on demand |
 | `TerrainPhotoPos` | "129,30,-9671" | Transition test spot (historical grid/yellow-line area); empty disables teleport |
+| `FortressStoneSweep` | "" | CSV of Fortress/Ruins brightness values; when non-empty the photo harness appends one wall-pillar shot per value (originals restored in a finally) |
 
 ### Fable Warrior config (section "Fable Warrior" + per-creature sections)
 
