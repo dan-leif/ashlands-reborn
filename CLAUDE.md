@@ -173,6 +173,7 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `ValkyriePatches.cs` | Creature spawn | Swaps Fallen Valkyrie prefab with Valkyrie mesh/animations |
 | `FableWarriorPatches.cs` | `Humanoid.Awake`, `MonoUpdaters.LateUpdate`, `VisEquipment.Set*Equipped` | Charred Warrior system: scaled Player-rig puppet dressed via native VisEquipment, driven by the Charred's animation (see below) |
 | `FableBunnyPatches.cs` | `Character.Awake`, `Humanoid.StartAttack`, `Ragdoll.Awake` (all manually applied with null-guards), `MonoUpdaters.LateUpdate` | Fable Bunny: replaces the Morgen's visuals with a giant self-animating Hare (+ optional hybrid Lox for bite/roll). See "Fable Bunny" below |
+| `FableBallistaPatches.cs` | `Turret.Awake`, `Turret.ShootProjectile` (manually applied with null-guards), `MonoUpdaters.LateUpdate` | Fable Ballista: replaces the Skugg (the Charred Ballista PIECE, not a creature) with the player Ballista buildable. See "Fable Ballista" below |
 | `PhotoModePatches.cs` | `GameCamera.LateUpdate` (prefix) | Dev verification harness: spawns a warrior, orbits the camera, captures full-body + close-up screenshots autonomously |
 | `LifecycleTestPatches.cs` | None (no Harmony patches) | Dev M4 self-test: spawns 3 warriors (incl. 2★), asserts toggle/refresh/sync/scale lifecycle invariants |
 | `MageWeaponTestPatches.cs` | None (no Harmony patches) | Dev harness (`MageWeaponTest`): dumps the ObjectDB/ZNetScene staff catalog + candidate prefab hierarchies, then spawns a pinned Charred_Mage and cycles `MageWeaponTestList` through `FableMageWeapon`, screenshotting each staff in-hand. `MageWeaponRefCapture` prepends vanilla-carry references (player equipping each player staff; DvergerMageFire/Ice/Support; puppet-disabled Charred_Mage); `MageWeaponRotSweep` captures each staff once per rot/offset combination, written to the swept staff's own family knobs (tuning mode). Output: `AR_MageWeapon\` |
@@ -536,6 +537,52 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
   rotates perfectly in-app (the 2★ white hare looks notably good); the empty star-look
   GALLERY shots were a capture-harness artifact only. No code fix needed — don't reopen
   unless in-game behavior regresses.
+
+### Fable Ballista (Skugg → player Ballista)
+
+`FableBallistaPatches.cs` replaces the Skugg's flesh-ballista visuals with the player
+Ballista buildable (`piece_turret`). **The "Skugg" is NOT a creature** — it is the Charred
+Ballista PIECE (prefab `piece_Charred_Balista`, one 'l'; display token
+`piece_charredballista`) found in Ashlands fortresses, driven by the same vanilla `Turret`
+component as the player Ballista. Its aiming, shooting, and destructibility are untouched.
+
+UnityPy recon (bundle `c4210710`, same bundle as the Charred recon): both prefabs share an
+IDENTICAL visual hierarchy — `New/Base`, `New/NeckRotation`, `New/BodyRotation/{Body,
+Body_Unarmed, Bolt*, Mag, Eye}`; the Skugg adds a `Skug_Missile` bolt child and has an
+empty NeckRotation. That makes the swap a pure mirror job:
+
+- **Hook**: `Turret.Awake` postfix (manual, null-guarded) filtered on the source prefab
+  name; marker `AshlandsRebornFableBallista` on the piece root; 5-frame settle.
+- **Hide**: all Skugg renderers get the bunny's two-layer hide (`forceRenderingOff` +
+  invisible materials). GameObject ACTIVE states are deliberately left alone — the Skugg's
+  own `Turret` keeps toggling its hidden armed/unarmed bodies and bolt visuals, and those
+  toggles are the mirror source.
+- **Donor**: stripped `piece_turret` clone (inactive-holder + `FableBunnyPatches.
+  StripToVisual`, now internal) on a pivot at the Skugg root; driver/toggle node refs are
+  captured off the donor's own `Turret` component BEFORE the strip; `AreaMarker` +
+  loose-ammo visuals forced off, WearNTear `m_new` forced on. Height-matched: donor scaled
+  by Skugg-visual-height / donor-height (measured 3.89m vs 2.60m → ×1.49).
+- **Drive** (`MonoUpdaters.LateUpdate`): straight `localRotation` copy of
+  `BodyRotation`/`NeckRotation` (identical hierarchies + aligned pivot = exact live aim
+  tracking), active-state mirror of armed/unarmed/bolt children (name-matched; Skugg-only
+  `Skug_Missile` falls back to the donor's "Bolt Black Metal"; several srcs OR into one
+  dst), and a `Turret.ShootProjectile`-armed procedural recoil (pitch kick + pushback).
+- **Lifecycle**: same registry/RevertAll/RefreshAll shape as the bunny (one-frame wait
+  after revert), wired into `ApplyMasterSwitch` both branches and `SettingChanged` (all 6
+  keys live-rebuild). A one-time ZNetScene probe logs FOUND/candidates for the source
+  prefab so a rename is fixable from the cfg alone.
+
+Config (section "Fable Ballista"): `EnableFableBallista` (default true),
+`FableBallistaScale` (multiplier on the height-match), `FableBallistaYOffset`,
+`FableBallistaRecoilAmplitude` (0 = off), `FableBallistaSourcePrefab` (default
+`piece_Charred_Balista`; "Skugg" accepted as an alias), `FableBallistaDonorPrefab`
+(default `piece_turret`).
+
+**Verification**: the standard photo harness handles it — `PhotoModePrefabs =
+piece_Charred_Balista` spawns the piece on the Test Island and the swap fires through the
+same `Turret.Awake` path as world instances (the Animator check logs "unavailable"; pieces
+have no Animator — expected). Gallery: `screenshots/fable-ballista/` (`refs/` = native
+Skugg bone-spider + native piece_turret ground truth, `swapped/` = the shipped look).
 
 ## Key Config Entries (runtime-tweakable via F1 in-game with ConfigurationManager)
 
