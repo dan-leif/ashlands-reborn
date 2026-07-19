@@ -194,6 +194,30 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableBallistaSourcePrefab { get; private set; } = null!;
     public static ConfigEntry<string> FableBallistaDonorPrefab { get; private set; } = null!;
 
+    // --- Fortress Stone / Ruins Stone / Grausten Stone (shared-material recolor) ---
+    public static ConfigEntry<bool> FortressStoneEnable { get; private set; } = null!;
+    public static ConfigEntry<float> FortressStoneBrightness { get; private set; } = null!;
+    public static ConfigEntry<float> FortressStoneTintR { get; private set; } = null!;
+    public static ConfigEntry<float> FortressStoneTintG { get; private set; } = null!;
+    public static ConfigEntry<float> FortressStoneTintB { get; private set; } = null!;
+    public static ConfigEntry<string> FortressStoneGlowStyle { get; private set; } = null!;
+    public static ConfigEntry<float> FortressStoneGlowR { get; private set; } = null!;
+    public static ConfigEntry<float> FortressStoneGlowG { get; private set; } = null!;
+    public static ConfigEntry<float> FortressStoneGlowB { get; private set; } = null!;
+    public static ConfigEntry<string> FortressStoneMaterials { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsStoneEnable { get; private set; } = null!;
+    public static ConfigEntry<float> RuinsStoneBrightness { get; private set; } = null!;
+    public static ConfigEntry<float> RuinsStoneTintR { get; private set; } = null!;
+    public static ConfigEntry<float> RuinsStoneTintG { get; private set; } = null!;
+    public static ConfigEntry<float> RuinsStoneTintB { get; private set; } = null!;
+    public static ConfigEntry<string> RuinsStoneMaterials { get; private set; } = null!;
+    public static ConfigEntry<bool> GraustenStoneEnable { get; private set; } = null!;
+    public static ConfigEntry<float> GraustenStoneBrightness { get; private set; } = null!;
+    public static ConfigEntry<float> GraustenStoneTintR { get; private set; } = null!;
+    public static ConfigEntry<float> GraustenStoneTintG { get; private set; } = null!;
+    public static ConfigEntry<float> GraustenStoneTintB { get; private set; } = null!;
+    public static ConfigEntry<string> GraustenStoneMaterials { get; private set; } = null!;
+
     // --- Dev Automation ---
     public static ConfigEntry<bool> DevAutoLoad { get; private set; } = null!;
     public static ConfigEntry<bool> FableBunnyReconDump { get; private set; } = null!;
@@ -1455,6 +1479,184 @@ public class Plugin : BaseUnityPlugin
             "piece_turret",
             "Advanced: prefab whose visuals stand in for the Skugg (default: the Ballista buildable).");
 
+        // --- Fortress Stone (charred fortress piece recolor) ---
+        FortressStoneEnable = Config.Bind(
+            "Fortress Stone",
+            "FortressStoneEnable",
+            true,
+            "Recolor the charred fortress stone (all Ashlands_Fortress_* pieces, the Ashlands_Wall_2x2 " +
+            "panels, Ashland_Stair, and every fractured variant - they all share the same materials). " +
+            "Visual-only: the shared materials are recolored in place, so every placed piece changes " +
+            "instantly, destruction states included.");
+
+        FortressStoneBrightness = Config.Bind(
+            "Fortress Stone",
+            "FortressStoneBrightness",
+            1.8f,
+            new ConfigDescription(
+                "HDR brightness multiplier on the vanilla material color. 1.0 = vanilla; values above 1 " +
+                "lighten the stone (the 'thriving castle' look). Extreme values wash out the texture.",
+                new AcceptableValueRange<float>(0.25f, 4.0f)));
+
+        FortressStoneTintR = Config.Bind(
+            "Fortress Stone",
+            "FortressStoneTintR",
+            1.0f,
+            new ConfigDescription(
+                "Red tint multiplier (applied with brightness). 1/1/1 = neutral.",
+                new AcceptableValueRange<float>(0f, 2f)));
+
+        FortressStoneTintG = Config.Bind(
+            "Fortress Stone",
+            "FortressStoneTintG",
+            1.0f,
+            new ConfigDescription(
+                "Green tint multiplier (applied with brightness). 1/1/1 = neutral.",
+                new AcceptableValueRange<float>(0f, 2f)));
+
+        FortressStoneTintB = Config.Bind(
+            "Fortress Stone",
+            "FortressStoneTintB",
+            1.0f,
+            new ConfigDescription(
+                "Blue tint multiplier (applied with brightness). 1/1/1 = neutral.",
+                new AcceptableValueRange<float>(0f, 2f)));
+
+        FortressStoneGlowStyle = Config.Bind(
+            "Fortress Stone",
+            "FortressStoneGlowStyle",
+            "Ember",
+            new ConfigDescription(
+                "Crack-glow emission on the fortress stone (vanilla = glowing red cracks). " +
+                "Vanilla = untouched red, Off = no glow, Ember = warm ember gold, " +
+                "Custom = the FortressStoneGlowR/G/B sliders. Only affects materials that " +
+                "glow in vanilla - the ruins/grausten families never gain a glow.",
+                new AcceptableValueList<string>("Vanilla", "Off", "Ember", "Custom")));
+
+        FortressStoneGlowR = Config.Bind(
+            "Fortress Stone",
+            "FortressStoneGlowR",
+            1.0f,
+            new ConfigDescription(
+                "Custom crack-glow red (used when FortressStoneGlowStyle = Custom).",
+                new AcceptableValueRange<float>(0f, 3f)));
+
+        FortressStoneGlowG = Config.Bind(
+            "Fortress Stone",
+            "FortressStoneGlowG",
+            0.55f,
+            new ConfigDescription(
+                "Custom crack-glow green (used when FortressStoneGlowStyle = Custom).",
+                new AcceptableValueRange<float>(0f, 3f)));
+
+        FortressStoneGlowB = Config.Bind(
+            "Fortress Stone",
+            "FortressStoneGlowB",
+            0.18f,
+            new ConfigDescription(
+                "Custom crack-glow blue (used when FortressStoneGlowStyle = Custom).",
+                new AcceptableValueRange<float>(0f, 3f)));
+
+        FortressStoneMaterials = Config.Bind(
+            "Fortress Stone",
+            "FortressStoneMaterials",
+            "Fortresswall1,Fortresswall_Big_mat,Fortress_Door_mat",
+            "Advanced: CSV of material base names in the fortress family. Entries that match nothing " +
+            "are logged with a catalog of candidate material names.");
+
+        // --- Ruins Stone (world-gen Ashlands ruins recolor) ---
+        RuinsStoneEnable = Config.Bind(
+            "Ruins Stone",
+            "RuinsStoneEnable",
+            true,
+            "Recolor the world-generated Ashlands ruins stone (the Ashlands_Stone/Ashen ruin pieces " +
+            "and roof slabs). Same instant shared-material recolor as the fortress family.");
+
+        RuinsStoneBrightness = Config.Bind(
+            "Ruins Stone",
+            "RuinsStoneBrightness",
+            1.8f,
+            new ConfigDescription(
+                "HDR brightness multiplier on the vanilla material color. 1.0 = vanilla.",
+                new AcceptableValueRange<float>(0.25f, 4.0f)));
+
+        RuinsStoneTintR = Config.Bind(
+            "Ruins Stone",
+            "RuinsStoneTintR",
+            1.0f,
+            new ConfigDescription(
+                "Red tint multiplier (applied with brightness). 1/1/1 = neutral.",
+                new AcceptableValueRange<float>(0f, 2f)));
+
+        RuinsStoneTintG = Config.Bind(
+            "Ruins Stone",
+            "RuinsStoneTintG",
+            1.0f,
+            new ConfigDescription(
+                "Green tint multiplier (applied with brightness). 1/1/1 = neutral.",
+                new AcceptableValueRange<float>(0f, 2f)));
+
+        RuinsStoneTintB = Config.Bind(
+            "Ruins Stone",
+            "RuinsStoneTintB",
+            1.0f,
+            new ConfigDescription(
+                "Blue tint multiplier (applied with brightness). 1/1/1 = neutral.",
+                new AcceptableValueRange<float>(0f, 2f)));
+
+        RuinsStoneMaterials = Config.Bind(
+            "Ruins Stone",
+            "RuinsStoneMaterials",
+            "Ashlands_Stone_mat,Ashlands_Stone_Ashen_mat,Ashlands_Stone_Ashen_half_mat," +
+            "Ashlands_Stone_Ashen_Rough_mat,Ashlands_Stone_Ashen_Destroyed_mat,Ashlands_RoofSlab_mat",
+            "Advanced: CSV of material base names in the ruins family.");
+
+        // --- Grausten Stone (player-built stone recolor; default off = vanilla) ---
+        GraustenStoneEnable = Config.Bind(
+            "Grausten Stone",
+            "GraustenStoneEnable",
+            false,
+            "Recolor player-built grausten stone pieces. Off by default - player builds stay vanilla " +
+            "unless you opt in.");
+
+        GraustenStoneBrightness = Config.Bind(
+            "Grausten Stone",
+            "GraustenStoneBrightness",
+            1.0f,
+            new ConfigDescription(
+                "HDR brightness multiplier on the vanilla material color. 1.0 = vanilla.",
+                new AcceptableValueRange<float>(0.25f, 4.0f)));
+
+        GraustenStoneTintR = Config.Bind(
+            "Grausten Stone",
+            "GraustenStoneTintR",
+            1.0f,
+            new ConfigDescription(
+                "Red tint multiplier (applied with brightness). 1/1/1 = neutral.",
+                new AcceptableValueRange<float>(0f, 2f)));
+
+        GraustenStoneTintG = Config.Bind(
+            "Grausten Stone",
+            "GraustenStoneTintG",
+            1.0f,
+            new ConfigDescription(
+                "Green tint multiplier (applied with brightness). 1/1/1 = neutral.",
+                new AcceptableValueRange<float>(0f, 2f)));
+
+        GraustenStoneTintB = Config.Bind(
+            "Grausten Stone",
+            "GraustenStoneTintB",
+            1.0f,
+            new ConfigDescription(
+                "Blue tint multiplier (applied with brightness). 1/1/1 = neutral.",
+                new AcceptableValueRange<float>(0f, 2f)));
+
+        GraustenStoneMaterials = Config.Bind(
+            "Grausten Stone",
+            "GraustenStoneMaterials",
+            "Grausten_mat,Grausten_Broken_mat,Grausten_RoofSlab_mat",
+            "Advanced: CSV of material base names in the grausten family.");
+
         DevAutoLoad = Config.Bind(
             "Dev Automation",
             "DevAutoLoad",
@@ -1962,6 +2164,31 @@ public class Plugin : BaseUnityPlugin
         FableBallistaSourcePrefab.SettingChanged += (_, _) => OnFableBallistaChanged();
         FableBallistaDonorPrefab.SettingChanged += (_, _) => OnFableBallistaChanged();
 
+        // Every Fortress/Ruins/Grausten Stone config applies instantly (shared materials -
+        // no rebuild needed). CSV changes additionally re-resolve the material sets.
+        FortressStoneEnable.SettingChanged += (_, _) => OnFortressStoneChanged();
+        FortressStoneBrightness.SettingChanged += (_, _) => OnFortressStoneChanged();
+        FortressStoneTintR.SettingChanged += (_, _) => OnFortressStoneChanged();
+        FortressStoneTintG.SettingChanged += (_, _) => OnFortressStoneChanged();
+        FortressStoneTintB.SettingChanged += (_, _) => OnFortressStoneChanged();
+        FortressStoneGlowStyle.SettingChanged += (_, _) => OnFortressStoneChanged();
+        FortressStoneGlowR.SettingChanged += (_, _) => OnFortressStoneChanged();
+        FortressStoneGlowG.SettingChanged += (_, _) => OnFortressStoneChanged();
+        FortressStoneGlowB.SettingChanged += (_, _) => OnFortressStoneChanged();
+        FortressStoneMaterials.SettingChanged += (_, _) => OnFortressStoneChanged(csvChanged: true);
+        RuinsStoneEnable.SettingChanged += (_, _) => OnFortressStoneChanged();
+        RuinsStoneBrightness.SettingChanged += (_, _) => OnFortressStoneChanged();
+        RuinsStoneTintR.SettingChanged += (_, _) => OnFortressStoneChanged();
+        RuinsStoneTintG.SettingChanged += (_, _) => OnFortressStoneChanged();
+        RuinsStoneTintB.SettingChanged += (_, _) => OnFortressStoneChanged();
+        RuinsStoneMaterials.SettingChanged += (_, _) => OnFortressStoneChanged(csvChanged: true);
+        GraustenStoneEnable.SettingChanged += (_, _) => OnFortressStoneChanged();
+        GraustenStoneBrightness.SettingChanged += (_, _) => OnFortressStoneChanged();
+        GraustenStoneTintR.SettingChanged += (_, _) => OnFortressStoneChanged();
+        GraustenStoneTintG.SettingChanged += (_, _) => OnFortressStoneChanged();
+        GraustenStoneTintB.SettingChanged += (_, _) => OnFortressStoneChanged();
+        GraustenStoneMaterials.SettingChanged += (_, _) => OnFortressStoneChanged(csvChanged: true);
+
         // Every Fable Warrior/Archer/Twitcher/Mage config applies instantly
         // (OnFableWarriorModeChanged rebuilds the puppets, re-reading all config getters).
         // This replaces the removed F10 manual-refresh hotkey.
@@ -2280,6 +2507,7 @@ public class Plugin : BaseUnityPlugin
                 Patches.FableWarriorPatches.PeriodicUpdate();
                 Patches.FableBunnyPatches.PeriodicUpdate();
                 Patches.FableBallistaPatches.PeriodicUpdate();
+                Patches.FortressStonePatches.PeriodicUpdate();
             }
         }
 
@@ -2316,6 +2544,7 @@ public class Plugin : BaseUnityPlugin
             Patches.FableWarriorPatches.RefreshAll();
             Patches.FableBunnyPatches.RefreshAll();
             Patches.FableBallistaPatches.RefreshAll();
+            Patches.FortressStonePatches.ApplyAll();
             Log.LogInfo("[Ashlands Reborn] Master switch ON - all overrides applied");
         }
         else
@@ -2327,6 +2556,7 @@ public class Plugin : BaseUnityPlugin
             Patches.FableWarriorPatches.RevertAll();
             Patches.FableBunnyPatches.RevertAll();
             Patches.FableBallistaPatches.RevertAll();
+            Patches.FortressStonePatches.RestoreAll();
             Log.LogInfo("[Ashlands Reborn] Master switch OFF - all overrides reverted");
         }
     }
@@ -2355,6 +2585,15 @@ public class Plugin : BaseUnityPlugin
     {
         if (!MasterSwitch.Value || Player.m_localPlayer == null) return;
         Patches.FableBallistaPatches.RefreshAll();
+    }
+
+    // Fortress/Ruins/Grausten Stone knobs re-apply instantly (shared-material recolor);
+    // a Materials CSV change re-resolves the material sets first. ApplyAll itself restores
+    // disabled families, so toggling an Enable off in F1 reverts live too.
+    private void OnFortressStoneChanged(bool csvChanged = false)
+    {
+        if (!MasterSwitch.Value || Player.m_localPlayer == null) return;
+        Patches.FortressStonePatches.OnConfigChanged(csvChanged);
     }
 
     private void OnTerrainTransitionChanged()
