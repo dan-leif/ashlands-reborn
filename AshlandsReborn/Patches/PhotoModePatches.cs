@@ -100,6 +100,9 @@ internal static class PhotoModePatches
             if (prefabNames.Count == 0) prefabNames.Add(CharredMeleePrefab);
 
             yield return TeleportToIslandRoutine(player);
+            // Pin the clock to noon for the whole shoot: evening/dusk shots read too dark to
+            // evaluate faces (Charred Mouth review). Released in the finally below.
+            FableBunnyPatches.SetDebugDaylight(true);
             yield return ForceClearSkyRoutine();
 
             var dir = Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location) ?? ".", "AR_PhotoMode");
@@ -122,6 +125,7 @@ internal static class PhotoModePatches
         }
         finally
         {
+            FableBunnyPatches.SetDebugDaylight(false);
             _cameraOverrideActive = false;
             _running = false;
         }

@@ -2291,8 +2291,9 @@ internal static class FableBunnyPatches
     }
 
     /// <summary>Pin the world clock to midday for the capture window (the same EnvMan debug
-    /// fields the vanilla console time tools drive), reflection-safe against renames.</summary>
-    private static void SetDebugDaylight(bool on)
+    /// fields the vanilla console time tools drive), reflection-safe against renames.
+    /// Shared with PhotoModePatches so every harness shoots in consistent noon light.</summary>
+    internal static void SetDebugDaylight(bool on)
     {
         try
         {
