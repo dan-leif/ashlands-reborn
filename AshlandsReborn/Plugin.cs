@@ -80,6 +80,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableWarriorEyeSeparation { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorEyeScale { get; private set; } = null!;
     public static ConfigEntry<float> FableWarriorEyeIntensity { get; private set; } = null!;
+    public static ConfigEntry<bool> FableWarriorCloseMouth { get; private set; } = null!;
     // Archer/Twitcher/Mage mirror the Fable Warrior tri-state (Disabled/ClonePlayer/CustomEquipment).
     public static ConfigEntry<string> EnableFableArcher { get; private set; } = null!;
     public static ConfigEntry<float> FableArcherScale { get; private set; } = null!;
@@ -98,6 +99,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableArcherEyeSeparation { get; private set; } = null!;
     public static ConfigEntry<float> FableArcherEyeScale { get; private set; } = null!;
     public static ConfigEntry<float> FableArcherEyeIntensity { get; private set; } = null!;
+    public static ConfigEntry<bool> FableArcherCloseMouth { get; private set; } = null!;
     public static ConfigEntry<string> EnableFableTwitcher { get; private set; } = null!;
     public static ConfigEntry<float> FableTwitcherScale { get; private set; } = null!;
     public static ConfigEntry<string> FableTwitcherSex { get; private set; } = null!;
@@ -115,6 +117,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableTwitcherEyeSeparation { get; private set; } = null!;
     public static ConfigEntry<float> FableTwitcherEyeScale { get; private set; } = null!;
     public static ConfigEntry<float> FableTwitcherEyeIntensity { get; private set; } = null!;
+    public static ConfigEntry<bool> FableTwitcherCloseMouth { get; private set; } = null!;
     public static ConfigEntry<string> EnableFableMage { get; private set; } = null!;
     public static ConfigEntry<float> FableMageScale { get; private set; } = null!;
     public static ConfigEntry<string> FableMageSex { get; private set; } = null!;
@@ -132,6 +135,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<float> FableMageEyeSeparation { get; private set; } = null!;
     public static ConfigEntry<float> FableMageEyeScale { get; private set; } = null!;
     public static ConfigEntry<float> FableMageEyeIntensity { get; private set; } = null!;
+    public static ConfigEntry<bool> FableMageCloseMouth { get; private set; } = null!;
     public static ConfigEntry<string> FableMageTextureCopyFrom { get; private set; } = null!;
     public static ConfigEntry<string> FableMageTextureCopyTo { get; private set; } = null!;
     public static ConfigEntry<bool> FableMageStaffHideFlare { get; private set; } = null!;
@@ -182,7 +186,12 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> FableBunnyHideRagdoll { get; private set; } = null!;
     public static ConfigEntry<int> FableBunnyStarLook { get; private set; } = null!;
     public static ConfigEntry<float> FableBunnyMoveAnimSpeed { get; private set; } = null!;
-    public static ConfigEntry<string> FableBunnyLashStyle { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnySwipeStyle { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnyWindupStyle { get; private set; } = null!;
+    public static ConfigEntry<bool> FableBunnyEarWhip { get; private set; } = null!;
+    public static ConfigEntry<bool> FableBunnyWispOrbit { get; private set; } = null!;
+    public static ConfigEntry<bool> FableBunnySitUp { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnySitState { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyRollStyle { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyMode { get; private set; } = null!;
 
@@ -665,6 +674,14 @@ public class Plugin : BaseUnityPlugin
                 "CustomEquipment only: rotation (degrees) of the warrior's weapon around the hand-attach local Z axis.",
                 new AcceptableValueRange<float>(-180f, 180f)));
 
+        FableWarriorCloseMouth = Config.Bind(
+            "Fable Warrior",
+            "FableWarriorCloseMouth",
+            true,
+            "Keep the Fable Warrior's mouth closed: skip retargeting the Charred's animated Jaw bone " +
+            "onto the puppet, so the puppet jaw stays at the player rig's bind pose. Off = vanilla " +
+            "behavior (the Charred's gaping jaw animation drives the puppet mouth).");
+
         FableWarriorEyeGlow = Config.Bind(
             "Fable Warrior",
             "FableWarriorEyeGlow",
@@ -806,6 +823,14 @@ public class Plugin : BaseUnityPlugin
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
 
+        FableArcherCloseMouth = Config.Bind(
+            "Fable Archer",
+            "FableArcherCloseMouth",
+            true,
+            "Keep the Fable Archer's mouth closed: skip retargeting the Charred's animated Jaw bone " +
+            "onto the puppet, so the puppet jaw stays at the player rig's bind pose. Off = vanilla " +
+            "behavior (the Charred's gaping jaw animation drives the puppet mouth).");
+
         FableArcherEyeGlow = Config.Bind(
             "Fable Archer",
             "FableArcherEyeGlow",
@@ -946,6 +971,15 @@ public class Plugin : BaseUnityPlugin
                 "CustomEquipment only: multiplier on the twitcher's weapon size, applied after the weapon is " +
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
+
+        FableTwitcherCloseMouth = Config.Bind(
+            "Fable Twitcher",
+            "FableTwitcherCloseMouth",
+            true,
+            "Keep the Fable Twitcher's mouth closed (also covers Charred_Twitcher_Summoned): skip " +
+            "retargeting the Charred's animated Jaw bone onto the puppet, so the puppet jaw stays at " +
+            "the player rig's bind pose. Off = vanilla behavior (the Charred's gaping jaw animation " +
+            "drives the puppet mouth).");
 
         FableTwitcherEyeGlow = Config.Bind(
             "Fable Twitcher",
@@ -1101,6 +1135,14 @@ public class Plugin : BaseUnityPlugin
                 "CustomEquipment only: multiplier on the mage's weapon size, applied after the weapon is " +
                 "normalized to scale with the puppet rig. 1.0 = fits like it fits the player.",
                 new AcceptableValueRange<float>(0.25f, 4.0f)));
+
+        FableMageCloseMouth = Config.Bind(
+            "Fable Mage",
+            "FableMageCloseMouth",
+            true,
+            "Keep the Fable Mage's mouth closed: skip retargeting the Charred's animated Jaw bone " +
+            "onto the puppet, so the puppet jaw stays at the player rig's bind pose. Off = vanilla " +
+            "behavior (the Charred's gaping jaw animation drives the puppet mouth).");
 
         FableMageEyeGlow = Config.Bind(
             "Fable Mage",
@@ -1398,16 +1440,58 @@ public class Plugin : BaseUnityPlugin
                 "play at full speed.",
                 new AcceptableValueRange<float>(0.2f, 1.5f)));
 
-        FableBunnyLashStyle = Config.Bind(
+        FableBunnySwipeStyle = Config.Bind(
             "Fable Bunny",
-            "FableBunnyLashStyle",
-            "Wisps",
+            "FableBunnySwipeStyle",
+            "Paws",
             new ConfigDescription(
-                "How the Morgen's arm-swipe attacks read on the donor (they are invisible otherwise - " +
-                "the donor has no matching limbs). Wisps = two wisp orbs orbit the donor and lash along " +
-                "the hidden hand bones during swipes. EarWhip = the donor's ears whip at the targets " +
-                "(procedural bone layer). Both = wisps + ears. Off = v1 body-pounce only.",
-                new AcceptableValueList<string>("Wisps", "EarWhip", "Both", "Off")));
+                "How the Morgen's left/right swipe attacks read on the donor (they are invisible " +
+                "otherwise - the donor has no matching limbs). Paws = the donor sits up and strikes " +
+                "with the front paw matching the side the Morgen is lashing from (procedural bone " +
+                "layer). Wisps = the striking-side wisp orb telegraphs at the hidden hand, then lashes " +
+                "along the real swing (no comet trail). Comets = the original both-orb flare + " +
+                "streaking-trail lash. Off = body pounce only.",
+                new AcceptableValueList<string>("Paws", "Wisps", "Comets", "Off")));
+
+        FableBunnyWindupStyle = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyWindupStyle",
+            "Telegraph",
+            new ConfigDescription(
+                "Wisps-style wind-up read. Telegraph = the striking orb fades in and glows up AT the " +
+                "wound-back striking hand, so the player sees where the hit will come from. Flare = " +
+                "the original outward flare burst of both orbs. The Comets style always flares.",
+                new AcceptableValueList<string>("Telegraph", "Flare")));
+
+        FableBunnyEarWhip = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyEarWhip",
+            false,
+            "Also whip the donor's giant ears at the target during swipes (procedural bone layer). " +
+            "Composes with any FableBunnySwipeStyle.");
+
+        FableBunnyWispOrbit = Config.Bind(
+            "Fable Bunny",
+            "FableBunnyWispOrbit",
+            true,
+            "Keep the wisp orbs orbiting the donor while idle. Off = the orbs stay hidden at rest and " +
+            "only fade in for Wisps/Comets swipe strikes (they appear at the striking hand during the " +
+            "wind-up). The elemental modes' hand orbs are unaffected.");
+
+        FableBunnySitUp = Config.Bind(
+            "Fable Bunny",
+            "FableBunnySitUp",
+            true,
+            "Sit up on the haunches during swipe wind-ups (the donor's vanilla alert/sit pose, state " +
+            "name from FableBunnySitState). Donors without such an animator state rear back " +
+            "procedurally instead.");
+
+        FableBunnySitState = Config.Bind(
+            "Fable Bunny",
+            "FableBunnySitState",
+            "alert",
+            "Advanced: donor animator state used for the swipe sit-up. Leave default unless a game " +
+            "update renames it - the probe result is logged as '[AR Bunny] sit-up state'.");
 
         FableBunnyRollStyle = Config.Bind(
             "Fable Bunny",
@@ -2119,6 +2203,29 @@ public class Plugin : BaseUnityPlugin
             // carry: the per-class defaults (Archer = Female, others = Male) are intentional.
             PurgeOrphanedKey("Fable Race", "FableRaceSex");
 
+            // FableBunnyLashStyle was split into FableBunnySwipeStyle + FableBunnyEarWhip (this
+            // release). The old orb lash with streaking trails is the new "Comets" style; old
+            // "EarWhip" meant ears-only (no orb strike); "Both" adds the ear whip on top.
+            var oldLash = ReadOrphanRaw("Fable Bunny", "FableBunnyLashStyle")?.Trim();
+            if (!string.IsNullOrEmpty(oldLash))
+            {
+                if (string.Equals(oldLash, "Wisps", StringComparison.OrdinalIgnoreCase))
+                    FableBunnySwipeStyle.Value = "Comets";
+                else if (string.Equals(oldLash, "Both", StringComparison.OrdinalIgnoreCase))
+                {
+                    FableBunnySwipeStyle.Value = "Comets";
+                    FableBunnyEarWhip.Value = true;
+                }
+                else if (string.Equals(oldLash, "EarWhip", StringComparison.OrdinalIgnoreCase))
+                {
+                    FableBunnySwipeStyle.Value = "Off";
+                    FableBunnyEarWhip.Value = true;
+                }
+                else if (string.Equals(oldLash, "Off", StringComparison.OrdinalIgnoreCase))
+                    FableBunnySwipeStyle.Value = "Off";
+            }
+            PurgeOrphanedKey("Fable Bunny", "FableBunnyLashStyle");
+
             // EnableDevCommandsAndGodMode -> EnableDevMode (this release; the dev commands it runs
             // now also include debugmode and nocost). Unbound this session, so read it as an orphan.
             var oldDevMode = ReadOrphanRaw("General", "EnableDevCommandsAndGodMode")?.Trim();
@@ -2154,7 +2261,12 @@ public class Plugin : BaseUnityPlugin
         EnableFableBunny.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyDonor.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyStarLook.SettingChanged += (_, _) => OnFableBunnyChanged();
-        FableBunnyLashStyle.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnySwipeStyle.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyWindupStyle.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyEarWhip.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyWispOrbit.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnySitUp.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnySitState.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyMode.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyHeight.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyScale.SettingChanged += (_, _) => OnFableBunnyChanged();
@@ -2214,6 +2326,7 @@ public class Plugin : BaseUnityPlugin
         FableWarriorWeaponGripRotY.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorWeaponGripRotZ.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableWarriorEyeGlow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableWarriorCloseMouth.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         // Eye tuning sliders adjust the live clones in place (no puppet rebuild - a rebuild
         // restarts the glow particle systems, which refill over seconds and blink out while
         // dragging sliders in the pause menu).
@@ -2233,6 +2346,7 @@ public class Plugin : BaseUnityPlugin
         FableArcherWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableArcherWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableArcherEyeGlow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableArcherCloseMouth.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableArcherEyeOffsetX.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
         FableArcherEyeOffsetY.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
         FableArcherEyeOffsetZ.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
@@ -2249,6 +2363,7 @@ public class Plugin : BaseUnityPlugin
         FableTwitcherWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableTwitcherWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableTwitcherEyeGlow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableTwitcherCloseMouth.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableTwitcherEyeOffsetX.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
         FableTwitcherEyeOffsetY.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
         FableTwitcherEyeOffsetZ.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
@@ -2265,6 +2380,7 @@ public class Plugin : BaseUnityPlugin
         FableMageWeapon.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageWeaponScale.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageEyeGlow.SettingChanged += (_, _) => OnFableWarriorModeChanged();
+        FableMageCloseMouth.SettingChanged += (_, _) => OnFableWarriorModeChanged();
         FableMageEyeOffsetX.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
         FableMageEyeOffsetY.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();
         FableMageEyeOffsetZ.SettingChanged += (_, _) => Patches.FableWarriorPatches.UpdateFableEyes();

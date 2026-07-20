@@ -95,6 +95,10 @@ internal static class FableWarriorPatches
         public Func<float> EyeSeparation = () => 0.1f;
         public Func<float> EyeScale = () => 2f;
         public Func<float> EyeIntensity = () => 5f;
+        /// <summary>Skip retargeting the Charred's animated Jaw bone onto the puppet, leaving the
+        /// puppet jaw at the player bind pose (mouth closed; it still follows the driven Head).
+        /// Off = vanilla behavior: the Charred's gaping jaw animation drives the puppet mouth.</summary>
+        public Func<bool> CloseMouth = () => true;
     }
 
     private static readonly CreatureProfile[] Profiles =
@@ -118,6 +122,7 @@ internal static class FableWarriorPatches
             ShoulderItem = () => Plugin.FableWarriorShoulders?.Value ?? "",
             KeepClonedHands = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.ClonePlayer,
             WeaponGrip = () => ParseMode(Plugin.EnableFableWarrior?.Value) == FableMode.CustomEquipment,
+            CloseMouth = () => Plugin.FableWarriorCloseMouth?.Value ?? true,
             EyeFx = () => Plugin.FableWarriorEyeGlow?.Value == true,
             EyeOffset = () => new Vector3(
                 Plugin.FableWarriorEyeOffsetX?.Value ?? 0.005f,
@@ -146,6 +151,7 @@ internal static class FableWarriorPatches
             LegItem = () => Plugin.FableArcherLegs?.Value ?? "",
             ShoulderItem = () => Plugin.FableArcherShoulders?.Value ?? "",
             KeepClonedHands = () => ParseMode(Plugin.EnableFableArcher?.Value) == FableMode.ClonePlayer,
+            CloseMouth = () => Plugin.FableArcherCloseMouth?.Value ?? true,
             EyeFx = () => Plugin.FableArcherEyeGlow?.Value == true,
             EyeOffset = () => new Vector3(
                 Plugin.FableArcherEyeOffsetX?.Value ?? 0.005f,
@@ -174,6 +180,7 @@ internal static class FableWarriorPatches
             LegItem = () => Plugin.FableTwitcherLegs?.Value ?? "",
             ShoulderItem = () => Plugin.FableTwitcherShoulders?.Value ?? "",
             KeepClonedHands = () => ParseMode(Plugin.EnableFableTwitcher?.Value) == FableMode.ClonePlayer,
+            CloseMouth = () => Plugin.FableTwitcherCloseMouth?.Value ?? true,
             EyeFx = () => Plugin.FableTwitcherEyeGlow?.Value == true,
             EyeOffset = () => new Vector3(
                 Plugin.FableTwitcherEyeOffsetX?.Value ?? 0.005f,
@@ -205,6 +212,7 @@ internal static class FableWarriorPatches
             ShoulderItem = () => Plugin.FableMageShoulders?.Value ?? "",
             KeepClonedHands = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.ClonePlayer,
             StaffOrientation = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment,
+            CloseMouth = () => Plugin.FableMageCloseMouth?.Value ?? true,
             TextureCopyFrom = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment
                 ? (Plugin.FableMageTextureCopyFrom?.Value ?? "") : "",
             TextureCopyTo = () => ParseMode(Plugin.EnableFableMage?.Value) == FableMode.CustomEquipment
@@ -254,6 +262,10 @@ internal static class FableWarriorPatches
     private const float CapsuleToBodyHeight = 1.17f;
 
     private const string KromPrefabName = "THSwordKrom";
+
+    // Both rigs share this Mixamo jaw bone (child of Head); pairing it retargets the Charred's
+    // gaping jaw animation onto the puppet's mouth (see CloseMouth in CreatureProfile).
+    private const string JawBoneName = "Jaw";
 
     // Per-bone rest-pose offsets, computed once per charred PREFAB against the player prefab,
     // keyed by Mixamo bone name (the charred variants share bone names but not rest poses).
@@ -1512,9 +1524,14 @@ internal static class FableWarriorPatches
             if (!puppetMap.ContainsKey(kv.Key)) puppetMap[kv.Key] = kv.Value;
 
         // Pair every bone with a prefab-derived rest offset that exists in BOTH live rigs.
+        // Exception: with CloseMouth on, the Jaw stays UNPAIRED — the puppet jaw then holds the
+        // player bind pose (mouth closed) and follows the driven Head. Skipping here (not in
+        // GetOffsets) keeps the shared OffsetsCache toggle-agnostic for live F1 rebuilds.
+        var closeMouth = marker.Profile?.CloseMouth() ?? true;
         var pairs = new List<BonePair>();
         foreach (var kv in offsets)
         {
+            if (closeMouth && string.Equals(kv.Key, JawBoneName, StringComparison.OrdinalIgnoreCase)) continue;
             if (!charredMap.TryGetValue(kv.Key, out var c)) continue;
             if (!puppetMap.TryGetValue(kv.Key, out var p)) continue;
             pairs.Add(new BonePair

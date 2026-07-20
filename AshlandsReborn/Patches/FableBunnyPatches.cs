@@ -31,9 +31,13 @@ namespace AshlandsReborn.Patches;
 ///    the TRAVEL direction (the Morgen often rolls sideways relative to its facing), and the
 ///    "HopHigher" presentation fires the donor's real jump trigger on repeating airborne
 ///    bounce arcs with a landing squash - destructive bounding, not the v1 jog.
-///  - Swipes: the Morgen's arm swings have no visible correlate on the donor, so two wisp
-///    orbs orbit it and, on swipe attacks, flare outward and lash along the HIDDEN Morgen
-///    hand bones (Hand.l/Hand.r keep animating hitbox-accurately) with trails.
+///  - Swipes: the Morgen's arm swings have no visible correlate on the donor. The striking
+///    SIDE is measured (root-relative hand-bone travel during the wind-up, cached per anim
+///    name), the donor sits up on its haunches (vanilla "alert"-style state, FableBunnySitUp),
+///    and FableBunnySwipeStyle picks the strike visual: Paws = procedural front-leg swing on
+///    the matching side; Wisps = the striking-side wisp orb telegraphs at the hidden hand and
+///    lashes along the real swing; Comets = the original both-orb flare + streaking trails.
+///    FableBunnyWispOrbit gates the constant idle orbit (off = orbs fade in only for strikes).
 ///  - Star look: FableBunnyStarLook applies the donor's own LevelEffects tint table (hue/
 ///    saturation/value/emissive) at build time, independent of the Morgen's real level.
 ///  - Death: Ragdoll.Awake hides the Morgen ragdoll's renderers (vanilla FX/drops untouched).
@@ -266,7 +270,9 @@ internal static class FableBunnyPatches
             }
 
             ShowProxy(marker, 0);
-            if (LashIncludesWisps()) BuildWispOrbs(marker);
+            // Orbs exist when a wisp strike style needs them OR the idle orbit is wanted
+            // (orbit + Paws strikes is a legal combination).
+            if (SwipeUsesWisps() || WispOrbitOn()) BuildWispOrbs(marker);
         }
         else
         {
@@ -377,6 +383,9 @@ internal static class FableBunnyPatches
         foreach (var t in clone.GetComponentsInChildren<Transform>(true))
             if (t.name is "Ear.l" or "Ear.r" or "ear1.l" or "ear1.r")
                 marker.EarBones.Add(t);
+
+        // v3 Paws swipe style: cache the donor's front-leg chains for the procedural strike.
+        if (isPrimary) ResolvePawChains(clone, marker);
 
         marker.Proxies.Add(new BunnyProxy
         {
@@ -549,11 +558,26 @@ internal static class FableBunnyPatches
                         marker.BeamEnd = Time.time + 0.8f;
                     }
                     break;
-                case AttackClass.Lash when marker.Orbs.Count > 0 || LashIncludesEars():
-                    // The orbs carry the read; in Bunny mode tone the body pounce down so the
-                    // lash is the visible event instead of an unrelated body bob.
-                    if (!elemental) StartPounce(marker, duration: 0.45f, amplitude: 0.4f);
-                    else marker.CoreFlashEnd = Time.time + 0.3f;
+                case AttackClass.Lash when !elemental:
+                {
+                    // v3 swipes: measure/recall the striking side, sit up on the haunches for
+                    // the wind-up, then let the configured style carry the strike read. The
+                    // body pounce only fills in when nothing else reads: toned down when a
+                    // strike visual exists, full-size for the bare Off style (old default-case
+                    // behavior for LashStyle=Off).
+                    BeginSwipeSide(marker, animName);
+                    var seated = StartSitUp(marker);
+                    var style = CurrentSwipeStyle();
+                    var strikeReads = (marker.Orbs.Count > 0 && SwipeUsesWisps())
+                        || (EarWhipOn() && marker.EarBones.Count > 0)
+                        || (style == SwipeStyle.Paws && (marker.PawBonesL.Count > 0 || marker.PawBonesR.Count > 0));
+                    if (!seated)
+                        StartPounce(marker, duration: 0.45f, amplitude: strikeReads ? 0.4f : 1.0f);
+                    StartLash(marker);
+                    break;
+                }
+                case AttackClass.Lash:
+                    marker.CoreFlashEnd = Time.time + 0.3f;
                     StartLash(marker);
                     break;
                 default:
@@ -596,6 +620,143 @@ internal static class FableBunnyPatches
     {
         marker.LashState = LashState.Flare;
         marker.LashPhaseStart = Time.time;
+    }
+
+    // ---- swipe side detection (v3) --------------------------------------------------------
+    // attack_swipe_1..4 don't encode which arm swings, so the side is MEASURED: root-relative
+    // travel of the hidden Morgen hand bones during the wind-up decides it, and the result is
+    // cached per anim name (plus seeded from recon runs) so the telegraph points at the right
+    // side from the very first swing of a known anim.
+
+    private static readonly Dictionary<string, int> SwipeSideByAnim = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Seeded from the recon self-test's "[AR Bunny] swipe side detect" log lines.
+    };
+    private static readonly HashSet<string> SideLogged = new(StringComparer.OrdinalIgnoreCase);
+
+    private static void BeginSwipeSide(AshlandsRebornFableBunny marker, string? animName)
+    {
+        marker.PendingSideAnim = animName;
+        marker.LashSide = animName != null && SwipeSideByAnim.TryGetValue(animName, out var s) ? s : 0;
+        marker.SideCommitted = marker.LashSide != 0;
+        marker.HandTravelL = 0f;
+        marker.HandTravelR = 0f;
+        var root = marker.Source != null ? marker.Source.transform : null;
+        if (root == null) return;
+        if (marker.HandL != null) marker.HandPrevL = root.InverseTransformPoint(marker.HandL.position);
+        if (marker.HandR != null) marker.HandPrevR = root.InverseTransformPoint(marker.HandR.position);
+    }
+
+    private static void UpdateSwipeSide(AshlandsRebornFableBunny marker)
+    {
+        if (marker.SideCommitted || marker.LashState == LashState.Orbit || marker.Source == null) return;
+        var root = marker.Source.transform;
+        if (marker.HandL != null)
+        {
+            var p = root.InverseTransformPoint(marker.HandL.position);
+            marker.HandTravelL += (p - marker.HandPrevL).magnitude;
+            marker.HandPrevL = p;
+        }
+        if (marker.HandR != null)
+        {
+            var p = root.InverseTransformPoint(marker.HandR.position);
+            marker.HandTravelR += (p - marker.HandPrevR).magnitude;
+            marker.HandPrevR = p;
+        }
+        // Commit at the end of the wind-up window - the strike visuals need the side now.
+        if (Time.time - marker.LashPhaseStart < 0.25f) return;
+        marker.SideCommitted = true;
+        var dL = marker.HandTravelL;
+        var dR = marker.HandTravelR;
+        // Near-identical travel (or no hand bones) = a both-arms swing; side 0 keeps both
+        // paws/orbs participating.
+        marker.LashSide = dL + dR < 0.05f || Mathf.Abs(dL - dR) < 0.15f * Mathf.Max(dL, dR)
+            ? 0
+            : (dL > dR ? -1 : 1);
+        var anim = marker.PendingSideAnim;
+        if (anim == null) return;
+        SwipeSideByAnim[anim] = marker.LashSide;
+        if (SideLogged.Add(anim))
+            Plugin.Log?.LogInfo($"[AR Bunny] swipe side detect '{anim}': L={dL:F2} R={dR:F2} -> " +
+                $"{(marker.LashSide < 0 ? "LEFT" : marker.LashSide > 0 ? "RIGHT" : "BOTH")}");
+    }
+
+    // ---- sit-up on the haunches (v3) ------------------------------------------------------
+
+    private static readonly string[] SitStateCandidates = { "alert", "sit", "sit_up", "idle_alert", "scared" };
+
+    private static BunnyProxy? ActiveProxy(AshlandsRebornFableBunny marker)
+        => marker.ActiveProxyIndex >= 0 && marker.ActiveProxyIndex < marker.Proxies.Count
+            ? marker.Proxies[marker.ActiveProxyIndex]
+            : null;
+
+    /// <summary>Cross-fade the donor into its sit/alert animator state for the swipe wind-up
+    /// (the hare's vanilla "sit up on the haunches" pose). Returns true when a body pose
+    /// engaged (state or the procedural rear-up fallback) so the caller can skip the pounce -
+    /// the two would fight over the pivot pitch.</summary>
+    private static bool StartSitUp(AshlandsRebornFableBunny marker)
+    {
+        if (Plugin.FableBunnySitUp?.Value != true || marker.Mode != BunnyMode.Bunny) return false;
+        var proxy = ActiveProxy(marker);
+        var anim = proxy?.Animator;
+        if (anim != null && anim.isActiveAndEnabled && proxy!.SitStateHash == 0)
+            ResolveSitState(proxy, anim);
+        if (anim == null || !anim.isActiveAndEnabled || proxy!.SitStateHash <= 0)
+        {
+            marker.SitProceduralUntil = Time.time + 0.6f; // no usable state: procedural rear-up
+            return true;
+        }
+        if (!marker.SitEntered)
+            marker.SitReturnStateHash = anim.GetCurrentAnimatorStateInfo(0).shortNameHash;
+        anim.CrossFadeInFixedTime(proxy.SitStateHash, 0.12f, 0);
+        marker.SitEntered = true;
+        marker.SitUntil = Time.time + 2.5f; // safety cap; the lash Return normally ends it
+        return true;
+    }
+
+    /// <summary>Probe the donor controller for a usable sit/alert STATE (HasState works on
+    /// runtime Animators where state-machine introspection doesn't). Config value first, then
+    /// the recon candidates; -1 = none, use the procedural rear-up.</summary>
+    private static void ResolveSitState(BunnyProxy proxy, Animator anim)
+    {
+        var configured = Plugin.FableBunnySitState?.Value?.Trim();
+        var names = string.IsNullOrEmpty(configured)
+            ? SitStateCandidates
+            : new[] { configured! }.Concat(SitStateCandidates).ToArray();
+        foreach (var name in names)
+        {
+            var hash = Animator.StringToHash(name);
+            if (hash == 0 || hash == -1 || !anim.HasState(0, hash)) continue;
+            proxy.SitStateHash = hash;
+            Plugin.Log?.LogInfo($"[AR Bunny] sit-up state: '{name}' on donor '{proxy.DonorName}'");
+            return;
+        }
+        proxy.SitStateHash = -1;
+        Plugin.Log?.LogInfo($"[AR Bunny] no sit-up state on donor '{proxy.DonorName}' " +
+            $"(probed: {string.Join(", ", names)}) - using the procedural rear-up");
+    }
+
+    /// <summary>Hold the sit pose while the lash wind-up/strike runs, steer the controller
+    /// back if a param-driven transition pulls it out early, and cross-fade back to the
+    /// recorded state once the lash settles (locomotion params take over from there).</summary>
+    private static void UpdateSitUp(AshlandsRebornFableBunny marker, Animator? anim)
+    {
+        if (!marker.SitEntered) return;
+        if (anim == null || !anim.isActiveAndEnabled) { marker.SitEntered = false; return; }
+        var done = marker.LashState == LashState.Return || marker.LashState == LashState.Orbit
+                   || Time.time > marker.SitUntil;
+        if (done)
+        {
+            if (marker.SitReturnStateHash != 0)
+                anim.CrossFadeInFixedTime(marker.SitReturnStateHash, 0.25f, 0);
+            marker.SitEntered = false;
+            return;
+        }
+        var sitHash = ActiveProxy(marker)?.SitStateHash ?? 0;
+        if (sitHash > 0
+            && anim.GetCurrentAnimatorStateInfo(0).shortNameHash != sitHash
+            && anim.GetNextAnimatorStateInfo(0).shortNameHash != sitHash)
+            anim.CrossFadeInFixedTime(sitHash, 0.12f, 0);
     }
 
     // ---- effect suppression ------------------------------------------------------------------
@@ -762,6 +923,14 @@ internal static class FableBunnyPatches
             pitch = marker.PounceAmplitude * 14f * Mathf.Sin(Mathf.PI * u);
         }
 
+        // Sit-up fallback for donors without a sit/alert state: rear the pivot back through
+        // the wind-up (negative pitch = nose up; the pounce's lunge uses positive).
+        if (marker.SitProceduralUntil > Time.time)
+        {
+            var w = 1f - Mathf.Clamp01((marker.SitProceduralUntil - Time.time) / 0.6f);
+            pitch -= 18f * Mathf.Sin(Mathf.PI * w);
+        }
+
         // Roll presentation "HopHigher": repeating airborne bounce arcs with a landing squash,
         // plus the donor's real jump trigger on each arc - destructive bounding instead of
         // the v1 flat jog.
@@ -804,8 +973,10 @@ internal static class FableBunnyPatches
             }
         }
 
+        UpdateSwipeSide(marker);
         UpdateOrbs(marker, source, dt);
         UpdateElemental(marker, source, dt);
+        UpdateSitUp(marker, anim);
 
         if (anim == null || !anim.isActiveAndEnabled) return;
 
@@ -815,6 +986,9 @@ internal static class FableBunnyPatches
         // configured factor as locomotion speed rises. Idle fidgets stay full-rate.
         var speed = planarVel.magnitude;
         if (marker.Rolling) speed = Mathf.Max(speed, 5f);
+        // Seated: zero the locomotion input so a param-driven move transition doesn't yank
+        // the controller out of the sit pose mid-wind-up (the Morgen may still be drifting).
+        if (marker.SitEntered) speed = 0f;
         anim.speed = Mathf.Lerp(1f, Plugin.FableBunnyMoveAnimSpeed?.Value ?? 0.55f, Mathf.Clamp01(speed / 4f));
         if (proxy!.ParamHashes.Contains(ForwardSpeedHash))
             anim.SetFloat(ForwardSpeedHash, speed, 0.2f, dt);
@@ -827,10 +1001,99 @@ internal static class FableBunnyPatches
             anim.SetBool(OnGroundHash, true);
         marker.PrevYaw = marker.LastYaw;
 
-        // M5 "EarWhip": post-Animator ear-bone overrides (this postfix runs after the
-        // donor Animator wrote the frame's pose, so the writes stick for rendering - the
-        // same ordering trick FableWarriorPatches.Drive relies on). Giant ears = the lash.
+        // Post-Animator bone overrides (this postfix runs after the donor Animator wrote the
+        // frame's pose, so the writes stick for rendering - the same ordering trick
+        // FableWarriorPatches.Drive relies on): M5 ear whip + v3 paw strike.
         ApplyEarWhip(marker);
+        ApplyPawStrike(marker);
+    }
+
+    /// <summary>Wind-up -> strike -> settle rotation layered onto the donor's striking-side
+    /// front-leg chain during swipes (SwipeStyle Paws). Same post-Animator trick as the ear
+    /// whip; composes with the sit-up pose, which lifts the forepaws off the ground. Axis is
+    /// the ear whip's calibrated guess (local X); tune here if shots show sideways swings.</summary>
+    private static void ApplyPawStrike(AshlandsRebornFableBunny marker)
+    {
+        if (marker.Mode != BunnyMode.Bunny || CurrentSwipeStyle() != SwipeStyle.Paws) return;
+        if (marker.PawBonesL.Count == 0 && marker.PawBonesR.Count == 0) return;
+        float angle;
+        switch (marker.LashState)
+        {
+            case LashState.Flare: // wind-up: the paw draws back/up
+                angle = -40f * Mathf.Clamp01((Time.time - marker.LashPhaseStart) / 0.25f);
+                break;
+            case LashState.Track: // strike: fast forward-down swipe with decaying follow-through
+                var t = Time.time - marker.LashPhaseStart - 0.25f;
+                angle = Mathf.Lerp(-40f, 55f, Mathf.Clamp01(t * 8f))
+                        + 10f * Mathf.Sin(t * 16f) * Mathf.Exp(-t * 3f);
+                break;
+            case LashState.Return: // settle back to the authored pose
+                angle = 55f * (1f - Mathf.Clamp01((Time.time - marker.LashPhaseStart) / 0.4f));
+                break;
+            default:
+                return; // idle: leave the authored leg animation alone
+        }
+        if (marker.LashSide <= 0) SwingChain(marker.PawBonesL, angle);
+        if (marker.LashSide >= 0) SwingChain(marker.PawBonesR, angle);
+    }
+
+    /// <summary>Distribute a swing angle across a leg chain, shoulder-heavy, so the limb arcs
+    /// instead of hinging at one joint.</summary>
+    private static void SwingChain(List<Transform> bones, float angle)
+    {
+        if (bones.Count == 0) return;
+        for (var i = 0; i < bones.Count; i++)
+        {
+            var b = bones[i];
+            if (b == null) continue;
+            var w = bones.Count == 1 ? 1f
+                : bones.Count == 2 ? (i == 0 ? 0.6f : 0.4f)
+                : (i == 0 ? 0.5f : i == 1 ? 0.3f : 0.2f);
+            b.localRotation *= Quaternion.AngleAxis(angle * w, Vector3.right);
+        }
+    }
+
+    private static readonly string[] PawNameFragments =
+        { "frontleg", "front_leg", "front leg", "shoulder", "upperarm", "forearm", "paw", "hand" };
+
+    /// <summary>Find the donor's front-leg bone chains by loose name match (the hare rig's
+    /// exact names come from recon; other donors vary). Parent-most 3 bones per side carry
+    /// the swing. Resolved names are logged so a rig rename is diagnosable from the log.</summary>
+    private static void ResolvePawChains(GameObject clone, AshlandsRebornFableBunny marker)
+    {
+        marker.PawBonesL.Clear();
+        marker.PawBonesR.Clear();
+        foreach (var t in clone.GetComponentsInChildren<Transform>(true))
+        {
+            var n = t.name.ToLowerInvariant();
+            var left = n.EndsWith(".l") || n.EndsWith("_l");
+            var right = n.EndsWith(".r") || n.EndsWith("_r");
+            if (!left && !right) continue;
+            if (!PawNameFragments.Any(f => n.Contains(f))) continue;
+            (left ? marker.PawBonesL : marker.PawBonesR).Add(t);
+        }
+        SortAndTrimChain(marker.PawBonesL);
+        SortAndTrimChain(marker.PawBonesR);
+        if (marker.PawBonesL.Count == 0 && marker.PawBonesR.Count == 0)
+            Plugin.Log?.LogInfo("[AR Bunny] no front-leg bones matched on the donor - " +
+                "Paws swipe style degrades to sit-up + pounce only");
+        else
+            Plugin.Log?.LogInfo("[AR Bunny] paw chains: " +
+                $"L=[{string.Join(",", marker.PawBonesL.Select(b => b.name))}] " +
+                $"R=[{string.Join(",", marker.PawBonesR.Select(b => b.name))}]");
+    }
+
+    private static void SortAndTrimChain(List<Transform> bones)
+    {
+        bones.Sort((a, b) => Depth(a).CompareTo(Depth(b)));
+        if (bones.Count > 3) bones.RemoveRange(3, bones.Count - 3);
+    }
+
+    private static int Depth(Transform t)
+    {
+        var d = 0;
+        while (t.parent != null) { d++; t = t.parent; }
+        return d;
     }
 
     /// <summary>Wind-up -> snap -> settle rotation layered onto the hare's ear bones during
@@ -839,7 +1102,7 @@ internal static class FableBunnyPatches
     /// guess (local X pitch); if screenshots show sideways ears, this is the line to tune.</summary>
     private static void ApplyEarWhip(AshlandsRebornFableBunny marker)
     {
-        if (marker.EarBones.Count == 0 || !LashIncludesEars()) return;
+        if (marker.EarBones.Count == 0 || !EarWhipOn()) return;
         float angle;
         switch (marker.LashState)
         {
@@ -909,19 +1172,26 @@ internal static class FableBunnyPatches
     private static readonly string[] WispVisualCandidates = { "demister_ball", "vfx_Demister", "Wisp" };
     private static bool _wispProbeLogged;
 
-    private static bool LashIncludesWisps()
+    internal enum SwipeStyle { Paws, Wisps, Comets, Off }
+
+    internal static SwipeStyle CurrentSwipeStyle()
     {
-        var s = Plugin.FableBunnyLashStyle?.Value;
-        return string.Equals(s, "Wisps", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(s, "Both", StringComparison.OrdinalIgnoreCase);
+        var s = Plugin.FableBunnySwipeStyle?.Value;
+        if (string.Equals(s, "Wisps", StringComparison.OrdinalIgnoreCase)) return SwipeStyle.Wisps;
+        if (string.Equals(s, "Comets", StringComparison.OrdinalIgnoreCase)) return SwipeStyle.Comets;
+        if (string.Equals(s, "Off", StringComparison.OrdinalIgnoreCase)) return SwipeStyle.Off;
+        return SwipeStyle.Paws;
     }
 
-    private static bool LashIncludesEars()
-    {
-        var s = Plugin.FableBunnyLashStyle?.Value;
-        return string.Equals(s, "EarWhip", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(s, "Both", StringComparison.OrdinalIgnoreCase);
-    }
+    internal static bool SwipeUsesWisps()
+        => CurrentSwipeStyle() is SwipeStyle.Wisps or SwipeStyle.Comets;
+
+    private static bool EarWhipOn() => Plugin.FableBunnyEarWhip?.Value == true;
+
+    internal static bool WispOrbitOn() => Plugin.FableBunnyWispOrbit?.Value != false;
+
+    private static bool WindupIsFlare()
+        => string.Equals(Plugin.FableBunnyWindupStyle?.Value, "Flare", StringComparison.OrdinalIgnoreCase);
 
     private static Shader? FindOrbShader()
     {
@@ -1088,13 +1358,15 @@ internal static class FableBunnyPatches
             Mathf.Sin(ang) * 0.95f * h);
     }
 
+    private enum StrikeSide { None, Left, Right, Both }
+
     private static void UpdateOrbs(AshlandsRebornFableBunny marker, Character source, float dt)
     {
-        // NOTE: runs even with zero orbs - the lash state machine below also drives the
-        // M5 ear whip (EarWhip style builds no orbs but still needs Flare/Track/Return).
+        // NOTE: runs even with zero orbs - the lash state machine below is the shared attack
+        // phase clock (ear whip, paw strike, and sit-up release all key off Flare/Track/Return).
 
-        // Lash phases: Flare (0.25s burst outward) -> Track (follow the hidden hands until
-        // the attack ends; same InAttack grace as the roll) -> Return (0.4s) -> Orbit.
+        // Lash phases: Flare (0.25s wind-up) -> Track (follow the hidden hands until the
+        // attack ends; same InAttack grace as the roll) -> Return (0.4s) -> Orbit.
         switch (marker.LashState)
         {
             case LashState.Flare when Time.time - marker.LashPhaseStart > 0.25f:
@@ -1109,23 +1381,55 @@ internal static class FableBunnyPatches
                 break;
         }
 
+        if (marker.Orbs.Count == 0) return;
+
         var h = marker.TargetHeight;
+        var bunny = marker.Mode == BunnyMode.Bunny;
+        var style = CurrentSwipeStyle();
+        // Which orbs join the lash: elementals keep the original both-orb brightness layering
+        // (their orbs ARE the hands); bunny Comets = both; bunny Wisps = the striking side
+        // (side 0 = both-arms swing / not yet committed); Paws/Off = orbs never lash.
+        var strikers = !bunny || style == SwipeStyle.Comets ? StrikeSide.Both
+            : style != SwipeStyle.Wisps ? StrikeSide.None
+            : marker.LashSide < 0 ? StrikeSide.Left
+            : marker.LashSide > 0 ? StrikeSide.Right
+            : StrikeSide.Both;
+
         foreach (var orb in marker.Orbs)
         {
             if (orb.Root == null) continue;
+            var isLeft = orb.Hand != null && marker.HandL != null ? orb.Hand == marker.HandL : orb.Phase < 1f;
+            var participating = strikers == StrikeSide.Both
+                || (strikers == StrikeSide.Left && isLeft)
+                || (strikers == StrikeSide.Right && !isLeft);
+            var lashing = participating && marker.LashState != LashState.Orbit;
+            var state = lashing ? marker.LashState : LashState.Orbit;
+
             Vector3 target;
             float lerpRate, lightIntensity;
-            switch (marker.LashState)
+            switch (state)
             {
                 case LashState.Flare:
-                    var center = marker.Pivot!.position + Vector3.up * (0.5f * h);
-                    var outward = orb.Root.position - center;
-                    outward.y *= 0.3f;
-                    if (outward.sqrMagnitude < 0.01f)
-                        outward = marker.Pivot.right * (orb.Phase > 1f ? -1f : 1f);
-                    target = center + outward.normalized * (1.9f * h);
-                    lerpRate = 14f;
-                    lightIntensity = 5f;
+                    if (bunny && style == SwipeStyle.Wisps && !WindupIsFlare() && orb.Hand != null)
+                    {
+                        // Telegraph wind-up: glow up AT the wound-back striking hand so the
+                        // player reads where the hit will come from, and when.
+                        target = orb.Hand.position;
+                        lerpRate = 16f;
+                        lightIntensity = 6f;
+                    }
+                    else
+                    {
+                        // The original flare burst (Comets always; Wisps via WindupStyle=Flare).
+                        var center = marker.Pivot!.position + Vector3.up * (0.5f * h);
+                        var outward = orb.Root.position - center;
+                        outward.y *= 0.3f;
+                        if (outward.sqrMagnitude < 0.01f)
+                            outward = marker.Pivot.right * (orb.Phase > 1f ? -1f : 1f);
+                        target = center + outward.normalized * (1.9f * h);
+                        lerpRate = 14f;
+                        lightIntensity = 5f;
+                    }
                     break;
                 case LashState.Track:
                     target = orb.Hand != null ? orb.Hand.position : OrbitTarget(marker, orb);
@@ -1154,11 +1458,44 @@ internal static class FableBunnyPatches
                     }
                     break;
             }
+
+            // Idle visibility (v3): with the orbit toggled off, bunny orbs exist only while
+            // they participate in a lash - fade in at the telegraph, fade out after Return.
+            var visible = !bunny || WispOrbitOn() || lashing;
+            var wasHidden = orb.Visible < 0.05f;
+            orb.Visible = Mathf.Lerp(orb.Visible, visible ? 1f : 0f,
+                1f - Mathf.Exp((visible ? -12f : -5f) * dt));
+            if (visible && wasHidden)
+            {
+                // Waking from hidden: snap to the target so the orb doesn't streak in from
+                // its stale parked position, and drop any recorded trail.
+                orb.Root.position = target;
+                if (orb.Trail != null) orb.Trail.Clear();
+            }
+            orb.Root.localScale = Vector3.one * Mathf.Max(0.0001f, orb.Visible);
+
             orb.Root.position = Vector3.Lerp(orb.Root.position, target, 1f - Mathf.Exp(-lerpRate * dt));
             if (orb.Light != null)
-                orb.Light.intensity = Mathf.Lerp(orb.Light.intensity, lightIntensity, 1f - Mathf.Exp(-8f * dt));
+                orb.Light.intensity = Mathf.Lerp(orb.Light.intensity, lightIntensity * orb.Visible,
+                    1f - Mathf.Exp(-8f * dt));
+
             if (orb.Trail != null)
-                orb.Trail.emitting = marker.LashState != LashState.Orbit;
+            {
+                // Comets = the original streaking trails through every lash phase. Wisps keep
+                // only a short whisker during the strike itself - the long comet streamers
+                // were the look the user rejected.
+                bool emit;
+                float trailTime;
+                if (!bunny || style == SwipeStyle.Comets) { emit = lashing; trailTime = 0.4f; }
+                else if (style == SwipeStyle.Wisps)
+                {
+                    emit = lashing && marker.LashState == LashState.Track;
+                    trailTime = 0.15f;
+                }
+                else { emit = false; trailTime = 0.4f; }
+                if (orb.Trail.emitting != emit) orb.Trail.emitting = emit;
+                if (Mathf.Abs(orb.Trail.time - trailTime) > 0.001f) orb.Trail.time = trailTime;
+            }
         }
     }
 
@@ -1597,6 +1934,19 @@ internal static class FableBunnyPatches
         yield return PhotoModePatches.TeleportToIslandRoutine(player);
 
         var pos = FindSolidSpawn(player);
+
+        // Make sure a live Hare exists for the animator dump (ReconTick needs a Character
+        // instance; the donor clone is stripped and invisible to the scan). The dump's
+        // HasState probes are what name the sit-up state.
+        var harePrefab = ZNetScene.instance?.GetPrefab("Hare");
+        if (harePrefab != null && !ReconDumped.Contains("Hare"))
+        {
+            var hare = UObject.Instantiate(harePrefab, pos + Vector3.up * 0.3f, Quaternion.identity);
+            FreezeAI(hare);
+            yield return new WaitForSeconds(1.5f); // ReconTick scans every 0.5s
+            if (hare != null) ZNetScene.instance?.Destroy(hare);
+        }
+
         var go = UObject.Instantiate(prefab, pos, Quaternion.identity);
         Plugin.Log?.LogInfo("[AR BunnyRecon] observation Morgen spawned");
         // The Morgen's ground-rise + sleep window runs ~14s from spawn; shooting inside it
@@ -1606,7 +1956,7 @@ internal static class FableBunnyPatches
         var hum = go != null ? go.GetComponent<Humanoid>() : null;
         var marker = go != null ? go.GetComponent<AshlandsRebornFableBunny>() : null;
         Check(marker != null && marker.Built, "swap built on observation Morgen");
-        Check(marker != null && (!LashIncludesWisps() || marker.Orbs.Count == 2), "wisp orbs built");
+        Check(marker != null && (!(SwipeUsesWisps() || WispOrbitOn()) || marker.Orbs.Count == 2), "wisp orbs built");
 
         PhotoModePatches.EnableCameraOverride();
 
@@ -1663,6 +2013,61 @@ internal static class FableBunnyPatches
         }
         Plugin.FableBunnyMode.Value = "Bunny";
         yield return new WaitForSeconds(2f);
+
+        // v3 swipe styles: force one swipe per style (plus an orbit-off wisp strike) and
+        // capture wind-up / strike / settle frames. The "[AR Bunny] swipe side detect" log
+        // lines from the mode loop above double as the seed data for SwipeSideByAnim.
+        if (go != null && hum != null && items != null)
+        {
+            ItemDrop.ItemData? swipeItem = null;
+            foreach (var it in items)
+            {
+                var a = it?.m_shared?.m_attack != null
+                    ? FAttackAnimation?.GetValue(it.m_shared.m_attack) as string
+                    : null;
+                if (a != null && ClassifyAttack(a) == AttackClass.Lash) { swipeItem = it; break; }
+            }
+            if (swipeItem == null)
+                Plugin.Log?.LogWarning("[AR Bunny] style pass: no swipe attack item found");
+            else
+            {
+                var origStyle = Plugin.FableBunnySwipeStyle.Value;
+                var origOrbit = Plugin.FableBunnyWispOrbit.Value;
+                foreach (var (styleName, orbit) in new[]
+                             { ("Paws", true), ("Wisps", true), ("Wisps", false), ("Comets", true) })
+                {
+                    if (go == null) break;
+                    Plugin.FableBunnySwipeStyle.Value = styleName;
+                    Plugin.FableBunnyWispOrbit.Value = orbit;
+                    yield return new WaitForSeconds(2.5f); // SettingChanged -> RefreshAll rebuild
+                    if (go == null) break;
+                    go.transform.position = pos;
+                    hum.EquipItem(swipeItem);
+                    var okStyle = hum.StartAttack(player, false);
+                    Plugin.Log?.LogInfo($"[AR Bunny] style pass '{styleName}' orbit={orbit} -> {okStyle}");
+                    if (!okStyle) { yield return new WaitForSeconds(2f); continue; }
+                    var tag = $"{styleName}{(orbit ? "" : "_noorbit")}";
+                    yield return new WaitForSeconds(0.2f);
+                    PhotoModePatches.AimCameraAt(go, 45);
+                    yield return new WaitForSeconds(0.1f);
+                    ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"Morgen_swipe_{tag}_windup.png"));
+                    yield return new WaitForSeconds(0.45f);
+                    if (go == null) break;
+                    PhotoModePatches.AimCameraAt(go, 45);
+                    yield return new WaitForSeconds(0.05f);
+                    ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"Morgen_swipe_{tag}_strike.png"));
+                    yield return new WaitForSeconds(0.6f);
+                    if (go == null) break;
+                    ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"Morgen_swipe_{tag}_settle.png"));
+                    var tStyleEnd = Time.time + 6f;
+                    while (go != null && hum != null && hum.InAttack() && Time.time < tStyleEnd) yield return null;
+                    yield return new WaitForSeconds(0.8f);
+                }
+                Plugin.FableBunnySwipeStyle.Value = origStyle;
+                Plugin.FableBunnyWispOrbit.Value = origOrbit;
+                yield return new WaitForSeconds(2f);
+            }
+        }
 
         // Death: a real kill - vanilla fx must play with no bone corpse left behind.
         if (go != null)
@@ -1959,9 +2364,15 @@ internal static class FableBunnyPatches
             var rac = anim.runtimeAnimatorController;
             if (rac != null)
             {
-                sb.AppendLine($"  controller={rac.name}");
+                sb.AppendLine($"  controller={rac.name} layers={anim.layerCount}");
+                // HasState probes: state names aren't enumerable at runtime, but layer-0
+                // states usually share their clip's name - a TRUE here is a CrossFade-able
+                // state (this is how the sit-up state gets named from evidence).
                 foreach (var clip in rac.animationClips.Where(cl => cl != null).Select(cl => cl.name).Distinct().OrderBy(n => n))
-                    sb.AppendLine($"  clip {clip}");
+                    sb.AppendLine($"  clip {clip} state?={anim.HasState(0, Animator.StringToHash(clip))}");
+                foreach (var cand in new[] { "alert", "sit", "sit_up", "idle_alert", "scared", "idle2", "listen", "dig" })
+                    if (anim.HasState(0, Animator.StringToHash(cand)))
+                        sb.AppendLine($"  sit-candidate state MATCH: {cand}");
             }
         }
         else sb.AppendLine("--- NO ANIMATOR ---");
@@ -2031,6 +2442,8 @@ internal static class FableBunnyPatches
         public HashSet<int> ParamHashes = new();
         public float RawHeight = 1f;
         public bool IsPrimary;
+        // v3 sit-up: resolved sit/alert state hash (0 = not probed yet, -1 = none exists).
+        public int SitStateHash;
     }
 
     /// <summary>A resolved Morgen limb bone chain (root -> extremity).</summary>
@@ -2059,6 +2472,8 @@ internal static class FableBunnyPatches
         public TrailRenderer? Trail;
         public float Phase;
         public Transform? Hand;
+        // v3 idle visibility weight (0..1): fades the orb out when the idle orbit is off.
+        public float Visible = 1f;
     }
 }
 
@@ -2115,6 +2530,21 @@ internal class AshlandsRebornFableBunny : MonoBehaviour
     public readonly List<Transform> EarBones = new();
     public Transform? SpinNode;
     public float RollSpinAngle;
+
+    // v3 swipe upgrades: measured striking side, sit-up state, paw-strike chains.
+    public int LashSide;                 // -1 left, +1 right, 0 both/unknown
+    public bool SideCommitted;
+    public string? PendingSideAnim;
+    public float HandTravelL;
+    public float HandTravelR;
+    public Vector3 HandPrevL;
+    public Vector3 HandPrevR;
+    public bool SitEntered;
+    public float SitUntil;
+    public int SitReturnStateHash;
+    public float SitProceduralUntil;
+    public readonly List<Transform> PawBonesL = new();
+    public readonly List<Transform> PawBonesR = new();
 
     private void OnEnable() => FableBunnyPatches.Register(this);
     private void OnDisable() => FableBunnyPatches.Unregister(this);
