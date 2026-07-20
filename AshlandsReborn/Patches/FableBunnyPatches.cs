@@ -66,6 +66,9 @@ internal static class FableBunnyPatches
     private static readonly int TurnSpeedHash = Animator.StringToHash("turn_speed");
     private static readonly int OnGroundHash = Animator.StringToHash("onGround");
     private static readonly int JumpHash = Animator.StringToHash("jump");
+    // "idle" float: selects between the idle blend-tree variants (hare recon: Idle /
+    // Idle Alerted / Idle Eating live in a blend tree, NOT as CrossFade-able states).
+    private static readonly int IdleHash = Animator.StringToHash("idle");
 
     // Humanoid.m_currentAttack / Attack.m_attackAnimation via reflection - accessibility has
     // shifted between game versions; a null just degrades attack classification to "unknown".
@@ -639,6 +642,7 @@ internal static class FableBunnyPatches
         marker.PendingSideAnim = animName;
         marker.LashSide = animName != null && SwipeSideByAnim.TryGetValue(animName, out var s) ? s : 0;
         marker.SideCommitted = marker.LashSide != 0;
+        marker.SideFinalized = false;
         marker.HandTravelL = 0f;
         marker.HandTravelR = 0f;
         var root = marker.Source != null ? marker.Source.transform : null;
@@ -647,38 +651,57 @@ internal static class FableBunnyPatches
         if (marker.HandR != null) marker.HandPrevR = root.InverseTransformPoint(marker.HandR.position);
     }
 
-    private static void UpdateSwipeSide(AshlandsRebornFableBunny marker)
-    {
-        if (marker.SideCommitted || marker.LashState == LashState.Orbit || marker.Source == null) return;
-        var root = marker.Source.transform;
-        if (marker.HandL != null)
-        {
-            var p = root.InverseTransformPoint(marker.HandL.position);
-            marker.HandTravelL += (p - marker.HandPrevL).magnitude;
-            marker.HandPrevL = p;
-        }
-        if (marker.HandR != null)
-        {
-            var p = root.InverseTransformPoint(marker.HandR.position);
-            marker.HandTravelR += (p - marker.HandPrevR).magnitude;
-            marker.HandPrevR = p;
-        }
-        // Commit at the end of the wind-up window - the strike visuals need the side now.
-        if (Time.time - marker.LashPhaseStart < 0.25f) return;
-        marker.SideCommitted = true;
-        var dL = marker.HandTravelL;
-        var dR = marker.HandTravelR;
-        // Near-identical travel (or no hand bones) = a both-arms swing; side 0 keeps both
-        // paws/orbs participating.
-        marker.LashSide = dL + dR < 0.05f || Mathf.Abs(dL - dR) < 0.15f * Mathf.Max(dL, dR)
+    /// <summary>Turn accumulated L/R hand travel into a side: -1/L, +1/R, 0 = both-arms
+    /// swing (near-identical travel) or no hand bones.</summary>
+    private static int SideFromTravel(float dL, float dR)
+        => dL + dR < 0.05f || Mathf.Abs(dL - dR) < 0.15f * Mathf.Max(dL, dR)
             ? 0
             : (dL > dR ? -1 : 1);
+
+    private static void UpdateSwipeSide(AshlandsRebornFableBunny marker)
+    {
+        if (marker.SideFinalized || marker.LashState == LashState.Orbit || marker.Source == null) return;
+        var root = marker.Source.transform;
+
+        // The whole swing is measured (even when the cache pre-committed the side): the
+        // full-swing travel is the better estimate, and it's what gets cached for the NEXT
+        // telegraph of this anim.
+        if (marker.LashState != LashState.Return)
+        {
+            if (marker.HandL != null)
+            {
+                var p = root.InverseTransformPoint(marker.HandL.position);
+                marker.HandTravelL += (p - marker.HandPrevL).magnitude;
+                marker.HandPrevL = p;
+            }
+            if (marker.HandR != null)
+            {
+                var p = root.InverseTransformPoint(marker.HandR.position);
+                marker.HandTravelR += (p - marker.HandPrevR).magnitude;
+                marker.HandPrevR = p;
+            }
+        }
+
+        var dL = marker.HandTravelL;
+        var dR = marker.HandTravelR;
+
+        // Live commit at the end of the wind-up window - the strike visuals need a side now.
+        if (!marker.SideCommitted && Time.time - marker.LashPhaseStart >= 0.25f)
+        {
+            marker.SideCommitted = true;
+            marker.LashSide = SideFromTravel(dL, dR);
+        }
+
+        // Finalize once the swing settles: cache the full-swing verdict for this anim name.
+        if (marker.LashState != LashState.Return) return;
+        marker.SideFinalized = true;
         var anim = marker.PendingSideAnim;
         if (anim == null) return;
-        SwipeSideByAnim[anim] = marker.LashSide;
+        var full = SideFromTravel(dL, dR);
+        SwipeSideByAnim[anim] = full;
         if (SideLogged.Add(anim))
-            Plugin.Log?.LogInfo($"[AR Bunny] swipe side detect '{anim}': L={dL:F2} R={dR:F2} -> " +
-                $"{(marker.LashSide < 0 ? "LEFT" : marker.LashSide > 0 ? "RIGHT" : "BOTH")}");
+            Plugin.Log?.LogInfo($"[AR Bunny] swipe side detect '{anim}' (full swing): " +
+                $"L={dL:F2} R={dR:F2} -> {(full < 0 ? "LEFT" : full > 0 ? "RIGHT" : "BOTH")}");
     }
 
     // ---- sit-up on the haunches (v3) ------------------------------------------------------
@@ -701,14 +724,27 @@ internal static class FableBunnyPatches
         var anim = proxy?.Animator;
         if (anim != null && anim.isActiveAndEnabled && proxy!.SitStateHash == 0)
             ResolveSitState(proxy, anim);
-        if (anim == null || !anim.isActiveAndEnabled || proxy!.SitStateHash <= 0)
+        if (anim == null || !anim.isActiveAndEnabled
+            || (proxy!.SitStateHash <= 0 && !proxy.ParamHashes.Contains(IdleHash)))
         {
-            marker.SitProceduralUntil = Time.time + 0.6f; // no usable state: procedural rear-up
+            marker.SitProceduralUntil = Time.time + 0.6f; // no usable state/param: rear-up
             return true;
         }
-        if (!marker.SitEntered)
-            marker.SitReturnStateHash = anim.GetCurrentAnimatorStateInfo(0).shortNameHash;
-        anim.CrossFadeInFixedTime(proxy.SitStateHash, 0.12f, 0);
+        if (proxy.SitStateHash > 0)
+        {
+            // A real sit/alert STATE exists - cross-fade in and record where to return.
+            if (!marker.SitEntered)
+                marker.SitReturnStateHash = anim.GetCurrentAnimatorStateInfo(0).shortNameHash;
+            marker.SitUsesParam = false;
+            anim.CrossFadeInFixedTime(proxy.SitStateHash, 0.12f, 0);
+        }
+        else
+        {
+            // Hare path: the alert pose is an idle blend-tree variant selected by the "idle"
+            // float. UpdateSitUp forces the param each frame; speed=0 keeps the controller
+            // in the idle region of the movement tree.
+            marker.SitUsesParam = true;
+        }
         marker.SitEntered = true;
         marker.SitUntil = Time.time + 2.5f; // safety cap; the lash Return normally ends it
         return true;
@@ -747,11 +783,19 @@ internal static class FableBunnyPatches
                    || Time.time > marker.SitUntil;
         if (done)
         {
-            if (marker.SitReturnStateHash != 0)
+            if (marker.SitUsesParam) anim.SetFloat(IdleHash, 0f); // back to the plain idle
+            else if (marker.SitReturnStateHash != 0)
                 anim.CrossFadeInFixedTime(marker.SitReturnStateHash, 0.25f, 0);
             marker.SitEntered = false;
             return;
         }
+        if (marker.SitUsesParam)
+        {
+            // Direct (undamped) write: the pose must land within the wind-up window.
+            anim.SetFloat(IdleHash, Plugin.FableBunnySitIdleValue?.Value ?? 1f);
+            return;
+        }
+        // Hold the pose: steer the controller back if a param-driven transition pulled it out.
         var sitHash = ActiveProxy(marker)?.SitStateHash ?? 0;
         if (sitHash > 0
             && anim.GetCurrentAnimatorStateInfo(0).shortNameHash != sitHash
@@ -1053,8 +1097,11 @@ internal static class FableBunnyPatches
         }
     }
 
+    // Hare rig (recon 2026-07-19): Shoulder.l -> FrontUpperLeg.l -> FrontLowerLeg.l (+.r).
+    // "target" is excluded: FrontLegTarget.l/r are IK stubs parented at the Armature root -
+    // rotating them does nothing and their shallow depth would hijack the chain sort.
     private static readonly string[] PawNameFragments =
-        { "frontleg", "front_leg", "front leg", "shoulder", "upperarm", "forearm", "paw", "hand" };
+        { "shoulder", "frontupperleg", "frontlowerleg", "frontleg", "front_leg", "upperarm", "forearm", "paw", "hand" };
 
     /// <summary>Find the donor's front-leg bone chains by loose name match (the hare rig's
     /// exact names come from recon; other donors vary). Parent-most 3 bones per side carry
@@ -1069,6 +1116,7 @@ internal static class FableBunnyPatches
             var left = n.EndsWith(".l") || n.EndsWith("_l");
             var right = n.EndsWith(".r") || n.EndsWith("_r");
             if (!left && !right) continue;
+            if (n.Contains("target")) continue;
             if (!PawNameFragments.Any(f => n.Contains(f))) continue;
             (left ? marker.PawBonesL : marker.PawBonesR).Add(t);
         }
@@ -1930,8 +1978,11 @@ internal static class FableBunnyPatches
         DumpEffectLists(prefab);
 
         // Shoot on the test island: flat, clutter-free backgrounds (user note 2026-07-08 -
-        // the Ashlands fallback position has rocks/ruins that block the camera).
+        // the Ashlands fallback position has rocks/ruins that block the camera). Clear sky +
+        // forced midday: the v3 run 1 landed at in-game night and the shots were unreadable.
         yield return PhotoModePatches.TeleportToIslandRoutine(player);
+        yield return PhotoModePatches.ForceClearSkyRoutine();
+        SetDebugDaylight(true);
 
         var pos = FindSolidSpawn(player);
 
@@ -2161,7 +2212,33 @@ internal static class FableBunnyPatches
         if (go2 != null) ZNetScene.instance?.Destroy(go2);
 
         PhotoModePatches.ClearCameraOverride();
+        SetDebugDaylight(false);
         Plugin.Log?.LogInfo($"[AR BunnyRecon] OBSERVATION DONE pass={pass} fail={fail}");
+    }
+
+    /// <summary>Pin the world clock to midday for the capture window (the same EnvMan debug
+    /// fields the vanilla console time tools drive), reflection-safe against renames.</summary>
+    private static void SetDebugDaylight(bool on)
+    {
+        try
+        {
+            var em = EnvMan.instance;
+            if (em == null) return;
+            var fFlag = AccessTools.Field(typeof(EnvMan), "m_debugTimeOfDay");
+            var fTime = AccessTools.Field(typeof(EnvMan), "m_debugTime");
+            if (fFlag == null || fTime == null)
+            {
+                Plugin.Log?.LogWarning("[AR BunnyRecon] EnvMan debug-time fields not found - captures keep world time");
+                return;
+            }
+            fFlag.SetValue(em, on);
+            if (on) fTime.SetValue(em, 0.5f); // midday
+            Plugin.Log?.LogInfo($"[AR BunnyRecon] debug daylight {(on ? "ON (midday)" : "off")}");
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log?.LogWarning($"[AR BunnyRecon] daylight force error: {ex.Message}");
+        }
     }
 
     /// <summary>Pick a test-creature spawn point on SOLID ground near the player. The naive
@@ -2534,12 +2611,14 @@ internal class AshlandsRebornFableBunny : MonoBehaviour
     // v3 swipe upgrades: measured striking side, sit-up state, paw-strike chains.
     public int LashSide;                 // -1 left, +1 right, 0 both/unknown
     public bool SideCommitted;
+    public bool SideFinalized;
     public string? PendingSideAnim;
     public float HandTravelL;
     public float HandTravelR;
     public Vector3 HandPrevL;
     public Vector3 HandPrevR;
     public bool SitEntered;
+    public bool SitUsesParam;
     public float SitUntil;
     public int SitReturnStateHash;
     public float SitProceduralUntil;

@@ -501,10 +501,33 @@ M2 FX recon = `DumpFxCatalog` under `FableBunnyReconDump` (ZNetScene component/s
 cycles all three modes through the forced-attack gallery; v2 galleries live under
 `screenshots/fable-bunny/v2/<mode>/`.
 
+**v3 swipe upgrades (this release)**: swipes got a full presentation system replacing the
+lone comet lash. The striking SIDE is measured, not assumed: root-relative travel of the
+hidden Morgen `Hand.l/r` bones during the 0.25s wind-up decides left/right, cached per anim
+name in `SwipeSideByAnim` (+ a recon-seeded map; `attack_swipe_1..4` don't encode the side).
+On every bunny-mode swipe the donor also SITS UP ON ITS HAUNCHES: `StartSitUp` cross-fades
+the donor Animator into its vanilla sit/alert state (probed via `Animator.HasState` — state
+names aren't enumerable at runtime, but layer-0 states share their clip's name; the
+`DumpCreature` recon logs `state?=` per clip), holds it against param-driven exits
+(`UpdateSitUp` re-CrossFades + `speed=0` while seated), then cross-fades back to the
+recorded pre-sit state. Donors without such a state rear back procedurally (inverted pounce
+pitch). The strike itself is `FableBunnySwipeStyle`: **Paws** = post-Animator rotation of the
+donor's front-leg chain on the striking side (`ApplyPawStrike`/`SwingChain`, ear-whip
+precedent; chains matched loosely by name in `ResolvePawChains` and logged); **Wisps** = only
+the striking-side orb participates — wind-up telegraph AT the wound-back hidden hand
+(`FableBunnyWindupStyle` Telegraph, or Flare for the old burst), then the hand-track lash
+with only a short trail whisker; **Comets** = the original both-orb flare + 0.4s streaming
+trails, byte-identical read; **Off** = body pounce only. `FableBunnyWispOrbit=false` parks
+the orbs (scale+light fade to 0 via `WispOrb.Visible`) so they fade in only for strikes —
+never affects elemental `AlwaysTrackHands` orbs.
+
 ### Fable Bunny config (section "Fable Bunny")
 
 v2 (commit `d126117`) dropped the hybrid Lox mode (user review: janky swap, too plain) and
 removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAttackTrigger`).
+v3 split `FableBunnyLashStyle` into `FableBunnySwipeStyle` + `FableBunnyEarWhip` (migration:
+`Both`→Comets+ears, `EarWhip`→Off+ears, `Off`→Off; old-default `Wisps` deliberately NOT
+carried — it maps to the rejected comet look, those users get the new Paws default).
 
 | Config key | Default | Effect |
 |---|---|---|
@@ -517,7 +540,12 @@ removed its keys (`FableBunnyHybridMode`, `FableBunnyLoxScale`, `FableBunnyLoxAt
 | `FableBunnyPounceAmplitude` | 1.0 | Strength of the procedural attack pounce (0 = off) |
 | `FableBunnyStarLook` | 0 | Apply donor's 1★/2★ LevelEffects tint regardless of real level (0=base; rebuilds live) |
 | `FableBunnyMoveAnimSpeed` | 0.55 | Animator speed while moving ("moonwalk" fix); idle always full rate |
-| `FableBunnyLashStyle` | "Wisps" | Swipe read: wisp orbs orbit + lash along hidden `Hand.l/r` (EarWhip/Both arrive with M5) |
+| `FableBunnySwipeStyle` | "Paws" | Swipe strike: Paws (side-matched front-paw swing) / Wisps (side-matched orb telegraph+lash) / Comets (original both-orb flare+trails) / Off |
+| `FableBunnyWindupStyle` | "Telegraph" | Wisps wind-up: Telegraph (orb glows at the striking hand) / Flare (old outward burst; Comets always flare) |
+| `FableBunnyEarWhip` | false | Ear whip layered onto any swipe style (procedural bone layer) |
+| `FableBunnyWispOrbit` | true | Idle wisp orbit; off = orbs hidden at rest, fade in for wisp strikes |
+| `FableBunnySitUp` | true | Sit up on the haunches during swipe wind-ups (procedural rear-up fallback) |
+| `FableBunnySitState` | "alert" | Advanced: donor animator state for the sit-up (probe result logged) |
 | `FableBunnyRollStyle` | "HopHigher" | Roll read: face travel dir + real jump trigger + bounce arcs (CurlAndRoll arrives with M5) |
 | `FableBunnyHideRagdoll` | true | Hide any morgen-named ragdoll renderers (insurance) |
 

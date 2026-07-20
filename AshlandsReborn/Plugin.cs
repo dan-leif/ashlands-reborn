@@ -192,6 +192,7 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> FableBunnyWispOrbit { get; private set; } = null!;
     public static ConfigEntry<bool> FableBunnySitUp { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnySitState { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnySitIdleValue { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyRollStyle { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyMode { get; private set; } = null!;
 
@@ -1490,8 +1491,20 @@ public class Plugin : BaseUnityPlugin
             "Fable Bunny",
             "FableBunnySitState",
             "alert",
-            "Advanced: donor animator state used for the swipe sit-up. Leave default unless a game " +
-            "update renames it - the probe result is logged as '[AR Bunny] sit-up state'.");
+            "Advanced: donor animator STATE used for the swipe sit-up, for donors that have one. " +
+            "The hare has none (its alert pose lives in the idle blend tree - see " +
+            "FableBunnySitIdleValue); the probe result is logged as '[AR Bunny] sit-up state'.");
+
+        FableBunnySitIdleValue = Config.Bind(
+            "Fable Bunny",
+            "FableBunnySitIdleValue",
+            1.0f,
+            new ConfigDescription(
+                "Advanced: value forced into the donor's 'idle' animator float during the swipe " +
+                "sit-up - it selects the idle blend-tree variant (hare recon: Idle / Idle Alerted / " +
+                "Idle Eating). 1 = the alert sit-up on the hare; tune if a game update reorders the " +
+                "blend tree.",
+                new AcceptableValueRange<float>(0f, 3f)));
 
         FableBunnyRollStyle = Config.Bind(
             "Fable Bunny",
@@ -2206,12 +2219,13 @@ public class Plugin : BaseUnityPlugin
             // FableBunnyLashStyle was split into FableBunnySwipeStyle + FableBunnyEarWhip (this
             // release). The old orb lash with streaking trails is the new "Comets" style; old
             // "EarWhip" meant ears-only (no orb strike); "Both" adds the ear whip on top.
+            // Old "Wisps" is deliberately NOT carried: it was the old DEFAULT (so it encodes no
+            // user choice), and the comet look it maps to is exactly what the v3 request
+            // replaced - those users get the new Paws default.
             var oldLash = ReadOrphanRaw("Fable Bunny", "FableBunnyLashStyle")?.Trim();
             if (!string.IsNullOrEmpty(oldLash))
             {
-                if (string.Equals(oldLash, "Wisps", StringComparison.OrdinalIgnoreCase))
-                    FableBunnySwipeStyle.Value = "Comets";
-                else if (string.Equals(oldLash, "Both", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(oldLash, "Both", StringComparison.OrdinalIgnoreCase))
                 {
                     FableBunnySwipeStyle.Value = "Comets";
                     FableBunnyEarWhip.Value = true;
@@ -2267,6 +2281,7 @@ public class Plugin : BaseUnityPlugin
         FableBunnyWispOrbit.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnySitUp.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnySitState.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnySitIdleValue.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyMode.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyHeight.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyScale.SettingChanged += (_, _) => OnFableBunnyChanged();
