@@ -1498,12 +1498,12 @@ public class Plugin : BaseUnityPlugin
         FableBunnySitIdleValue = Config.Bind(
             "Fable Bunny",
             "FableBunnySitIdleValue",
-            1.0f,
+            2.0f,
             new ConfigDescription(
                 "Advanced: value forced into the donor's 'idle' animator float during the swipe " +
-                "sit-up - it selects the idle blend-tree variant (hare recon: Idle / Idle Alerted / " +
-                "Idle Eating). 1 = the alert sit-up on the hare; tune if a game update reorders the " +
-                "blend tree.",
+                "sit-up - it selects the idle blend-tree variant. Hare blend evidence (run-3 " +
+                "sit-blend log): 0 = Idle, 1 = Idle Eating, 2 = Idle Alerted (the upright " +
+                "sit-up-on-haunches). Tune if a game update reorders the blend tree.",
                 new AcceptableValueRange<float>(0f, 3f)));
 
         FableBunnyRollStyle = Config.Bind(

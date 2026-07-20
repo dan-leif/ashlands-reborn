@@ -502,16 +502,20 @@ cycles all three modes through the forced-attack gallery; v2 galleries live unde
 `screenshots/fable-bunny/v2/<mode>/`.
 
 **v3 swipe upgrades (this release)**: swipes got a full presentation system replacing the
-lone comet lash. The striking SIDE is measured, not assumed: root-relative travel of the
-hidden Morgen `Hand.l/r` bones during the 0.25s wind-up decides left/right, cached per anim
-name in `SwipeSideByAnim` (+ a recon-seeded map; `attack_swipe_1..4` don't encode the side).
-On every bunny-mode swipe the donor also SITS UP ON ITS HAUNCHES: `StartSitUp` cross-fades
-the donor Animator into its vanilla sit/alert state (probed via `Animator.HasState` — state
-names aren't enumerable at runtime, but layer-0 states share their clip's name; the
-`DumpCreature` recon logs `state?=` per clip), holds it against param-driven exits
-(`UpdateSitUp` re-CrossFades + `speed=0` while seated), then cross-fades back to the
-recorded pre-sit state. Donors without such a state rear back procedurally (inverted pounce
-pitch). The strike itself is `FableBunnySwipeStyle`: **Paws** = post-Animator rotation of the
+lone comet lash. The striking SIDE comes from evidence, three tiers: (1) the Morgen's live
+CLIP name — recon: the swipe clips are literally `Attack Swipe L`/`Attack Swipe R`, and
+`attack_swipe_3/4` are two-hit combos (L-then-R / R-then-L), so `SideFromClip` follows the
+current clip every frame and the strike visual switches arms mid-combo; (2) the
+`SwipeSideByAnim` cache (recon-seeded opening sides: swipe_1 L, swipe_2 R, swipe_3 L,
+swipe_4 R) telegraphs the correct side from frame zero; (3) root-relative Morgen `Hand.l/r`
+travel during the wind-up as fallback for unnamed clips. On every bunny-mode swipe the donor
+also SITS UP ON ITS HAUNCHES (`StartSitUp`): donors with a real sit/alert STATE get a
+CrossFade (probed via `Animator.HasState`; the `DumpCreature` recon logs `state?=` per clip);
+the HARE has none — its `Idle Alerted` pose is an idle blend-tree variant selected by the
+`idle` float param, so the param path forces `idle = FableBunnySitIdleValue` each frame.
+Seated locomotion writes are UNDAMPED zeros (the normal 0.2s damp outlasts the whole 0.25s
+wind-up — run-2 shots caught a mid-locomotion crouch instead of a sit). Donors with neither
+state nor param rear back procedurally (inverted pounce pitch). The strike itself is `FableBunnySwipeStyle`: **Paws** = post-Animator rotation of the
 donor's front-leg chain on the striking side (`ApplyPawStrike`/`SwingChain`, ear-whip
 precedent; chains matched loosely by name in `ResolvePawChains` and logged); **Wisps** = only
 the striking-side orb participates — wind-up telegraph AT the wound-back hidden hand
@@ -545,7 +549,8 @@ carried — it maps to the rejected comet look, those users get the new Paws def
 | `FableBunnyEarWhip` | false | Ear whip layered onto any swipe style (procedural bone layer) |
 | `FableBunnyWispOrbit` | true | Idle wisp orbit; off = orbs hidden at rest, fade in for wisp strikes |
 | `FableBunnySitUp` | true | Sit up on the haunches during swipe wind-ups (procedural rear-up fallback) |
-| `FableBunnySitState` | "alert" | Advanced: donor animator state for the sit-up (probe result logged) |
+| `FableBunnySitState` | "alert" | Advanced: donor animator STATE for the sit-up, for donors that have one (probe result logged; the hare doesn't) |
+| `FableBunnySitIdleValue` | 2.0 | Advanced: value forced into the donor's `idle` float during the sit-up. Hare blend order (run-3 evidence): 0 = Idle, 1 = Idle Eating, **2 = Idle Alerted** (the upright sit) |
 | `FableBunnyRollStyle` | "HopHigher" | Roll read: face travel dir + real jump trigger + bounce arcs (CurlAndRoll arrives with M5) |
 | `FableBunnyHideRagdoll` | true | Hide any morgen-named ragdoll renderers (insurance) |
 
