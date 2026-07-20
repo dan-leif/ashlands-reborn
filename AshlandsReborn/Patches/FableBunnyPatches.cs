@@ -633,7 +633,14 @@ internal static class FableBunnyPatches
 
     private static readonly Dictionary<string, int> SwipeSideByAnim = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Seeded from the recon self-test's "[AR Bunny] swipe side detect" log lines.
+        // Seeded from run-2 recon (Morgen clip chronology + travel verdicts agree):
+        // swipe_1 = Swipe L only, swipe_2 = Swipe R only, swipe_3 = L-then-R combo,
+        // swipe_4 = R-then-L combo. Values are the OPENING side (what the wind-up
+        // telegraphs); the live clip follow switches sides mid-combo.
+        { "attack_swipe_1", -1 },
+        { "attack_swipe_2", 1 },
+        { "attack_swipe_3", -1 },
+        { "attack_swipe_4", 1 },
     };
     private static readonly HashSet<string> SideLogged = new(StringComparer.OrdinalIgnoreCase);
 
@@ -643,6 +650,7 @@ internal static class FableBunnyPatches
         marker.LashSide = animName != null && SwipeSideByAnim.TryGetValue(animName, out var s) ? s : 0;
         marker.SideCommitted = marker.LashSide != 0;
         marker.SideFinalized = false;
+        marker.SideCached = false;
         marker.HandTravelL = 0f;
         marker.HandTravelR = 0f;
         var root = marker.Source != null ? marker.Source.transform : null;
@@ -658,9 +666,47 @@ internal static class FableBunnyPatches
             ? 0
             : (dL > dR ? -1 : 1);
 
+    /// <summary>Authoritative live side: the Morgen's swipe CLIP names end in L/R
+    /// ("Attack Swipe R" - run-2 recon), and combo swipes (attack_swipe_4 plays R then L)
+    /// switch clips mid-attack, so this is read every frame while lashing. 0 = the current
+    /// clip doesn't name a side (fall back to travel measurement).</summary>
+    private static int SideFromClip(AshlandsRebornFableBunny marker)
+    {
+        var anim = marker.SourceAnimator;
+        if (anim == null || !anim.isActiveAndEnabled) return 0;
+        var clips = anim.GetCurrentAnimatorClipInfo(0);
+        var clip = clips.Length > 0 ? clips[0].clip : null;
+        if (clip == null) return 0;
+        var n = clip.name.ToLowerInvariant();
+        if (!n.Contains("swipe") && !n.Contains("attack")) return 0;
+        if (n.EndsWith(" l") || n.EndsWith("_l") || n.EndsWith(".l")) return -1;
+        if (n.EndsWith(" r") || n.EndsWith("_r") || n.EndsWith(".r")) return 1;
+        return 0;
+    }
+
     private static void UpdateSwipeSide(AshlandsRebornFableBunny marker)
     {
         if (marker.SideFinalized || marker.LashState == LashState.Orbit || marker.Source == null) return;
+
+        // Clip names win whenever they speak: they are hitbox-authoritative and they track
+        // combo swipes that change arms mid-attack. The first clip verdict of the attack is
+        // cached so the NEXT wind-up of this anim telegraphs the correct opening side.
+        var clipSide = SideFromClip(marker);
+        if (clipSide != 0)
+        {
+            marker.LashSide = clipSide;
+            marker.SideCommitted = true;
+            var clipAnim = marker.PendingSideAnim;
+            if (clipAnim != null && !marker.SideCached)
+            {
+                marker.SideCached = true;
+                SwipeSideByAnim[clipAnim] = clipSide;
+                if (SideLogged.Add(clipAnim))
+                    Plugin.Log?.LogInfo($"[AR Bunny] swipe side (clip) '{clipAnim}' opens " +
+                        $"{(clipSide < 0 ? "LEFT" : "RIGHT")}");
+            }
+        }
+
         var root = marker.Source.transform;
 
         // The whole swing is measured (even when the cache pre-committed the side): the
@@ -692,11 +738,12 @@ internal static class FableBunnyPatches
             marker.LashSide = SideFromTravel(dL, dR);
         }
 
-        // Finalize once the swing settles: cache the full-swing verdict for this anim name.
+        // Finalize once the swing settles: cache the full-swing travel verdict for this anim
+        // name - unless a clip verdict already claimed the cache (it's authoritative).
         if (marker.LashState != LashState.Return) return;
         marker.SideFinalized = true;
         var anim = marker.PendingSideAnim;
-        if (anim == null) return;
+        if (anim == null || marker.SideCached) return;
         var full = SideFromTravel(dL, dR);
         SwipeSideByAnim[anim] = full;
         if (SideLogged.Add(anim))
@@ -746,6 +793,7 @@ internal static class FableBunnyPatches
             marker.SitUsesParam = true;
         }
         marker.SitEntered = true;
+        marker.SitClipLogged = false;
         marker.SitUntil = Time.time + 2.5f; // safety cap; the lash Return normally ends it
         return true;
     }
@@ -769,7 +817,10 @@ internal static class FableBunnyPatches
         }
         proxy.SitStateHash = -1;
         Plugin.Log?.LogInfo($"[AR Bunny] no sit-up state on donor '{proxy.DonorName}' " +
-            $"(probed: {string.Join(", ", names)}) - using the procedural rear-up");
+            $"(probed: {string.Join(", ", names.Distinct())}) - " +
+            (proxy.ParamHashes.Contains(IdleHash)
+                ? "using the 'idle' blend-tree param path"
+                : "using the procedural rear-up"));
     }
 
     /// <summary>Hold the sit pose while the lash wind-up/strike runs, steer the controller
@@ -793,6 +844,17 @@ internal static class FableBunnyPatches
         {
             // Direct (undamped) write: the pose must land within the wind-up window.
             anim.SetFloat(IdleHash, Plugin.FableBunnySitIdleValue?.Value ?? 1f);
+            // One-shot blend evidence per sit: which clips (and weights) actually play at
+            // this idle value - names the blend-tree order from evidence, not guesses.
+            if (!marker.SitClipLogged && Time.time - marker.AttackStartTime > 0.5f)
+            {
+                marker.SitClipLogged = true;
+                var infos = anim.GetCurrentAnimatorClipInfo(0);
+                Plugin.Log?.LogInfo("[AR Bunny] sit blend @idle=" +
+                    $"{Plugin.FableBunnySitIdleValue?.Value ?? 1f:F1}: " +
+                    string.Join(", ", infos.Select(ci =>
+                        $"{(ci.clip != null ? ci.clip.name : "?")}:{ci.weight:F2}")));
+            }
             return;
         }
         // Hold the pose: steer the controller back if a param-driven transition pulled it out.
@@ -1035,7 +1097,13 @@ internal static class FableBunnyPatches
         if (marker.SitEntered) speed = 0f;
         anim.speed = Mathf.Lerp(1f, Plugin.FableBunnyMoveAnimSpeed?.Value ?? 0.55f, Mathf.Clamp01(speed / 4f));
         if (proxy!.ParamHashes.Contains(ForwardSpeedHash))
-            anim.SetFloat(ForwardSpeedHash, speed, 0.2f, dt);
+        {
+            // Seated writes are UNDAMPED: the 0.2s damp needs ~0.5s to actually reach 0,
+            // which outlasts the whole 0.25s wind-up (run-2 shots caught the donor still
+            // mid-locomotion-crouch instead of sitting).
+            if (marker.SitEntered) anim.SetFloat(ForwardSpeedHash, 0f);
+            else anim.SetFloat(ForwardSpeedHash, speed, 0.2f, dt);
+        }
         if (proxy.ParamHashes.Contains(TurnSpeedHash) && dt > 0.0001f)
         {
             var turn = Mathf.DeltaAngle(marker.PrevYaw, marker.LastYaw) * Mathf.Deg2Rad / dt;
@@ -2084,20 +2152,25 @@ internal static class FableBunnyPatches
             {
                 var origStyle = Plugin.FableBunnySwipeStyle.Value;
                 var origOrbit = Plugin.FableBunnyWispOrbit.Value;
-                foreach (var (styleName, orbit) in new[]
-                             { ("Paws", true), ("Wisps", true), ("Wisps", false), ("Comets", true) })
+                var origSitIdle = Plugin.FableBunnySitIdleValue.Value;
+                // The two Paws passes double as the sit-pose sweep: idle=1 vs idle=2 name
+                // the blend-tree slot that is the upright alert pose (with the blend log).
+                foreach (var (styleName, orbit, sitIdle) in new[]
+                             { ("Paws", true, 1f), ("Paws", true, 2f), ("Wisps", true, 1f),
+                               ("Wisps", false, 1f), ("Comets", true, 1f) })
                 {
                     if (go == null) break;
                     Plugin.FableBunnySwipeStyle.Value = styleName;
                     Plugin.FableBunnyWispOrbit.Value = orbit;
+                    Plugin.FableBunnySitIdleValue.Value = sitIdle;
                     yield return new WaitForSeconds(2.5f); // SettingChanged -> RefreshAll rebuild
                     if (go == null) break;
                     go.transform.position = pos;
                     hum.EquipItem(swipeItem);
                     var okStyle = hum.StartAttack(player, false);
-                    Plugin.Log?.LogInfo($"[AR Bunny] style pass '{styleName}' orbit={orbit} -> {okStyle}");
+                    Plugin.Log?.LogInfo($"[AR Bunny] style pass '{styleName}' orbit={orbit} sitIdle={sitIdle} -> {okStyle}");
                     if (!okStyle) { yield return new WaitForSeconds(2f); continue; }
-                    var tag = $"{styleName}{(orbit ? "" : "_noorbit")}";
+                    var tag = $"{styleName}{(orbit ? "" : "_noorbit")}_i{sitIdle:F0}";
                     yield return new WaitForSeconds(0.2f);
                     PhotoModePatches.AimCameraAt(go, 45);
                     yield return new WaitForSeconds(0.1f);
@@ -2116,6 +2189,7 @@ internal static class FableBunnyPatches
                 }
                 Plugin.FableBunnySwipeStyle.Value = origStyle;
                 Plugin.FableBunnyWispOrbit.Value = origOrbit;
+                Plugin.FableBunnySitIdleValue.Value = origSitIdle;
                 yield return new WaitForSeconds(2f);
             }
         }
@@ -2612,6 +2686,7 @@ internal class AshlandsRebornFableBunny : MonoBehaviour
     public int LashSide;                 // -1 left, +1 right, 0 both/unknown
     public bool SideCommitted;
     public bool SideFinalized;
+    public bool SideCached;
     public string? PendingSideAnim;
     public float HandTravelL;
     public float HandTravelR;
@@ -2619,6 +2694,7 @@ internal class AshlandsRebornFableBunny : MonoBehaviour
     public Vector3 HandPrevR;
     public bool SitEntered;
     public bool SitUsesParam;
+    public bool SitClipLogged;
     public float SitUntil;
     public int SitReturnStateHash;
     public float SitProceduralUntil;
