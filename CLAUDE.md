@@ -427,6 +427,13 @@ Key mechanics (details in the file's doc comments):
 - **Scale**: height target = capsule height × root lossyScale × 1.17 (`CapsuleToBodyHeight`)
   × star scale (from `LevelEffects.m_levelSetups`); late star-ups are absorbed by
   `AbsorbScaleDrift` in `PeriodicUpdate`.
+- **Closed mouth**: both rigs share a Mixamo `Jaw` bone (child of Head), so the plain
+  name-match retarget drives the Charred's gaping jaw animation onto the puppet's mouth.
+  `Fable[Class]CloseMouth` (default true) makes `BuildBonePairs` skip the Jaw pair — the
+  unpaired puppet jaw holds the player bind pose (closed) and follows the driven Head. The
+  skip is per-instance via the profile's `CloseMouth` func (NOT in `GetOffsets`), keeping
+  `OffsetsCache` toggle-agnostic for live F1 rebuilds; the `pairs=` count in the
+  puppet-built log line is the objective check (55 closed vs 56 vanilla).
 - **Refresh gotcha**: `RefreshAll()` must wait one frame after `RevertAll()` before
   rescanning (marker `Destroy` is deferred; a same-frame scan sees stale markers and skips
   every warrior).
@@ -434,7 +441,10 @@ Key mechanics (details in the file's doc comments):
 **Autonomous verification**: `PhotoModePatches` (config `PhotoModeAuto` or F6) teleports the
 player to the test island (`PhotoModeIslandPos`), spawns a warrior, captures 4 full-body +
 5 close-up angles + a t0/t1 animation-proof pair (plus an objective
-`Animator.GetCurrentAnimatorStateInfo` log line), writes `AR_PhotoMode\DONE.txt`.
+`Animator.GetCurrentAnimatorStateInfo` log line), writes `AR_PhotoMode\DONE.txt`. The shoot
+pins the clock to noon for consistent face-readable light (`FableBunnyPatches.
+SetDebugDaylight`, released in the finally) on top of the forced clear sky; close-up yaw 180
+is the FRONT view (0/45 shoot the back of the head).
 `LifecycleTestPatches` (config `PhotoModeM4Test`) asserts the M4 lifecycle DoD and writes
 `M4_RESULTS.txt`. Outer loop: kill valheim → `dev.ps1` → poll the BepInEx log for
 `[AR PhotoMode] DONE` / `[AR M4] DONE` → read the PNGs/results → iterate.
@@ -729,6 +739,7 @@ vanilla, `recolored/` = defaults, `sweep/` + labeled composite).
 | `FableWarriorEyeSeparation` | 0.1 | Distance between the two eye glows (m) |
 | `FableWarriorEyeScale` | 2.0 | Glow size multiplier (via `startSizeMultiplier`, so it works regardless of the ParticleSystem scaling mode; the clone's lossyScale is normalized to the vanilla source's for a vanilla-size baseline) |
 | `FableWarriorEyeIntensity` | 5.0 | Glow brightness (tint alpha = intensity/5, the proven old-CharredWarriorPatches recipe) |
+| `FableWarriorCloseMouth` | true | Close the puppet's mouth: both rigs share a Mixamo `Jaw` bone (child of Head), and pairing it retargets the Charred's gaping jaw animation onto the puppet — with this on, `BuildBonePairs` skips the Jaw so it holds the player bind pose (closed) and follows the driven Head (the puppet Animator is disabled, nothing else moves it). Off = vanilla gape. The skip is per-instance (profile `CloseMouth` func) so the shared `OffsetsCache` stays toggle-agnostic; `pairs=` in the puppet-built log line drops by exactly 1 when active. Each class has its own (`Fable[Class]CloseMouth`) |
 
 The 6 eye tuning sliders of every class route through `UpdateFableEyes` (adjust the live clones
 in place — transform + material only, absolute size from a captured base so nothing compounds);
@@ -757,7 +768,8 @@ Old keys auto-migrate on first load and are purged from the cfg orphan store:
 
 Sections **"Fable Archer" / "Fable Twitcher" / "Fable Mage"** mirror the Warrior's keys
 (`EnableFable[Class]` tri-state, `Fable[Class]Scale`, `Fable[Class]Sex`, `Fable[Class]Helmet/
-HelmetScale/Chest/Legs/Shoulders`, `Fable[Class]Weapon`, `Fable[Class]WeaponScale`, plus the 7
+HelmetScale/Chest/Legs/Shoulders`, `Fable[Class]Weapon`, `Fable[Class]WeaponScale`,
+`Fable[Class]CloseMouth`, plus the 7
 eye keys `Fable[Class]EyeGlow/EyeOffsetX/Y/Z/EyeSeparation/EyeScale/EyeIntensity` seeded with the
 Warrior's tuned values) — but with
 **no grip knobs** (Warrior-only; the Mage instead has its own 18 staff-orientation keys, below).
@@ -825,7 +837,7 @@ Fable Bunny). Overrides the per-puppet player-clone in `ApplyAppearance`.
 | `FableRaceHair` | "Hair5" | hair item (`HairNone`, `Hair1`..`Hair23`); `Hair5`/`Hair8` are short |
 | `FableRaceBeard` | "BeardNone" | beard item (`BeardNone`, `Beard1`..`Beard16`) |
 | `FableRaceSkinTone` | 1.0 | 0 = lightest, 1 = darkest; Lerp between hardcoded skin endpoints (vanilla gamut bottoms out ~70% grey) |
-| `FableRacePureBlackSkin` | false | Force skin to pure black (0,0,0), darker than the slider reaches; overrides `FableRaceSkinTone`. Eyes keep their color; the lit shader still shows form (specular/rim/shadow) at true black |
+| `FableRacePureBlackSkin` | true | Force skin to pure black (0,0,0), darker than the slider reaches; overrides `FableRaceSkinTone`. Eyes keep their color; the lit shader still shows form (specular/rim/shadow) at true black |
 | `FableRaceHairTone` | 1.0 | 0 = lightest, 1 = darkest; Lerp along the hair gradient |
 | `FableRaceBlondness` | 0.0 | 0 = darkest, 1 = brightest; brightness multiplier on the toned hair |
 
