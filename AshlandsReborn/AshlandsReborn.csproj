@@ -44,6 +44,11 @@
     <Reference Include="UnityEngine" HintPath="$(LibDir)\UnityEngine.dll" Private="False" />
     <Reference Include="UnityEngine.CoreModule" HintPath="$(LibDir)\UnityEngine.CoreModule.dll" Private="False" />
     <Reference Include="Assembly-CSharp" HintPath="$(LibDir)\Assembly-CSharp.dll" Private="False" />
+    <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(LibDir)\UnityEngine.InputLegacyModule.dll" Private="False" Condition="Exists('$(LibDir)\UnityEngine.InputLegacyModule.dll')" />
+    <Reference Include="UnityEngine.PhysicsModule" HintPath="$(LibDir)\UnityEngine.PhysicsModule.dll" Private="False" Condition="Exists('$(LibDir)\UnityEngine.PhysicsModule.dll')" />
+    <Reference Include="UnityEngine.AnimationModule" HintPath="$(LibDir)\UnityEngine.AnimationModule.dll" Private="False" Condition="Exists('$(LibDir)\UnityEngine.AnimationModule.dll')" />
+    <Reference Include="UnityEngine.ParticleSystemModule" HintPath="$(LibDir)\UnityEngine.ParticleSystemModule.dll" Private="False" Condition="Exists('$(LibDir)\UnityEngine.ParticleSystemModule.dll')" />
+    <Reference Include="UnityEngine.ScreenCaptureModule" HintPath="$(LibDir)\UnityEngine.ScreenCaptureModule.dll" Private="False" Condition="Exists('$(LibDir)\UnityEngine.ScreenCaptureModule.dll')" />
   </ItemGroup>
   <ItemGroup Condition="!Exists('$(GamePath)\BepInEx\core\BepInEx.dll') and Exists('$(LibDir)\assembly_valheim.dll')">
     <Reference Include="assembly_valheim" HintPath="$(LibDir)\assembly_valheim.dll" Private="False" />

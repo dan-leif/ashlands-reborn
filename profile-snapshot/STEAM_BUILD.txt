@@ -1,0 +1,9 @@
+﻿Steam App 892970 (Valheim) state when Ashlands Reborn was last built and verified.
+
+buildid      = 21981559
+LastUpdated  = 1771489117 (2026-02-19)
+Archived on  = 2026-09-01
+
+Mod versions: see mods.yml (BepInExPack, ConfigurationManager, SouthsilArmor, Ashlands Reborn).
+Tuned config: com.ashlandsreborn.weather.cfg (the user's in-game F1 values).
+Reference assemblies frozen from this build live in AshlandsReborn\Lib\ (gitignored, on disk).

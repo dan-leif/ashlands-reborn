@@ -132,6 +132,17 @@ Report log findings to the user, then **post the screenshot last** so it remains
 
 **Why the junction is needed:** BepInEx resolves plugin and config paths relative to the exe directory, not the working directory. Without the junction, BepInEx loads from the game's own `BepInEx/` folder (which has no plugins). The junction makes BepInEx see the profile's plugins transparently.
 
+### Vanilla revert / resume
+
+`revert-vanilla.ps1` returns the Steam install to pure vanilla (unlinks the `BepInEx`
+junction with `rmdir` — never recurse into it, it points INTO the r2modman profile —
+deletes the doorstop/loader files, archives leftovers to `C:\DEV\ashlands-reborn-archive\`,
+triggers Steam file verification). The profile and repo are untouched. **`RESUME.md`** is the
+way back: `dev.ps1` re-creates the hooks; `AshlandsReborn\Lib\` holds reference assemblies
+frozen from Steam buildid 21981559 (`Lib\FROZEN_FROM.txt`) so `dotnet build` works with the
+game vanilla — `CopyRefs.ps1` OVERWRITES them, run it only when porting to a new build.
+`profile-snapshot\` holds the user's tuned cfg + `mods.yml` versions.
+
 ### Manual build only
 
 ```bash

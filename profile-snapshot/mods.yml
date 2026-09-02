@@ -1,0 +1,91 @@
+- manifestVersion: 1
+  name: denikson-BepInExPack_Valheim
+  authorName: denikson
+  websiteUrl: https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/
+  displayName: BepInExPack_Valheim
+  description: >-
+    BepInEx pack for Valheim. Preconfigured with the correct entry point for
+    mods and preferred defaults for the community.
+  gameVersion: '0'
+  networkMode: both
+  packageType: other
+  installMode: managed
+  installedAtTime: 1772781229866
+  loaders: []
+  dependencies: []
+  incompatibilities: []
+  optionalDependencies: []
+  versionNumber:
+    major: 5
+    minor: 4
+    patch: 2333
+  enabled: true
+- manifestVersion: 1
+  name: Azumatt-Official_BepInEx_ConfigurationManager
+  authorName: Azumatt
+  websiteUrl: >-
+    https://thunderstore.io/c/valheim/p/Azumatt/Official_BepInEx_ConfigurationManager/
+  displayName: Official_BepInEx_ConfigurationManager
+  description: Mod to assist with configuration of BepInEx mods
+  gameVersion: '0'
+  networkMode: both
+  packageType: other
+  installMode: managed
+  installedAtTime: 1772781245045
+  loaders: []
+  dependencies:
+    - denikson-BepInExPack_Valheim-5.4.2202
+  incompatibilities: []
+  optionalDependencies: []
+  versionNumber:
+    major: 18
+    minor: 4
+    patch: 1
+  enabled: true
+- manifestVersion: 1
+  name: southsil-SouthsilArmor
+  authorName: southsil
+  websiteUrl: https://thunderstore.io/c/valheim/p/southsil/SouthsilArmor/
+  displayName: SouthsilArmor
+  description: Adds over 30 entirely new armor sets, spread across all biomes!
+  gameVersion: '0'
+  networkMode: both
+  packageType: other
+  installMode: managed
+  installedAtTime: 1772781259401
+  loaders: []
+  dependencies:
+    - denikson-BepInExPack_Valheim-5.4.1900
+  incompatibilities: []
+  optionalDependencies: []
+  versionNumber:
+    major: 3
+    minor: 1
+    patch: 8
+  enabled: true
+- manifestVersion: 1
+  name: Dan Moore-Ashlands Reborn
+  authorName: Dan Moore
+  websiteUrl: ''
+  displayName: Ashlands Reborn
+  description: >-
+    A version of the Ashlands biome where all that is horrible is replaced with
+    beauty. The functionality will not change. It will just be uplifting rather
+    than depressing.
+  gameVersion: ''
+  networkMode: ''
+  packageType: ''
+  installMode: ''
+  installedAtTime: 1773029368421
+  loaders: []
+  dependencies:
+    - denikson-BepInExPack_Valheim-5.4.2333
+    - Azumatt-Official_BepInEx_ConfigurationManager-18.4.1
+    - southsil-SouthsilArmor-3.1.8
+  incompatibilities: []
+  optionalDependencies: []
+  versionNumber:
+    major: 1
+    minor: 0
+    patch: 0
+  enabled: true
