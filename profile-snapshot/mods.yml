@@ -10,7 +10,7 @@
   networkMode: both
   packageType: other
   installMode: managed
-  installedAtTime: 1772781229866
+  installedAtTime: 1792453494698
   loaders: []
   dependencies: []
   incompatibilities: []
@@ -18,7 +18,7 @@
   versionNumber:
     major: 5
     minor: 4
-    patch: 2333
+    patch: 2351
   enabled: true
 - manifestVersion: 1
   name: Azumatt-Official_BepInEx_ConfigurationManager
@@ -52,7 +52,7 @@
   networkMode: both
   packageType: other
   installMode: managed
-  installedAtTime: 1772781259401
+  installedAtTime: 1792453495088
   loaders: []
   dependencies:
     - denikson-BepInExPack_Valheim-5.4.1900
@@ -60,8 +60,8 @@
   optionalDependencies: []
   versionNumber:
     major: 3
-    minor: 1
-    patch: 8
+    minor: 2
+    patch: 1
   enabled: true
 - manifestVersion: 1
   name: Dan Moore-Ashlands Reborn
@@ -87,5 +87,28 @@
   versionNumber:
     major: 1
     minor: 0
+    patch: 0
+  enabled: true
+- manifestVersion: 2
+  name: MMaxG-iHUD
+  authorName: MMaxG
+  websiteUrl: https://github.com/MMaxG/valheim-ihud-mod
+  displayName: iHUD
+  description: >-
+    Immersive HUD: hides HUD elements when not needed. Built locally from source
+    (commit ea5a69f).
+  gameVersion: ''
+  networkMode: ''
+  packageType: ''
+  installMode: ''
+  installedAtTime: 1792453530946
+  loaders: []
+  dependencies:
+    - denikson-BepInExPack_Valheim-5.4.2333
+  incompatibilities: []
+  optionalDependencies: []
+  versionNumber:
+    major: 1
+    minor: 1
     patch: 0
   enabled: true
