@@ -13,7 +13,8 @@ internal static class HeightmapPatches
     private static int _terrainOverrideLogCount;
     private static int _neighborPokeLogCount;
     private static int _lavaCheckLogCount;
-    private static readonly Dictionary<Heightmap, Heightmap.Biome[]> SavedCornerBiomes = new();
+    // Valheim 1.0.20 (alt biomes): m_cornerBiomes is BiomeSector[] (was Heightmap.Biome[]).
+    private static readonly Dictionary<Heightmap, BiomeSector[]> SavedCornerBiomes = new();
 
     private const float NeighborPokeRadius = 80f;
 
@@ -40,8 +41,8 @@ internal static class HeightmapPatches
     private static bool ChunkCanBeLava(Heightmap hmap)
     {
         if (hmap.IsBiomeEdge()) return false;
-        var corners = AccessTools.Field(typeof(Heightmap), "m_cornerBiomes").GetValue(hmap) as Heightmap.Biome[];
-        return corners != null && corners[0] == Heightmap.Biome.AshLands;
+        var corners = AccessTools.Field(typeof(Heightmap), "m_cornerBiomes").GetValue(hmap) as BiomeSector[];
+        return corners != null && corners[0]?.Biome == Heightmap.Biome.AshLands;
     }
 
     /// <summary>
@@ -67,10 +68,10 @@ internal static class HeightmapPatches
         if (!Plugin.IsTerrainOverrideActive) return;
         if (!HasAshLands(__instance)) return;
 
-        var corners = AccessTools.Field(typeof(Heightmap), "m_cornerBiomes").GetValue(__instance) as Heightmap.Biome[];
+        var corners = AccessTools.Field(typeof(Heightmap), "m_cornerBiomes").GetValue(__instance) as BiomeSector[];
         if (corners == null) return;
-        SavedCornerBiomes[__instance] = (Heightmap.Biome[])corners.Clone();
-        var meadows = Heightmap.Biome.Meadows;
+        SavedCornerBiomes[__instance] = (BiomeSector[])corners.Clone();
+        var meadows = BiomeSector.EmptyMeadows;
         AccessTools.Field(typeof(Heightmap), "m_cornerBiomes").SetValue(__instance, new[] { meadows, meadows, meadows, meadows });
     }
 
@@ -260,11 +261,11 @@ internal static class HeightmapPatches
 
     private static bool HasAshLands(Heightmap hmap)
     {
-        var corners = AccessTools.Field(typeof(Heightmap), "m_cornerBiomes").GetValue(hmap) as Heightmap.Biome[];
+        var corners = AccessTools.Field(typeof(Heightmap), "m_cornerBiomes").GetValue(hmap) as BiomeSector[];
         if (corners == null) return false;
         var ashLands = Heightmap.Biome.AshLands;
         foreach (var c in corners)
-            if ((c & ashLands) != 0) return true;
+            if (c != null && (c.Biome & ashLands) != 0) return true;
         return false;
     }
 
@@ -306,7 +307,7 @@ internal static class HeightmapPatches
         {
             if (!HasAshLands(hmap)) continue;
             buildDataField?.SetValue(hmap, null);
-            hmap.Poke(delayed: true);
+            hmap.Poke(delayed: 2); // 2 = MonoUpdaters CustomLateUpdate (old delayed:true), full rebuild
             poked++;
         }
         if (poked > 0)

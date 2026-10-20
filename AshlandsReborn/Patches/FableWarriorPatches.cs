@@ -490,7 +490,7 @@ internal static class FableWarriorPatches
             UObject.Destroy(holder);
             return;
         }
-        puppetVis.m_clothColliders = Array.Empty<CapsuleCollider>();
+        puppetVis.m_clothColliders = new List<MagicaCloth2.ColliderComponent>();
         puppetVis.m_nViewOverride = GetDummyNView();
 
         // Reparent to the live (active) Charred Visual node -> puppet activates -> only
@@ -671,6 +671,11 @@ internal static class FableWarriorPatches
         ApplyAppearance(marker, player, ComputeEquipSignature(player));
     }
 
+    // Valheim 1.0.20: VisEquipment.Set*Item take prefab-name hashes (0 = empty slot) plus a
+    // quality that drives ParticleIntensityScaler; vanilla Humanoid passes the item's m_quality.
+    private const int PuppetItemQuality = 1;
+    private static int ItemHash(string? name) => string.IsNullOrEmpty(name) ? 0 : name!.GetStableHashCode();
+
     private static void ApplyAppearance(AshlandsRebornFableWarrior marker, Player player, string signature)
     {
         if (marker.PuppetVis == null) return;
@@ -685,26 +690,26 @@ internal static class FableWarriorPatches
             {
                 var vis = marker.PuppetVis;
                 vis.SetModel(profile?.ModelIndex() ?? 0); // per-class Fable[Class]Sex
-                vis.SetHairItem(Plugin.FableRaceHair.Value ?? "");
-                vis.SetBeardItem(Plugin.FableRaceBeard.Value ?? "BeardNone");
+                vis.SetHairItem(ItemHash(Plugin.FableRaceHair.Value));
+                vis.SetBeardItem(ItemHash(Plugin.FableRaceBeard.Value ?? "BeardNone"));
                 vis.SetSkinColor(ComputeRaceSkinColor());
                 vis.SetHairColor(ComputeRaceHairColor());
             }
             if (profile?.OverrideArmor() == true)
             {
                 // Body from the player, armor from config: empty IDs render a bare slot.
-                marker.PuppetVis.SetHelmetItem(profile.HelmetItem());
-                marker.PuppetVis.SetChestItem(profile.ChestItem());
-                marker.PuppetVis.SetLegItem(profile.LegItem());
-                marker.PuppetVis.SetShoulderItem(profile.ShoulderItem(), 0);
-                marker.PuppetVis.SetUtilityItem(""); // "no player armor" baseline: no belt
+                marker.PuppetVis.SetHelmetItem(ItemHash(profile.HelmetItem()));
+                marker.PuppetVis.SetChestItem(ItemHash(profile.ChestItem()));
+                marker.PuppetVis.SetLegItem(ItemHash(profile.LegItem()));
+                marker.PuppetVis.SetShoulderItem(ItemHash(profile.ShoulderItem()), 0, PuppetItemQuality);
+                marker.PuppetVis.SetUtilityItem(0); // "no player armor" baseline: no belt
             }
             if (profile?.KeepClonedHands() != true)
             {
-                marker.PuppetVis.SetRightItem(profile?.RightItem() ?? "");
-                marker.PuppetVis.SetLeftItem(profile?.LeftItem() ?? "", 0);
-                marker.PuppetVis.SetLeftBackItem("", 0);
-                marker.PuppetVis.SetRightBackItem("");
+                marker.PuppetVis.SetRightItem(ItemHash(profile?.RightItem()), PuppetItemQuality);
+                marker.PuppetVis.SetLeftItem(ItemHash(profile?.LeftItem()), 0, PuppetItemQuality);
+                marker.PuppetVis.SetLeftBackItem(0, 0, 0);
+                marker.PuppetVis.SetRightBackItem(0, 0);
             }
             marker.PuppetVis.CustomUpdate(0f, 0f); // attach now (no one-frame naked flash)
             marker.EquipPending = false;

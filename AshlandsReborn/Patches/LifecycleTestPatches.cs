@@ -34,7 +34,8 @@ internal static class LifecycleTestPatches
     private static bool _autoFired;
     private static float _worldLoadedAt = -1f;
 
-    private static readonly FieldInfo? FHelmetItemName = AccessTools.Field(typeof(VisEquipment), "m_helmetItem");
+    // 1.0.20: VisEquipment.m_helmetItem is the prefab-name hash (int), no longer the name.
+    private static readonly FieldInfo? FHelmetItemHash = AccessTools.Field(typeof(VisEquipment), "m_helmetItem");
 
     private static int _pass;
     private static int _fail;
@@ -163,13 +164,13 @@ internal static class LifecycleTestPatches
             // fields - ApplyAppearance clones from the Humanoid's equipment) must reach every
             // puppet within one 2s sync tick ---
             origHelmData = AccessTools.Field(typeof(Humanoid), "m_helmetItem")?.GetValue(player) as ItemDrop.ItemData;
-            bronzeItem = player.GetInventory().AddItem(TestHelmet, 1, 1, 0, 0L, "");
+            bronzeItem = player.GetInventory().AddItem(TestHelmet, 1, 1, 0, 0L, "", cheated: false);
             var equipped = bronzeItem != null && player.EquipItem(bronzeItem, triggerEquipEffects: false);
             helmetRestored = false;
             yield return new WaitForSeconds(2.5f);
             var puppets = Markers();
             var synced = equipped && puppets.Length == 3 && puppets.All(m => m.PuppetVis != null
-                && (FHelmetItemName?.GetValue(m.PuppetVis) as string) == TestHelmet);
+                && FHelmetItemHash?.GetValue(m.PuppetVis) is int h && h == TestHelmet.GetStableHashCode());
             Check("armor_sync_2s", synced, $"equipped={equipped} puppets={puppets.Length} allBronze={synced}");
 
             yield return CaptureGroup(spawned, dir, "m4_group_bronzehelm.png");

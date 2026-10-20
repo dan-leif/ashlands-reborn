@@ -139,9 +139,17 @@ junction with `rmdir` — never recurse into it, it points INTO the r2modman pro
 deletes the doorstop/loader files, archives leftovers to `C:\DEV\ashlands-reborn-archive\`,
 triggers Steam file verification). The profile and repo are untouched. **`RESUME.md`** is the
 way back: `dev.ps1` re-creates the hooks; `AshlandsReborn\Lib\` holds reference assemblies
-frozen from Steam buildid 21981559 (`Lib\FROZEN_FROM.txt`) so `dotnet build` works with the
-game vanilla — `CopyRefs.ps1` OVERWRITES them, run it only when porting to a new build.
-`profile-snapshot\` holds the user's tuned cfg + `mods.yml` versions.
+frozen from Steam buildid 25909357 = Valheim 1.0.20 (`Lib\FROZEN_FROM.txt`) so `dotnet build`
+works with the game vanilla — `CopyRefs.ps1` OVERWRITES them, run it only when porting to a new
+build. `profile-snapshot\` holds the user's tuned cfg + `mods.yml` versions.
+
+**1.0.20 port notes** (alt-biomes update): `Heightmap.m_cornerBiomes` is `BiomeSector[]` (read
+`.Biome`; the terrain prefix swaps in `BiomeSector.EmptyMeadows`), `Heightmap.Poke(int delayed,
+bool paintOnly)` (old `delayed: true` = `2`, the CustomLateUpdate path), `VisEquipment.Set*Item`
+and its `m_*Item` fields are prefab-name hashes (`GetStableHashCode()`, 0 = empty) + quality,
+and the build needs `assembly_utils.dll` + `MagicaClothV2.dll`. Reflection-by-name type changes
+don't fail the compile; check the log. 1.0.20 also plays an intro cinematic before the main
+menu; DevAutoLoad skips it via `CinematicsManager.Stop()`.
 
 ### Manual build only
 

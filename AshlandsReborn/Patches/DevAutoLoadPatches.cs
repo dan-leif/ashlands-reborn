@@ -83,6 +83,16 @@ internal static class DevAutoLoadPatches
 
     private static void HandleWaitForMainMenu(FejdStartup instance)
     {
+        // Valheim 1.0.20 plays an intro cinematic on first startup with the main menu hidden
+        // until it ends. Skip it the same way vanilla's Esc handler does (CinematicsManager.Stop
+        // also re-activates m_mainMenu).
+        if (CinematicsManager.s_instance != null && CinematicsManager.IsStartedPlaying())
+        {
+            Plugin.Log.LogInfo("[DevAutoLoad] Skipping intro cinematic");
+            CinematicsManager.Stop();
+            return;
+        }
+
         if (instance.m_mainMenu == null || !instance.m_mainMenu.activeInHierarchy)
             return;
 

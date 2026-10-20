@@ -159,7 +159,7 @@ internal static class EnvManPatches
         foreach (var hmap in list)
         {
             buildDataField?.SetValue(hmap, null);
-            hmap.Poke(delayed: true);
+            hmap.Poke(delayed: 2); // 2 = MonoUpdaters CustomLateUpdate (old delayed:true), full rebuild
         }
         if (ClutterSystem.instance != null)
             ClutterSystem.instance.ResetGrass(pos, radius);
@@ -240,7 +240,7 @@ internal static class EnvManPatches
                     foreach (var hmap in list)
                     {
                         buildDataField?.SetValue(hmap, null);
-                        hmap.Poke(delayed: true);
+                        hmap.Poke(delayed: 2); // 2 = MonoUpdaters CustomLateUpdate (old delayed:true), full rebuild
                     }
                     if (ClutterSystem.instance != null)
                         ClutterSystem.instance.ResetGrass(pos, radius);

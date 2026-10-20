@@ -47,7 +47,10 @@ $required = @(
     @{From=(Join-Path $managed "UnityEngine.dll");            To="UnityEngine.dll"},
     @{From=(Join-Path $managed "UnityEngine.CoreModule.dll"); To="UnityEngine.CoreModule.dll"},
     @{From=(Join-Path $managed "Assembly-CSharp.dll");        To="Assembly-CSharp.dll"},
-    @{From=(Join-Path $managed "assembly_valheim.dll");       To="assembly_valheim.dll"}
+    @{From=(Join-Path $managed "assembly_valheim.dll");       To="assembly_valheim.dll"},
+    # 1.0.20+: Vector2i/StringExtensionMethods live in assembly_utils; VisEquipment.m_clothColliders is MagicaCloth2 types.
+    @{From=(Join-Path $managed "assembly_utils.dll");         To="assembly_utils.dll"},
+    @{From=(Join-Path $managed "MagicaClothV2.dll");          To="MagicaClothV2.dll"}
 )
 # Optional: referenced by the csproj only when present (mirrors the GamePath branch).
 $optional = @(

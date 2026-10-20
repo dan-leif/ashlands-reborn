@@ -8,7 +8,7 @@ ahead of a game update. This file is the way back.
 | Thing | Where | Notes |
 |---|---|---|
 | Source, docs, screenshot galleries | this repo, pushed to `origin/master` | |
-| Reference assemblies the code compiles against | `AshlandsReborn\Lib\*.dll` (gitignored, on disk) | Frozen from Steam **buildid 21981559** (see `Lib\FROZEN_FROM.txt`). The csproj falls back to them automatically when the game folder has no `BepInEx\core`. `dotnet build` works with the game vanilla. |
+| Reference assemblies the code compiles against | `AshlandsReborn\Lib\*.dll` (gitignored, on disk) | Frozen from Steam **buildid 25909357** (Valheim 1.0.20, refrozen 2026-10-19) (see `Lib\FROZEN_FROM.txt`). The csproj falls back to them automatically when the game folder has no `BepInEx\core`. `dotnet build` works with the game vanilla. |
 | Your tuned in-game config + exact mod versions | `profile-snapshot\` (committed) | `com.ashlandsreborn.weather.cfg`, `mods.yml`, `BepInEx.cfg`, `STEAM_BUILD.txt` |
 | The r2modman profile "Ashlands Reborn" | `%APPDATA%\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn` | Untouched by the revert: deployed plugin dll, configs, BepInExPack, ConfigurationManager, SouthsilArmor |
 | Last built Thunderstore package, old game-dir BepInEx leftovers, cfg copies | `C:\DEV\ashlands-reborn-archive\<date>\` | Not in git |
@@ -18,7 +18,7 @@ the `BepInEx` junction (into the profile), `winhttp.dll`, `doorstop_config.ini`,
 `.doorstop_version`, `doorstop_libs\`, `start_*_bepinex.sh`, and the misnamed
 `BepInEx_vanilla\` (an old manual BepInEx install, archived).
 
-## Resume on the SAME game build (21981559)
+## Resume on the SAME game build (25909357 / 1.0.20)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File dev.ps1
