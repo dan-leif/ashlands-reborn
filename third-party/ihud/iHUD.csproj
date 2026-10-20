@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Local wrapper: compiles the upstream iHUD.cs (src, unchanged from MMaxG/valheim-ihud-mod@ea5a69f) against the r2modman
+       profile's BepInEx/Harmony and the live Valheim assemblies (no BepInEx NuGet feed). -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AssemblyName>iHUD</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ValheimPath Condition="'$(ValheimPath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Valheim</ValheimPath>
+    <BepInExCore Condition="'$(BepInExCore)' == ''">C:\Users\Dev\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Ashlands Reborn\BepInEx\core</BepInExCore>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src\iHUD.cs" />
+    <Reference Include="$(BepInExCore)\BepInEx.dll" Private="false" />
+    <Reference Include="$(BepInExCore)\0Harmony.dll" Private="false" />
+    <Reference Include="$(ValheimPath)\valheim_Data\Managed\UnityEngine*.dll" Private="false" />
+    <Reference Include="$(ValheimPath)\valheim_Data\Managed\assembly_valheim.dll" Private="false" />
+    <Reference Include="$(ValheimPath)\valheim_Data\Managed\assembly_utils.dll" Private="false" />
+  </ItemGroup>
+</Project>

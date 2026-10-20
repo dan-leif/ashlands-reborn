@@ -1,0 +1,8 @@
+{
+  "name": "iHUD",
+  "author": "MMaxG",
+  "version_number": "1.1.0",
+  "website_url": "https://github.com/MMaxG/valheim-ihud-mod",
+  "description": "Immersive HUD: hides HUD elements when not needed. Built locally from source (commit ea5a69f).",
+  "dependencies": ["denikson-BepInExPack_Valheim-5.4.2333"]
+}
