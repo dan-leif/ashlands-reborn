@@ -30,7 +30,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. Creates a directory junction `<game dir>/BepInEx/` → profile's `BepInEx/` (backed up to `BepInEx_vanilla/` on first run)
 4. Launches Valheim via `steam://rungameid/892970` — **must go through Steam** so Steamworks initializes correctly. Launching `valheim.exe` directly causes a Steamworks init failure and FejdStartup never loads.
 
-With `DevAutoLoad = true` in the config (section "Dev Automation"), the game also auto-navigates menus and loads directly into the configured character/world.
+Every `dev.ps1` launch also auto-navigates menus and loads directly into the configured character/world: the script writes a one-shot flag file (`<profile>/BepInEx/ashlands-reborn-autoload.flag`) that the plugin consumes and deletes on startup (ignored if older than 10 min). `dev.ps1 -NoAutoLoad` lands on the main menu. **Normal launches (r2modman / Steam) never autoload**: the user plays with the mod enabled and wants the main menu, so keep the `DevAutoLoad` config OFF (it forces autoload on every launch).
 
 **Must run with `-ExecutionPolicy Bypass`** — the script is blocked by default PowerShell execution policy:
 ```powershell
@@ -53,7 +53,7 @@ powershell -ExecutionPolicy Bypass -File dev.ps1
 ```
 
 **Step 3 — Poll for world load**
-Watch the BepInEx log for `"starting game"` — appears within ~20s of game start when DevAutoLoad is enabled. Poll every 2s, timeout after 3 minutes.
+Watch the BepInEx log for `"starting game"` — appears within ~20s of game start when dev.ps1 armed the autoload. Poll every 2s, timeout after 3 minutes.
 ```bash
 LOG="C:/Users/Dev/AppData/Roaming/r2modmanPlus-local/Valheim/profiles/Ashlands Reborn/BepInEx/LogOutput.log"
 for i in $(seq 1 90); do
@@ -724,7 +724,7 @@ vanilla, `recolored/` = defaults, `sweep/` + labeled composite).
 
 | Config key | Default | Effect |
 |---|---|---|
-| `DevAutoLoad` | false | Auto-navigate menus and load into world on startup |
+| `DevAutoLoad` | false | Force autoload on EVERY launch. Keep off: `dev.ps1` arms a one-shot autoload per launch via a flag file, so normal launches reach the main menu |
 | `DevAutoLoadCharacter` | "Dove" | Character name to select |
 | `DevAutoLoadWorld` | "Reborn" | World name to select |
 | `PhotoModeKey` | F6 | Run the photo harness on demand |

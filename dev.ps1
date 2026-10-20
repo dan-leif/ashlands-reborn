@@ -1,6 +1,9 @@
 # dev.ps1 - One-click build + launch for Ashlands Reborn
 # Usage: .\dev.ps1
 #   Builds the plugin, then launches Valheim with BepInEx loaded from the r2modman profile.
+#   This launch auto-loads into the DevAutoLoadCharacter/World (one-shot flag file, see below);
+#   pass -NoAutoLoad to land on the main menu instead. Normal launches never autoload unless
+#   the DevAutoLoad config is set.
 #
 # How it works:
 #   Unity Doorstop (winhttp.dll) must live next to valheim.exe, and BepInEx resolves
@@ -8,6 +11,8 @@
 #   r2modman solves this by copying doorstop files into the game dir at launch.
 #   We replicate this by pointing the game dir's BepInEx/ at the profile via a
 #   directory junction (no admin required, instant, no file duplication).
+
+param([switch]$NoAutoLoad)
 
 $ErrorActionPreference = "Stop"
 
@@ -66,6 +71,15 @@ if (Test-Path $gameBepInEx) {
 
 cmd /c mklink /J $gameBepInEx $profileBepInEx
 Write-Host "Linked BepInEx -> profile" -ForegroundColor Cyan
+
+# --- One-shot autoload flag (consumed + deleted by the plugin on startup) ---
+$autoLoadFlag = "$profileBepInEx\ashlands-reborn-autoload.flag"
+if ($NoAutoLoad) {
+    Remove-Item $autoLoadFlag -ErrorAction SilentlyContinue
+} else {
+    Set-Content -Path $autoLoadFlag -Value (Get-Date -Format o)
+    Write-Host "Armed one-shot DevAutoLoad for this launch" -ForegroundColor Cyan
+}
 
 # --- Launch ---
 Write-Host "Launching Valheim via Steam URI..." -ForegroundColor Cyan

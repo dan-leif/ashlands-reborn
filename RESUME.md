@@ -64,4 +64,4 @@ profile into the game dir, recreates the `BepInEx` junction, and launches throug
   files explicitly.
 - **Launching modded through r2modman** copies doorstop files back into the game dir; use
   plain Steam to stay vanilla.
-- **DevAutoLoad** in the cfg expects character "Dove" and world "Reborn".
+- **DevAutoLoad** (armed per launch by `dev.ps1`) expects character "Dove" and world "Reborn".

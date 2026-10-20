@@ -1759,7 +1759,9 @@ public class Plugin : BaseUnityPlugin
             "Dev Automation",
             "DevAutoLoad",
             false,
-            "Automatically navigate menus and load into a world on game start. Set character/world names below.");
+            "ALWAYS auto-load into the world below on game start, even on normal launches. Leave off: dev.ps1 " +
+            "(the test launcher) arms a one-shot autoload for its own launch via a flag file, so normal " +
+            "launches go to the main menu.");
 
         DevAutoLoadCharacter = Config.Bind(
             "Dev Automation",

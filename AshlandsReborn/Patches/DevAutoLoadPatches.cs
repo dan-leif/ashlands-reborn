@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -6,7 +8,8 @@ namespace AshlandsReborn.Patches;
 
 /// <summary>
 /// Automatically navigates FejdStartup menus (Main Menu -> Character Select -> World Select -> Start)
-/// when Plugin.DevAutoLoad is enabled. Called from Plugin.Update() each frame.
+/// when Plugin.DevAutoLoad is enabled OR dev.ps1 armed a one-shot autoload for this launch
+/// (LaunchFlagFile). Called from Plugin.Update() each frame.
 /// </summary>
 internal static class DevAutoLoadPatches
 {
@@ -19,6 +22,37 @@ internal static class DevAutoLoadPatches
     }
 
     private static AutoLoadState _state = AutoLoadState.WaitForMainMenu;
+
+    // One-shot launch flag written by dev.ps1 right before it launches the game. Consumed
+    // (deleted) on the first Tick, so only that launch autoloads; a normal launch goes to the
+    // main menu. The age limit covers a dev.ps1 run whose game never started (stale flag).
+    internal const string LaunchFlagFile = "ashlands-reborn-autoload.flag";
+    private static readonly TimeSpan LaunchFlagMaxAge = TimeSpan.FromMinutes(10);
+    private static bool? _flagArmed;
+
+    private static bool IsEnabled => (Plugin.DevAutoLoad?.Value ?? false) || ConsumeLaunchFlag();
+
+    private static bool ConsumeLaunchFlag()
+    {
+        if (_flagArmed.HasValue) return _flagArmed.Value;
+        _flagArmed = false;
+        try
+        {
+            var path = Path.Combine(BepInEx.Paths.BepInExRootPath, LaunchFlagFile);
+            if (!File.Exists(path)) return false;
+            var age = DateTime.UtcNow - File.GetLastWriteTimeUtc(path);
+            File.Delete(path);
+            _flagArmed = age < LaunchFlagMaxAge;
+            Plugin.Log.LogInfo(_flagArmed.Value
+                ? "[DevAutoLoad] Launch flag from dev.ps1 found - autoloading this session"
+                : $"[DevAutoLoad] Ignoring stale launch flag ({age.TotalMinutes:F0} min old)");
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.LogWarning("[DevAutoLoad] Launch flag check failed: " + ex.Message);
+        }
+        return _flagArmed.Value;
+    }
     private static bool _started;
 
     // Cached reflection fields (resolved once)
@@ -39,16 +73,17 @@ internal static class DevAutoLoadPatches
 
     internal static void Tick()
     {
-        // Periodic debug log (once per 5s) to confirm Tick is running
-        if (!_started && Time.time - _lastDebugLogTime > 5f)
+        // Periodic debug log (once per 5s) to confirm Tick is running - only while armed;
+        // a normal (not autoloading) launch logs it once instead of all session.
+        if (!_started && Time.time - _lastDebugLogTime > 5f && (_lastDebugLogTime == 0f || IsEnabled))
         {
             _lastDebugLogTime = Time.time;
             var cfgVal = Plugin.DevAutoLoad?.Value;
             var inst = FejdStartup.instance;
-            Plugin.Log.LogInfo($"[DevAutoLoad] Tick debug: config={cfgVal}, instance={inst != null}, state={_state}");
+            Plugin.Log.LogInfo($"[DevAutoLoad] Tick debug: config={cfgVal}, launchFlag={ConsumeLaunchFlag()}, instance={inst != null}, state={_state}");
         }
 
-        if (!(Plugin.DevAutoLoad?.Value ?? false))
+        if (!IsEnabled)
             return;
 
         if (_state == AutoLoadState.Done)
