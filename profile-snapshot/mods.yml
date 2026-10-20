@@ -21,28 +21,6 @@
     patch: 2351
   enabled: true
 - manifestVersion: 1
-  name: Azumatt-Official_BepInEx_ConfigurationManager
-  authorName: Azumatt
-  websiteUrl: >-
-    https://thunderstore.io/c/valheim/p/Azumatt/Official_BepInEx_ConfigurationManager/
-  displayName: Official_BepInEx_ConfigurationManager
-  description: Mod to assist with configuration of BepInEx mods
-  gameVersion: '0'
-  networkMode: both
-  packageType: other
-  installMode: managed
-  installedAtTime: 1772781245045
-  loaders: []
-  dependencies:
-    - denikson-BepInExPack_Valheim-5.4.2202
-  incompatibilities: []
-  optionalDependencies: []
-  versionNumber:
-    major: 18
-    minor: 4
-    patch: 1
-  enabled: true
-- manifestVersion: 1
   name: southsil-SouthsilArmor
   authorName: southsil
   websiteUrl: https://thunderstore.io/c/valheim/p/southsil/SouthsilArmor/
@@ -80,7 +58,7 @@
   loaders: []
   dependencies:
     - denikson-BepInExPack_Valheim-5.4.2333
-    - Azumatt-Official_BepInEx_ConfigurationManager-18.4.1
+    - shudnal-ConfigurationManager-1.1.25
     - southsil-SouthsilArmor-3.1.8
   incompatibilities: []
   optionalDependencies: []
@@ -111,4 +89,99 @@
     major: 1
     minor: 1
     patch: 0
+  enabled: true
+- manifestVersion: 1
+  name: ValheimModding-YamlDotNet
+  authorName: ValheimModding
+  websiteUrl: https://thunderstore.io/c/valheim/p/ValheimModding/YamlDotNet/
+  displayName: YamlDotNet
+  description: >-
+    Shared version 16.3.0 of YamlDotNet from Antoine Aubry and contributors,
+    net47 package for use in Valheim mods. Maintained by the ValheimModding
+    team.
+  gameVersion: '0'
+  networkMode: both
+  packageType: other
+  installMode: managed
+  installedAtTime: 1792469737510
+  loaders: []
+  dependencies: []
+  incompatibilities: []
+  optionalDependencies: []
+  versionNumber:
+    major: 16
+    minor: 3
+    patch: 1
+  enabled: true
+- manifestVersion: 1
+  name: ValheimModding-JsonDotNET
+  authorName: ValheimModding
+  websiteUrl: https://thunderstore.io/c/valheim/p/ValheimModding/JsonDotNET/
+  displayName: JsonDotNET
+  description: >-
+    Shared version 13.0.3 of Json.NET from Newtonsoft, net45 package for use in
+    Valheim mods. Maintained by the ValheimModding team.
+  gameVersion: '0'
+  networkMode: both
+  packageType: other
+  installMode: managed
+  installedAtTime: 1792469737871
+  loaders: []
+  dependencies: []
+  incompatibilities: []
+  optionalDependencies: []
+  versionNumber:
+    major: 13
+    minor: 0
+    patch: 4
+  enabled: true
+- manifestVersion: 1
+  name: shudnal-ConditionalConfigSync
+  authorName: shudnal
+  websiteUrl: https://thunderstore.io/c/valheim/p/shudnal/ConditionalConfigSync/
+  displayName: ConditionalConfigSync
+  description: >-
+    Shared config synchronization and server policy library for Valheim mods.
+    Installed as a dependency and compatible with Jotunn and ServerSync.
+  gameVersion: '0'
+  networkMode: both
+  packageType: other
+  installMode: managed
+  installedAtTime: 1792469738232
+  loaders: []
+  dependencies:
+    - denikson-BepInExPack_Valheim-5.4.2350
+  incompatibilities: []
+  optionalDependencies: []
+  versionNumber:
+    major: 1
+    minor: 0
+    patch: 11
+  enabled: true
+- manifestVersion: 1
+  name: shudnal-ConfigurationManager
+  authorName: shudnal
+  websiteUrl: https://thunderstore.io/c/valheim/p/shudnal/ConfigurationManager/
+  displayName: ConfigurationManager
+  description: >-
+    Localized, recolored, refined. Split view mode. Config files editor. Setting
+    edit window. Changed values are highlighted. Prevent user input or pause the
+    game while window is open. Window scale depends on game scale.
+  gameVersion: '0'
+  networkMode: both
+  packageType: other
+  installMode: managed
+  installedAtTime: 1792469738592
+  loaders: []
+  dependencies:
+    - denikson-BepInExPack_Valheim-5.4.2350
+    - shudnal-ConditionalConfigSync-1.0.5
+    - ValheimModding-JsonDotNET-13.0.3
+    - ValheimModding-YamlDotNet-16.3.0
+  incompatibilities: []
+  optionalDependencies: []
+  versionNumber:
+    major: 1
+    minor: 1
+    patch: 25
   enabled: true

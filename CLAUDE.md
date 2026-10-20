@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Required mods** (install via r2modman into the "Ashlands Reborn" profile):
 - `denikson-BepInExPack_Valheim` v5.4.2333+ — mod loader
-- `Azumatt-Official_BepInEx_ConfigurationManager` v18.4.1+ — in-game config UI (F1)
+- `shudnal-ConfigurationManager` v1.1.25+ — in-game config UI (F1). Replaces the deprecated Azumatt `Official_BepInEx_ConfigurationManager`; the two are incompatible, so never install both
 - `southsil-SouthsilArmor` v3.1.8+ — custom armor sets used by CharredWarrior patches
 
 **First-run note for new user accounts**: If SouthsilArmor items are missing in-game and the log shows a `NullReferenceException` in `Localization.SetLanguageFromLocale`, the account has no saved language preference. Fix: launch Valheim via Steam (no mods), go to Options → Language, set English, and exit. Then launch via r2modman normally.
