@@ -194,6 +194,7 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `FableBunnyPatches.cs` | `Character.Awake`, `Humanoid.StartAttack`, `Ragdoll.Awake` (all manually applied with null-guards), `MonoUpdaters.LateUpdate` | Fable Bunny: replaces the Morgen's visuals with a giant self-animating Hare (+ optional hybrid Lox for bite/roll). See "Fable Bunny" below |
 | `FableBallistaPatches.cs` | `Turret.Awake`, `Turret.ShootProjectile` (manually applied with null-guards), `MonoUpdaters.LateUpdate` | Fable Ballista: replaces the Skugg (the Charred Ballista PIECE, not a creature) with the player Ballista buildable. See "Fable Ballista" below |
 | `FortressStonePatches.cs` | None (no Harmony patches) | Fortress Stone Recolor: lightens/tints the shared Ashlands stone materials in place (fortress / ruins / grausten families + fortress crack-glow restyle). See "Fortress Stone Recolor" below |
+| `TestArenaPatches.cs` | None (no Harmony patches) | Dev harness: finds, builds (level + paint + clear) and verifies the flat terrain test arena (see "Test arena") |
 | `PhotoModePatches.cs` | `GameCamera.LateUpdate` (prefix) | Dev verification harness: spawns a warrior, orbits the camera, captures full-body + close-up screenshots autonomously |
 | `LifecycleTestPatches.cs` | None (no Harmony patches) | Dev M4 self-test: spawns 3 warriors (incl. 2★), asserts toggle/refresh/sync/scale lifecycle invariants |
 | `MageWeaponTestPatches.cs` | None (no Harmony patches) | Dev harness (`MageWeaponTest`): dumps the ObjectDB/ZNetScene staff catalog + candidate prefab hierarchies, then spawns a pinned Charred_Mage and cycles `MageWeaponTestList` through `FableMageWeapon`, screenshotting each staff in-hand. `MageWeaponRefCapture` prepends vanilla-carry references (player equipping each player staff; DvergerMageFire/Ice/Support; puppet-disabled Charred_Mage); `MageWeaponRotSweep` captures each staff once per rot/offset combination, written to the swept staff's own family knobs (tuning mode). Output: `AR_MageWeapon\` |
@@ -736,11 +737,40 @@ vanilla, `recolored/` = defaults, `sweep/` + labeled composite).
 | `MageWeaponTestList` | (13 staffs) | CSV of staff prefab IDs the mage-weapon harness cycles. Must stay a subset of the `FableMageWeapon` dropdown (BepInEx clamps out-of-list values to the list's FIRST entry on set) |
 | `MageWeaponRefCapture` | false | Prepend a reference phase to the harness run: player equipping each player staff (`ref_player_*`), vanilla DvergerMageFire/Ice/Support (`ref_DvergerMage*`), puppet-disabled Charred_Mage (`ref_Charred_Mage_*`) — same framing as the puppet shots |
 | `MageWeaponRotSweep` | "" | `rx,ry,rz[,ox,oy,oz]` entries separated by `\|`: capture each staff once per entry with the orientation knobs of THAT staff's own source family set to it (all 18 restored after). Sweep values are ABSOLUTE orientations — there is no baked base underneath |
-| `PhotoModeIslandPos` | "2736,40,2580" | Test island teleport target; empty disables |
+| `PhotoModeIslandPos` | "3552,33,-176" | Test island teleport target (the terrain test arena, see below; old player-built platform: "2736,40,2580"); empty disables |
+| `TestArenaBuild` | false | Build the flat terrain test arena once after world load (search or `TestArenaPos`), then switch itself off |
+| `TestArenaVerify` | false | Teleport via the photo harness's own routine, log FLATCHECK/OBJCHECK, capture `AR_Arena` overview shots, switch itself off |
+| `TestArenaPos` | "" | Arena center for the builder (y = floor height); empty = world search. Written by the builder ("3552,32.0,-176" in "Reborn") |
+| `TestArenaRadius` | 36 | Arena radius (m) |
+| `TestArenaPaint` | "Paved" | Floor paint: Paved / Dirt (both remove grass) / None |
 | `TerrainPhotoAuto` | false | Run the terrain photo harness once after world load (suppressed by PhotoModeAuto/M4Test) |
 | `TerrainPhotoKey` | F7 | Run the terrain photo harness on demand |
 | `TerrainPhotoPos` | "129,30,-9671" | Transition test spot (historical grid/yellow-line area); empty disables teleport |
 | `FortressStoneSweep` | "" | CSV of Fortress/Ruins brightness values; when non-empty the photo harness appends one wall-pillar shot per value (originals restored in a finally) |
+
+### Test arena (flat terrain island for the photo harnesses)
+
+`PhotoModeIslandPos` points at a flat, indestructible TERRAIN arena in world "Reborn":
+center **3552,32,-176** (floor y = 32, water = 30), a 72 m paved disc on a small Meadows
+island with open sea around it (a few rocky islets ~100-200 m out). The old target was a
+player-built stone platform at 2736,40,2580 that rolling Morgens smashed and fell off; it is
+untouched and still reachable by setting the config back.
+
+Built by `TestArenaPatches.cs` (patchless; `Tick()` from `Plugin.Update()`), config
+`TestArenaBuild`: scans `WorldGenerator.GetHeight` on a 16 m world grid (~4 s), keeps sites
+whose whole disc can be leveled to 32-34 m, whose 60-200 m ring is >=95-97% water, Meadows
+biome, no location within 250 m; refines the best at 2 m. Then it teleports there, deletes
+every networked object over the disc (except creatures, `_ZoneCtrl`/`_TerrainCompiler`,
+seagulls), and calls the owner-side `TerrainComp.DoOperation` (private, via reflection) on each
+overlapping heightmap with a custom level+paint `TerrainOp.Settings`, then `ZNet.Save(true)`.
+Gotchas: vanilla clamps every terrain edit to **+-8 m of the generated height**, so only a
+natural island near sea level can be flattened (the edge becomes a ~2-7 m cliff); and
+`TerrainComp.ApplyOperation`'s RPC serializes settings as a TerrainOp PREFAB hash, so custom
+settings must go through `DoOperation` directly. Everything is vanilla world data (TerrainComp
+ZDOs + destroyed ZDOs) and survives reloads. Rebuild/repaint: set `TestArenaPos` and
+`TestArenaPaint`, then `TestArenaBuild = true` (leveling is idempotent).
+Verification: `TestArenaVerify = true` -> `[AR Arena] FLATCHECK PASS ... max dev 0.00 m`,
+`OBJCHECK PASS`, `DONE (verify)`. Gallery: `screenshots/test-arena/`.
 
 ### Fable Warrior config (section "Fable Warrior" + per-creature sections)
 

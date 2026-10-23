@@ -244,6 +244,11 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> MageWeaponRotSweep { get; private set; } = null!;
     public static ConfigEntry<string> PhotoModeIslandPos { get; private set; } = null!;
     public static ConfigEntry<bool> TerrainPhotoAuto { get; private set; } = null!;
+    public static ConfigEntry<bool> TestArenaBuild { get; private set; } = null!;
+    public static ConfigEntry<bool> TestArenaVerify { get; private set; } = null!;
+    public static ConfigEntry<string> TestArenaPos { get; private set; } = null!;
+    public static ConfigEntry<float> TestArenaRadius { get; private set; } = null!;
+    public static ConfigEntry<string> TestArenaPaint { get; private set; } = null!;
     public static ConfigEntry<KeyCode> TerrainPhotoKey { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoPos { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoRefPos { get; private set; } = null!;
@@ -1865,11 +1870,49 @@ public class Plugin : BaseUnityPlugin
         PhotoModeIslandPos = Config.Bind(
             "Dev Automation",
             "PhotoModeIslandPos",
-            "2736,40,2580",
-            "Test island 'x,y,z': flat player-built ocean platform with clutter-free backgrounds. " +
+            "3552,33,-176",
+            "Test island 'x,y,z': flat TERRAIN arena (72 m paved disc in open ocean, world 'Reborn', built by " +
+            "TestArenaBuild - indestructible). Old value: 2736,40,2580 (player-built stone platform). " +
             "The photo harness teleports the player here before each session (force-killed dev runs " +
             "don't save the logout point, so the player can regress to world spawn between runs). " +
             "Empty string disables the teleport.");
+
+        TestArenaBuild = Config.Bind(
+            "Dev Automation",
+            "TestArenaBuild",
+            false,
+            "Dev: once after world load, build the flat terrain test arena (TestArenaPatches): use TestArenaPos, " +
+            "or search the world for a small Meadows island ringed by open ocean; delete trees/rocks/pickables " +
+            "over it, level + paint the terrain (vanilla TerrainComp data, persists in the world), save the world, " +
+            "write the center into TestArenaPos + PhotoModeIslandPos, capture overview shots into AR_Arena, " +
+            "then switch itself off.");
+
+        TestArenaVerify = Config.Bind(
+            "Dev Automation",
+            "TestArenaVerify",
+            false,
+            "Dev: once after world load, teleport to PhotoModeIslandPos (the photo harness's own teleport), log " +
+            "FLATCHECK/OBJCHECK and capture overview shots into AR_Arena without changing anything. Switches itself off.");
+
+        TestArenaPos = Config.Bind(
+            "Dev Automation",
+            "TestArenaPos",
+            "",
+            "'x,y,z' arena center for TestArenaBuild (y = floor height). Empty = search the world generator. " +
+            "Written by the builder.");
+
+        TestArenaRadius = Config.Bind(
+            "Dev Automation",
+            "TestArenaRadius",
+            36f,
+            new ConfigDescription("Arena radius in meters for TestArenaBuild/Verify.", new AcceptableValueRange<float>(10f, 60f)));
+
+        TestArenaPaint = Config.Bind(
+            "Dev Automation",
+            "TestArenaPaint",
+            "Paved",
+            new ConfigDescription("Arena floor paint for TestArenaBuild (Paved/Dirt remove grass; None keeps it).",
+                new AcceptableValueList<string>("Paved", "Dirt", "None")));
 
         TerrainPhotoAuto = Config.Bind(
             "Dev Automation",
@@ -2617,6 +2660,7 @@ public class Plugin : BaseUnityPlugin
         Patches.PhotoModePatches.Tick();
         Patches.LifecycleTestPatches.Tick();
         Patches.TerrainPhotoPatches.Tick();
+        Patches.TestArenaPatches.Tick();
         Patches.MageWeaponTestPatches.Tick();
         Patches.FableBunnyPatches.ReconTick();
 
