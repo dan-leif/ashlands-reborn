@@ -554,6 +554,26 @@ trails, byte-identical read; **Off** = body pounce only. `FableBunnyWispOrbit=fa
 the orbs (scale+light fade to 0 via `WispOrb.Visible`) so they fade in only for strikes —
 never affects elemental `AlwaysTrackHands` orbs.
 
+**v4 skin modes (2026-10-23, `Patches/FableMorgenSkins.cs`)**: `FableBunnyMode` gained `Ape` and
+`Svalt`, built and driven by `FableMorgenSkins` (hooked into `BuildBunny` / `Drive`; they reuse
+the bunny's hide/pivot/revert lifecycle). **Ape** = an AI-generated gorilla mesh (`ape.bin`) skinned
+to the Morgen's OWN 56-bone skeleton: a copy of that skeleton under the pivot takes the hidden
+Morgen's live localRotations with ape-fitted localPositions, so it plays every Morgen clip with ape
+proportions (gameplay bones untouched). `FableBunnyApeTorsoPitch` (45°) tilts the torso up because
+the Morgen's clips are a horizontal crawl; `FableBunnyApeScale` 1 = Morgen height (fit ratio 50/60
+folded in); the material is a clone of the Morgen's with emission zeroed (else pastel). **Svalt** =
+Monstrum's `BossSvalt_TW` loaded with `AssetBundle.LoadFromFile` (dev: `MorgenSkins/monstrum.unity3d`
+carved out of `Monstrum.dll`; real use = Monstrum as a dependency), living-bark face textures,
+tail/jaw hidden, bulk bones, particles off except eye flames; Morgen clip names map to Svalt
+triggers (`attackslap0/1`, `attackbite`), and the slam (no layer-0 clip of its own) maps via
+`marker.LastAttackAnim` to `attackantler`. Runtime files live in `<plugin dir>/MorgenSkins/`; the
+generation pipeline (Hunyuan3D shape → fit → Blender bone-heat skin → `ape.bin`) is in
+`scripts/morgen_skins/`. Image decoding goes through reflection (`ImageConversionModule` is
+netstandard2.1 and won't compile into this net472 project). Harness: `FableBunnySkinTest` +
+`FableBunnySkinTestVariants` (Dev Automation) → `AR_SkinTest\`. Gotcha: a frozen-AI `Morgen` never
+leaves its spawn sleep and refuses `StartAttack`. Spawn `Morgen_NonSleeping` (now also swapped),
+wait, then freeze AI; god mode on; re-anchor before each attack.
+
 ### Fable Bunny config (section "Fable Bunny")
 
 v2 (commit `d126117`) dropped the hybrid Lox mode (user review: janky swap, too plain) and

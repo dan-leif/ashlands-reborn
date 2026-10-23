@@ -1,0 +1,8 @@
+{"joints":{
+ "Root":[0,0,0],"Hip":[0,1,16],"Spine":[0,1.5,24],"Chest":[0,1,34],
+ "Shoulder.l":[-5,0,43],"UpperArm.l":[-15,0,42],"LowerArm.l":[-20.5,0.5,24],"Hand.l":[-24,0,8.5],
+ "Shoulder.r":[5,0,43],"UpperArm.r":[15,0,42],"LowerArm.r":[20.5,0.5,24],"Hand.r":[24,0,8.5],
+ "UpperLeg.l":[-6.5,0.5,14],"LowerLeg.l":[-7,-1.5,7],"Foot.l":[-7.5,0.5,2],"Toes.l":[-7.5,-4,0.5],
+ "UpperLeg.r":[6.5,0.5,14],"LowerLeg.r":[7,-1.5,7],"Foot.r":[7.5,0.5,2],"Toes.r":[7.5,-4,0.5],
+ "Jaw":[0,-11,49]},
+ "default_child_scale":0.7}

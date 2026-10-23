@@ -78,11 +78,13 @@ internal static class FableBunnyPatches
     internal enum AttackClass { Lash, Smash, Bite, Roll, Unknown }
 
     /// <summary>Which look replaces the Morgen (FableBunnyMode - the user's rotate knob).</summary>
-    internal enum BunnyMode { Bunny, LightElemental, LightningElemental }
+    internal enum BunnyMode { Bunny, LightElemental, LightningElemental, Ape, Svalt }
 
     internal static BunnyMode CurrentMode()
     {
         var s = Plugin.FableBunnyMode?.Value;
+        if (string.Equals(s, "Ape", StringComparison.OrdinalIgnoreCase)) return BunnyMode.Ape;
+        if (string.Equals(s, "Svalt", StringComparison.OrdinalIgnoreCase)) return BunnyMode.Svalt;
         if (string.Equals(s, "LightElemental", StringComparison.OrdinalIgnoreCase)) return BunnyMode.LightElemental;
         if (string.Equals(s, "LightningElemental", StringComparison.OrdinalIgnoreCase)) return BunnyMode.LightningElemental;
         return BunnyMode.Bunny;
@@ -182,7 +184,10 @@ internal static class FableBunnyPatches
     {
         if (!Plugin.IsFableBunnyActive) return;
         if (character == null) return;
-        if (!string.Equals(GetPrefabName(character.gameObject), MorgenPrefab, StringComparison.OrdinalIgnoreCase)) return;
+        var prefabName = GetPrefabName(character.gameObject);
+        // Morgen_NonSleeping is the same creature without the buried spawn sleep.
+        if (!string.Equals(prefabName, MorgenPrefab, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(prefabName, MorgenPrefab + "_NonSleeping", StringComparison.OrdinalIgnoreCase)) return;
         if (character.GetComponent<AshlandsRebornFableBunny>() != null) return;
 
         var marker = character.gameObject.AddComponent<AshlandsRebornFableBunny>();
@@ -276,6 +281,15 @@ internal static class FableBunnyPatches
             // Orbs exist when a wisp strike style needs them OR the idle orbit is wanted
             // (orbit + Paws strikes is a legal combination).
             if (SwipeUsesWisps() || WispOrbitOn()) BuildWispOrbs(marker);
+        }
+        else if (FableMorgenSkins.IsSkin(marker.Mode))
+        {
+            if (!FableMorgenSkins.Build(marker, source))
+            {
+                Plugin.Log?.LogError($"[Fable Bunny] {marker.Mode} skin could not be built - reverting.");
+                marker.RevertAndDestroy();
+                return;
+            }
         }
         else
         {
@@ -533,6 +547,7 @@ internal static class FableBunnyPatches
             var animName = GetCurrentAttackAnimation(__instance);
             var cls = ClassifyAttack(animName);
             marker.AttackStartTime = Time.time;
+            marker.LastAttackAnim = animName;
             if (_attackLogCount++ < 40)
                 Plugin.Log?.LogInfo($"[AR Bunny] attack start: anim='{animName ?? "?"}' class={cls}");
 
@@ -976,6 +991,7 @@ internal static class FableBunnyPatches
     {
         var source = marker.Source;
         if (source == null || marker.Pivot == null) return;
+        if (FableMorgenSkins.IsSkin(marker.Mode)) { FableMorgenSkins.Drive(marker); return; }
 
         var dt = Time.deltaTime;
         var proxy = marker.ActiveProxyIndex >= 0 && marker.ActiveProxyIndex < marker.Proxies.Count
@@ -2650,6 +2666,7 @@ internal class AshlandsRebornFableBunny : MonoBehaviour
     public float PounceDuration;
     public float PounceAmplitude;
     public float AttackStartTime;
+    public string? LastAttackAnim;
     public bool Rolling;
     public float RollStartTime;
     public float NextRollJumpTime;
@@ -2701,6 +2718,9 @@ internal class AshlandsRebornFableBunny : MonoBehaviour
     public float SitProceduralUntil;
     public readonly List<Transform> PawBonesL = new();
     public readonly List<Transform> PawBonesR = new();
+
+    // Skin modes (Ape / Svalt): see FableMorgenSkins. Everything they build lives under Pivot.
+    public FableMorgenSkins.SkinState? Skin;
 
     private void OnEnable() => FableBunnyPatches.Register(this);
     private void OnDisable() => FableBunnyPatches.Unregister(this);

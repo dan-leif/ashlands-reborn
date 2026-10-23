@@ -194,6 +194,18 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> FableBunnySitState { get; private set; } = null!;
     public static ConfigEntry<float> FableBunnySitIdleValue { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyRollStyle { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnyApeFur { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnyApeScale { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnySvaltPalette { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnyApeTorsoPitch { get; private set; } = null!;
+    public static ConfigEntry<bool> FableBunnySvaltLivingFace { get; private set; } = null!;
+    public static ConfigEntry<bool> FableBunnySvaltHideTail { get; private set; } = null!;
+    public static ConfigEntry<bool> FableBunnySvaltHideJaw { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnySvaltBulk { get; private set; } = null!;
+    public static ConfigEntry<float> FableBunnySvaltHeight { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnySvaltBundle { get; private set; } = null!;
+    public static ConfigEntry<bool> FableBunnySkinTest { get; private set; } = null!;
+    public static ConfigEntry<string> FableBunnySkinTestVariants { get; private set; } = null!;
     public static ConfigEntry<string> FableBunnyMode { get; private set; } = null!;
 
     // --- Fable Ballista ---
@@ -1525,8 +1537,38 @@ public class Plugin : BaseUnityPlugin
                 "Bunny = giant donor creature (FableBunnyDonor). LightElemental = blinding pulsing " +
                 "orb with hand orbs, stark shadows, light beams on bite/slam, and a marble roll. " +
                 "LightningElemental = crackling ball lightning whose limbs are jagged bolts " +
-                "following the hidden Morgen skeleton. Changing this live rebuilds all swapped Morgens.",
-                new AcceptableValueList<string>("Bunny", "LightElemental", "LightningElemental")));
+                "following the hidden Morgen skeleton. Ape = natural ape mesh skinned to the Morgen's " +
+                "own skeleton (plays every Morgen animation; needs MorgenSkins/ape.bin). Svalt = " +
+                "Monstrum's Svalt forest spirit (needs the Svalt bundle file). Changing this live " +
+                "rebuilds all swapped Morgens.",
+                new AcceptableValueList<string>("Bunny", "LightElemental", "LightningElemental", "Ape", "Svalt")));
+
+        FableBunnyApeFur = Config.Bind("Fable Bunny", "FableBunnyApeFur", "Silverback",
+            new ConfigDescription("Ape mode fur texture.",
+                new AcceptableValueList<string>("Silverback", "Chestnut", "Mossfur")));
+        FableBunnyApeScale = Config.Bind("Fable Bunny", "FableBunnyApeScale", 1.0f,
+            new ConfigDescription("Ape mode size multiplier. 1 = Morgen-sized (the ape's shoulders sit at " +
+                                  "the Morgen's shoulder height).",
+                new AcceptableValueRange<float>(0.5f, 3f)));
+        FableBunnyApeTorsoPitch = Config.Bind("Fable Bunny", "FableBunnyApeTorsoPitch", 45f,
+            new ConfigDescription("Ape mode: degrees the torso is tilted up from the Morgen's horizontal " +
+                                  "crawl (gorilla knuckle-walk stance; 0 = copy the Morgen exactly).",
+                new AcceptableValueRange<float>(0f, 70f)));
+        FableBunnySvaltPalette = Config.Bind("Fable Bunny", "FableBunnySvaltPalette", "Original",
+            new ConfigDescription("Svalt mode colors.", new AcceptableValueList<string>("Original", "Autumn")));
+        FableBunnySvaltLivingFace = Config.Bind("Fable Bunny", "FableBunnySvaltLivingFace", true,
+            "Svalt mode: repaint the bone skull/antlers/ribs as living bark instead of dead bone.");
+        FableBunnySvaltHideTail = Config.Bind("Fable Bunny", "FableBunnySvaltHideTail", true,
+            "Svalt mode: hide the bony tail.");
+        FableBunnySvaltHideJaw = Config.Bind("Fable Bunny", "FableBunnySvaltHideJaw", true,
+            "Svalt mode: hide the gaping lower jaw and tongue.");
+        FableBunnySvaltBulk = Config.Bind("Fable Bunny", "FableBunnySvaltBulk", 1.25f,
+            new ConfigDescription("Svalt mode upper-body bulk (chest/hips scale) so it reads heavier.",
+                new AcceptableValueRange<float>(1f, 2f)));
+        FableBunnySvaltHeight = Config.Bind("Fable Bunny", "FableBunnySvaltHeight", 3.6f,
+            new ConfigDescription("Svalt mode target height in meters.", new AcceptableValueRange<float>(1f, 8f)));
+        FableBunnySvaltBundle = Config.Bind("Fable Bunny", "FableBunnySvaltBundle", "",
+            "Advanced: asset-bundle file holding BossSvalt_TW (empty = plugins/MorgenSkins/monstrum.unity3d).");
 
         // --- Fable Ballista ---
         EnableFableBallista = Config.Bind(
@@ -1853,6 +1895,18 @@ public class Plugin : BaseUnityPlugin
             "set to it (filenames {staff}_sweep_{i}_{yaw}.png); all 18 knobs are restored afterwards. " +
             "Values are ABSOLUTE orientations, not deltas - there is no baked base underneath. " +
             "Shrink MageWeaponTestList to the staff under tuning - every entry costs a ~4s rebuild.");
+
+        FableBunnySkinTest = Config.Bind(
+            "Dev Automation",
+            "FableBunnySkinTest",
+            false,
+            "Dev: ~20s after world load, spawn a Morgen on the test island, cycle " +
+            "FableBunnySkinTestVariants, force every attack, and screenshot into AR_SkinTest\\.");
+        FableBunnySkinTestVariants = Config.Bind(
+            "Dev Automation",
+            "FableBunnySkinTestVariants",
+            "Svalt:Original:1.25,Svalt:Original:1.5,Svalt:Autumn:1.25,Svalt:Autumn:1.5,Ape:Silverback:1,Ape:Chestnut:1,Ape:Mossfur:1,Ape:Mossfur:0.85",
+            "Dev: skin variants for FableBunnySkinTest (Ape:<fur>[:<scale>] | Svalt:<palette>:<bulk>[:raw]).");
 
         FableBunnyReconDump = Config.Bind(
             "Dev Automation",
@@ -2292,6 +2346,15 @@ public class Plugin : BaseUnityPlugin
         FableBunnyMoveAnimSpeed.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyRollStyle.SettingChanged += (_, _) => OnFableBunnyChanged();
         FableBunnyHideRagdoll.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyApeFur.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyApeScale.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnyApeTorsoPitch.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnySvaltPalette.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnySvaltLivingFace.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnySvaltHideTail.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnySvaltHideJaw.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnySvaltBulk.SettingChanged += (_, _) => OnFableBunnyChanged();
+        FableBunnySvaltHeight.SettingChanged += (_, _) => OnFableBunnyChanged();
 
         // Every Fable Ballista config applies instantly (OnFableBallistaChanged rebuilds
         // swapped Skuggs, re-reading all ballista config).
@@ -2619,6 +2682,7 @@ public class Plugin : BaseUnityPlugin
         Patches.TerrainPhotoPatches.Tick();
         Patches.MageWeaponTestPatches.Tick();
         Patches.FableBunnyPatches.ReconTick();
+        Patches.FableMorgenSkins.TestTick();
 
         var inWorld = Player.m_localPlayer != null;
         if (inWorld)
