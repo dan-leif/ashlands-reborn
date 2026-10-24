@@ -327,7 +327,7 @@ public class Plugin : BaseUnityPlugin
             "Weather",
             "EnableWeatherOverride",
             true,
-            "Override the environment to Meadows-like (clear sky, no cinder rain, no lava fog) in every biome, not just the Ashlands."
+            "Override the environment to Meadows-like (clear sky, no cinder rain, no lava fog) in the Ashlands. Other biomes keep their normal weather."
         );
 
         ForceNoon = Config.Bind(
@@ -2817,7 +2817,7 @@ public class Plugin : BaseUnityPlugin
         }
         else
         {
-            Patches.EnvManPatches.ClearForceEnvironment();
+            Patches.EnvManPatches.ReleaseForcedWeather();
             Patches.EnvManPatches.ForceTerrainRefresh(force: true);
             Patches.TreePatches.RevertAllTrees();
             Patches.ValkyriePatches.RevertAllValkyries();

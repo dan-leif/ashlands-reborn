@@ -8,7 +8,7 @@ namespace AshlandsReborn.Patches;
 
 /// <summary>
 /// Harmony patches to override the environment to Meadows-like (clear sky, no cinder rain, no lava fog).
-/// The weather override applies in every biome; the terrain override stays Ashlands-only.
+/// Both the weather override and the terrain override apply in the Ashlands only.
 /// </summary>
 [HarmonyPatch]
 internal static class EnvManPatches
@@ -17,6 +17,7 @@ internal static class EnvManPatches
     private const string TargetEnv = "Clear"; // Meadows-like: clear sky, no cinder rain, no lava fog
 
     private static bool _wasInAshlands;
+    private static bool _weatherForced; // true while our forced "Clear" env is in place
     private static bool _wasTerrainOverrideEnabled;
     private static int _terrainRegenRetryFrames;
 
@@ -168,6 +169,17 @@ internal static class EnvManPatches
     }
 
     /// <summary>
+    /// Clear our forced Clear env if (and only if) this patch set it, so real weather returns.
+    /// </summary>
+    internal static void ReleaseForcedWeather()
+    {
+        if (!_weatherForced) return;
+        _weatherForced = false;
+        ClearForceEnvironment();
+        Plugin.Log?.LogInfo("[Ashlands Reborn] Weather override: released (outside Ashlands or turned off)");
+    }
+
+    /// <summary>
     /// Clear the force override so the game uses the real biome env again.
     /// </summary>
     internal static void ClearForceEnvironment()
@@ -261,12 +273,20 @@ internal static class EnvManPatches
             _terrainRegenRetryFrames = 0;
         }
 
-        // Weather override: force the clear env everywhere, not just in the Ashlands
-        if (Plugin.IsWeatherOverrideActive)
+        // Weather override: force the clear env in the Ashlands only. Other biomes keep their
+        // real weather (and other mods' weather, e.g. Desert Biome), so outside the Ashlands we
+        // only release a force we set ourselves - never one from `env`, a harness or another mod.
+        if (Plugin.IsWeatherOverrideActive && inAshlands)
+        {
             ForceMeadowsEnvironment();
+            if (!_weatherForced)
+                Plugin.Log?.LogInfo("[Ashlands Reborn] Weather override: forcing Clear (in Ashlands)");
+            _weatherForced = true;
+        }
         else
-            // Override disabled or mod off - clear any force we set so real weather returns
-            ClearForceEnvironment();
+        {
+            ReleaseForcedWeather();
+        }
 
         _wasInAshlands = inAshlands;
 
