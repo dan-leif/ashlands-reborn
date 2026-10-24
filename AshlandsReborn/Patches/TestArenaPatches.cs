@@ -15,7 +15,8 @@ namespace AshlandsReborn.Patches;
 /// Dev-only builder for the photo harnesses' test arena: a flat, indestructible TERRAIN island
 /// in open ocean (the old player-built stone platform got smashed by rolling Morgens).
 ///
-/// Patchless (DevAutoLoadPatches precedent): <see cref="Tick"/> runs from Plugin.Update().
+/// Runs from Plugin.Update() via <see cref="Tick"/>; the one Harmony patch is <see cref="NoSpawnPatch"/>
+/// (blocks random mob spawns around the arena).
 /// - <c>TestArenaBuild</c>: once after world load, pick a site (<c>TestArenaPos</c>, or search the
 ///   world generator for a small Meadows island ringed by open ocean), teleport there, delete every
 ///   networked object (trees, rocks, pickables, logs...) over the arena, level the terrain flat at
@@ -68,7 +69,7 @@ internal static class TestArenaPatches
         {
             var player = Player.m_localPlayer;
             if (player == null) yield break;
-            var radius = Mathf.Clamp(Plugin.TestArenaRadius?.Value ?? 36f, 10f, 60f);
+            var radius = Mathf.Clamp(Plugin.TestArenaRadius?.Value ?? 36f, 10f, 100f);
 
             Vector3 center;
             if (build)
@@ -136,6 +137,8 @@ internal static class TestArenaPatches
         var wg = WorldGenerator.instance;
         if (wg == null) { done(null); yield break; }
         var water = ZoneSystem.instance != null ? ZoneSystem.instance.m_waterLevel : 30f;
+        var meadowsOnly = string.Equals(Plugin.TestArenaBiome?.Value, "Meadows", StringComparison.OrdinalIgnoreCase);
+        var biome = meadowsOnly ? "Meadows" : "calm-biome";
 
         const float step = 16f;
         const float extent = 9600f;
@@ -143,7 +146,7 @@ internal static class TestArenaPatches
         var heights = new float[n * n];
         var sw = Stopwatch.StartNew();
         var frame = Stopwatch.StartNew();
-        Plugin.Log?.LogInfo($"{Tag} Searching for an island site (radius {radius:0} m, {n}x{n} samples)...");
+        Plugin.Log?.LogInfo($"{Tag} Searching for a {biome} site (radius {radius:0} m, {n}x{n} samples)...");
         for (var j = 0; j < n; j++)
         {
             var z = -extent + j * step;
@@ -167,7 +170,7 @@ internal static class TestArenaPatches
             for (var i = ringReach; i < n - ringReach; i++)
             {
                 var hc = heights[j * n + i];
-                if (hc < water - 3f || hc > MaxTarget + MaxEdit) continue;
+                if (hc < MinTarget - MaxEdit || hc > MaxTarget + MaxEdit) continue;
 
                 inner.Clear();
                 var ok = true;
@@ -185,6 +188,8 @@ internal static class TestArenaPatches
                 foreach (var (di, dj) in ringOffsets)
                     if (heights[(j + dj) * n + i + di] < water - 0.5f) wet++;
                 if (wet < ringOffsets.Count * 0.95f) continue;
+
+                if (!BiomeAllowed(wg.GetBiome(-extent + i * step, -extent + j * step), meadowsOnly)) continue;
 
                 coarse.Add(new Candidate
                 {
@@ -210,14 +215,15 @@ internal static class TestArenaPatches
         var locations = ZoneSystem.instance?.m_locationInstances?.Values.Select(l => l.m_position).ToList()
                         ?? new List<Vector3>();
         Candidate? best = null;
+        var rejects = new Dictionary<string, int>();
         foreach (var c in picked)
         {
             // Small local re-centering search (the coarse grid is 16 m).
             for (var ox = -8f; ox <= 8f; ox += 4f)
             for (var oz = -8f; oz <= 8f; oz += 4f)
             {
-                var r = Refine(wg, c.X + ox, c.Z + oz, radius, water, locations, out var why);
-                if (r == null) continue;
+                var r = Refine(wg, meadowsOnly, c.X + ox, c.Z + oz, radius, water, locations, out var why);
+                if (r == null) { rejects[why] = rejects.TryGetValue(why, out var k) ? k + 1 : 1; continue; }
                 if (best == null || r.Value.Score < best.Value.Score) best = r;
             }
             if (frame.ElapsedMilliseconds > 30) { yield return null; frame.Restart(); }
@@ -225,7 +231,8 @@ internal static class TestArenaPatches
 
         if (best == null)
         {
-            Plugin.Log?.LogWarning($"{Tag} No candidate survived the refine pass");
+            Plugin.Log?.LogWarning($"{Tag} No candidate survived the refine pass (" +
+                                   string.Join(", ", rejects.Select(kv => $"{kv.Key}={kv.Value}")) + ")");
             done(null);
             yield break;
         }
@@ -236,16 +243,23 @@ internal static class TestArenaPatches
         done(new Vector3(b.X, b.Target, b.Z));
     }
 
-    private static Candidate? Refine(WorldGenerator wg, float x, float z, float radius, float water,
+    private static Candidate? Refine(WorldGenerator wg, bool meadowsOnly, float x, float z, float radius, float water,
         List<Vector3> locations, out string why)
     {
         why = "";
-        if (wg.GetBiome(x, z) != Heightmap.Biome.Meadows) { why = "biome"; return null; }
+        // Center plus 8 points at half and full radius: the whole disc must be an allowed biome.
+        if (!BiomeAllowed(wg.GetBiome(x, z), meadowsOnly)) { why = "biome"; return null; }
+        for (var a = 0; a < 8; a++)
+        {
+            var ang = a * Mathf.PI / 4f;
+            var rr = (a % 2 == 0 ? 0.95f : 0.5f) * radius;
+            if (!BiomeAllowed(wg.GetBiome(x + Mathf.Cos(ang) * rr, z + Mathf.Sin(ang) * rr), meadowsOnly)) { why = "biome"; return null; }
+        }
         if (locations.Any(l => Sq(l.x - x) + Sq(l.z - z) < 250f * 250f)) { why = "location"; return null; }
 
         var inner = new List<float>();
-        for (var dz = -radius - 2f; dz <= radius + 2f; dz += 2f)
-        for (var dx = -radius - 2f; dx <= radius + 2f; dx += 2f)
+        for (var dz = -radius - 2f; dz <= radius + 2f; dz += 3f)
+        for (var dx = -radius - 2f; dx <= radius + 2f; dx += 3f)
         {
             if (dx * dx + dz * dz > Sq(radius + 2f)) continue;
             var h = wg.GetHeight(x + dx, z + dz);
@@ -268,6 +282,14 @@ internal static class TestArenaPatches
 
         return new Candidate { X = x, Z = z, Target = target, Score = inner.Average(h => Mathf.Abs(h - target)) };
     }
+
+    /// <summary>Calm biomes only: no snow/cold (Mountain, DeepNorth), mist (Mistlands), lava (AshLands) or
+    /// swamp. "Ocean" shows up on shallow shelves at biome edges. Mob spawns are blocked separately
+    /// (<see cref="NoSpawnPatch"/>), so the biome is a looks choice, not a safety one.</summary>
+    private static bool BiomeAllowed(Heightmap.Biome b, bool meadowsOnly) =>
+        meadowsOnly
+            ? b == Heightmap.Biome.Meadows
+            : b is Heightmap.Biome.Meadows or Heightmap.Biome.BlackForest or Heightmap.Biome.Plains or Heightmap.Biome.Ocean;
 
     private static List<(int, int)> Offsets(float step, float rMin, float rMax)
     {
@@ -435,6 +457,30 @@ internal static class TestArenaPatches
             for (var f = 0; f < 5; f++) yield return null;
         }
         PhotoModePatches.ClearCameraOverride();
+    }
+
+    // ---------------------------------------------------------------- mob spawn block
+
+    /// <summary>Random mob spawns kept wandering onto the arena. Every SpawnSystem spawn point goes
+    /// through IsSpawnPointGood; reject points within (arena radius + 120 m) of PhotoModeIslandPos
+    /// while TestArenaNoSpawns is on. 120 m covers the vanilla 40-80 m spawn ring around a player
+    /// standing at the arena edge. Mod-side only: nothing is written to the world.</summary>
+    [HarmonyPatch(typeof(SpawnSystem), "IsSpawnPointGood")]
+    internal static class NoSpawnPatch
+    {
+        private static string? _cachedRaw;
+        private static Vector3? _cachedPos;
+
+        private static void Postfix(Vector3 spawnPoint, ref bool __result)
+        {
+            if (!__result || !(Plugin.TestArenaNoSpawns?.Value ?? false)) return;
+            var raw = Plugin.PhotoModeIslandPos?.Value;
+            if (raw != _cachedRaw) { _cachedRaw = raw; _cachedPos = PhotoModePatches.ParsePos(raw); }
+            if (_cachedPos == null) return;
+            var block = (Plugin.TestArenaRadius?.Value ?? 36f) + 120f;
+            if (Sq(spawnPoint.x - _cachedPos.Value.x) + Sq(spawnPoint.z - _cachedPos.Value.z) < block * block)
+                __result = false;
+        }
     }
 
     // ---------------------------------------------------------------- helpers

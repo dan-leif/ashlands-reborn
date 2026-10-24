@@ -249,6 +249,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<string> TestArenaPos { get; private set; } = null!;
     public static ConfigEntry<float> TestArenaRadius { get; private set; } = null!;
     public static ConfigEntry<string> TestArenaPaint { get; private set; } = null!;
+    public static ConfigEntry<string> TestArenaBiome { get; private set; } = null!;
+    public static ConfigEntry<bool> TestArenaNoSpawns { get; private set; } = null!;
     public static ConfigEntry<KeyCode> TerrainPhotoKey { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoPos { get; private set; } = null!;
     public static ConfigEntry<string> TerrainPhotoRefPos { get; private set; } = null!;
@@ -1870,9 +1872,9 @@ public class Plugin : BaseUnityPlugin
         PhotoModeIslandPos = Config.Bind(
             "Dev Automation",
             "PhotoModeIslandPos",
-            "3552,33,-176",
-            "Test island 'x,y,z': flat TERRAIN arena (72 m paved disc in open ocean, world 'Reborn', built by " +
-            "TestArenaBuild - indestructible). Old value: 2736,40,2580 (player-built stone platform). " +
+            "300,33,-3180",
+            "Test island 'x,y,z': flat TERRAIN arena (144 m paved disc in shallow sea, world 'Reborn', built by " +
+            "TestArenaBuild - indestructible). Older values: 3552,33,-176 (72 m arena), 2736,40,2580 (stone platform). " +
             "The photo harness teleports the player here before each session (force-killed dev runs " +
             "don't save the logout point, so the player can regress to world spawn between runs). " +
             "Empty string disables the teleport.");
@@ -1882,7 +1884,7 @@ public class Plugin : BaseUnityPlugin
             "TestArenaBuild",
             false,
             "Dev: once after world load, build the flat terrain test arena (TestArenaPatches): use TestArenaPos, " +
-            "or search the world for a small Meadows island ringed by open ocean; delete trees/rocks/pickables " +
+            "or search the world for a TestArenaBiome site (shallow sea by default) ringed by open water; delete trees/rocks/pickables " +
             "over it, level + paint the terrain (vanilla TerrainComp data, persists in the world), save the world, " +
             "write the center into TestArenaPos + PhotoModeIslandPos, capture overview shots into AR_Arena, " +
             "then switch itself off.");
@@ -1904,8 +1906,8 @@ public class Plugin : BaseUnityPlugin
         TestArenaRadius = Config.Bind(
             "Dev Automation",
             "TestArenaRadius",
-            36f,
-            new ConfigDescription("Arena radius in meters for TestArenaBuild/Verify.", new AcceptableValueRange<float>(10f, 60f)));
+            72f,
+            new ConfigDescription("Arena radius in meters for TestArenaBuild/Verify.", new AcceptableValueRange<float>(10f, 100f)));
 
         TestArenaPaint = Config.Bind(
             "Dev Automation",
@@ -1913,6 +1915,22 @@ public class Plugin : BaseUnityPlugin
             "Paved",
             new ConfigDescription("Arena floor paint for TestArenaBuild (Paved/Dirt remove grass; None keeps it).",
                 new AcceptableValueList<string>("Paved", "Dirt", "None")));
+
+        TestArenaBiome = Config.Bind(
+            "Dev Automation",
+            "TestArenaBiome",
+            "Any",
+            new ConfigDescription("Biomes the TestArenaBuild site search accepts over the whole disc. Any = Meadows/BlackForest/" +
+                "Plains/shallow Ocean shelf; Meadows = Meadows only. (A true Ocean-biome site is impossible: Ocean means " +
+                "~26 m deep water and vanilla limits terrain edits to +-8 m.)",
+                new AcceptableValueList<string>("Any", "Meadows")));
+
+        TestArenaNoSpawns = Config.Bind(
+            "Dev Automation",
+            "TestArenaNoSpawns",
+            true,
+            "Block random mob spawns within TestArenaRadius + 120 m of PhotoModeIslandPos (mod-side Harmony patch on " +
+            "SpawnSystem.IsSpawnPointGood). Harness-spawned creatures are unaffected.");
 
         TerrainPhotoAuto = Config.Bind(
             "Dev Automation",
