@@ -262,6 +262,12 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> RuinsPhotoAuto { get; private set; } = null!;
     public static ConfigEntry<string> RuinsPhotoLocations { get; private set; } = null!;
     public static ConfigEntry<string> RuinsPhotoVariants { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsPurgeTest { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsSeedSweep { get; private set; } = null!;
+    public static ConfigEntry<string> RuinsSeedSweepRange { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsTreeTrial { get; private set; } = null!;
+    public static ConfigEntry<string> RuinsTreeTrialList { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsDoorShots { get; private set; } = null!;
     public static ConfigEntry<bool> RuinsRebuild { get; private set; } = null!;
     public static ConfigEntry<bool> RuinsParkBuild { get; private set; } = null!;
     public static ConfigEntry<bool> RuinsParkTour { get; private set; } = null!;
@@ -2085,6 +2091,22 @@ public class Plugin : BaseUnityPlugin
             "Dev: CSV of location names the ruins photo harness shoots.");
         RuinsPhotoVariants = Config.Bind("Dev Automation", "RuinsPhotoVariants", "vanilla,rebuilt",
             "Dev: CSV of variants per location: vanilla (rebuild off) and/or rebuilt.");
+        RuinsPurgeTest = Config.Bind("Dev Automation", "RuinsPurgeTest", false,
+            "Dev: once after world load, plant a spawner, a grave and a Morgen on the test arena and check they hide/show " +
+            "with RemoveSpawnersAndGraves / RemoveMorgen / MasterSwitch while the ZDO count stays the same (PURGECHECK lines). Switches itself off.");
+        RuinsSeedSweep = Config.Bind("Dev Automation", "RuinsSeedSweep", false,
+            "Dev: once after world load, spawn AshlandRuins on the test arena per forced DungeonGenerator seed (RuinsSeedSweepRange) " +
+            "and log its rooms + tower count (SEED lines). Switches itself off.");
+        RuinsSeedSweepRange = Config.Bind("Dev Automation", "RuinsSeedSweepRange", "1-16",
+            "Dev: seed range for RuinsSeedSweep, \"a-b\".");
+        RuinsTreeTrial = Config.Bind("Dev Automation", "RuinsTreeTrial", false,
+            "Dev: once after world load, shoot a restored CharredTowerRuins2 with each RuinsTreeTrialList tree at the arbor's tree slot. Switches itself off.");
+        RuinsTreeTrialList = Config.Bind("Dev Automation", "RuinsTreeTrialList",
+            "AshlandsTree6_big:1,Oak1:1,Oak1:0.8,Oak1:0.65,Beech1:1,Birch1:1,Birch2:1,Birch1_aut:1,Beech_small1:1",
+            "Dev: CSV of prefab:scale trees for RuinsTreeTrial.");
+        RuinsDoorShots = Config.Bind("Dev Automation", "RuinsDoorShots", false,
+            "Dev: once after world load, spawn each building with a door slot (ruins_doors.tsv) on the test arena and shoot every door " +
+            "from the ground, restored and ruined (DOORCHECK lines). Switches itself off.");
 
         RuinsParkBuild = Config.Bind("Dev Automation", "RuinsParkBuild", false,
             "Dev: once after world load, build (or rebuild) the Ember Memorial park at RuinsParkPos (empty = search a site), " +
@@ -2108,9 +2130,11 @@ public class Plugin : BaseUnityPlugin
         RuinsSymmetry = Config.Bind("Ashlands Rebuilt", "RuinsSymmetryCompletion", true,
             "Also add the pieces the symmetry analysis says are missing from each ruin design.");
         RemoveSpawnersAndGraves = Config.Bind("Ashlands Rebuilt", "RemoveSpawnersAndGraves", true,
-            "GAMEPLAY: remove charred spawners (stone + cross) and all charred gravestones. Removed objects are deleted from the world save.");
+            "GAMEPLAY: remove charred spawners (stone + cross) and all charred gravestones. Reversible: they are hidden (inactive, nothing spawns), " +
+            "not deleted, and come back when this or the MasterSwitch is turned off.");
         RemoveMorgen = Config.Bind("Ashlands Rebuilt", "RemoveMorgen", true,
-            "GAMEPLAY: remove the Morgen entirely - no biome spawns, no Morgen-hole spawners, existing Morgen deleted.");
+            "GAMEPLAY: remove the Morgen - no biome spawns, Morgen-hole spawners and existing Morgen hidden. Reversible: they return " +
+            "when this or the MasterSwitch is turned off.");
         RemoveSpawnersAndGraves.SettingChanged += (_, _) => Patches.RuinsRebornPatches.OnPurgeConfigChanged();
         RemoveMorgen.SettingChanged += (_, _) => Patches.RuinsRebornPatches.OnPurgeConfigChanged();
         // Master switch (hotkey or F1) and RebuildRuins flip every loaded ruin between ruined/restored.

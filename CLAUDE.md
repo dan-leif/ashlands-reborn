@@ -201,8 +201,9 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `RuinsRebornPatches.cs` | `ZoneSystem.SpawnLocation`, `LocationProxy.SetLocation/SpawnLocation`, `DungeonGenerator.PlaceRoom/Generate/Spawn`, `WearNTear.SetHealthVisual`, `ZNetView.Awake` | Ashlands Rebuilt: purge (spawners/graves/Morgen) + reversible ruin restoration (see "Ashlands Rebuilt") |
 | `RuinsBlueprints.cs` | None | Loads the symmetry completions (`Data/ruins_additions.tsv`, embedded) and spawns them as restoration pieces |
 | `RuinsParkPatches.cs` | `RuneStone.Interact/GetHoverText`, `WearNTear.Awake`, `SpawnSystem.IsSpawnPointGood` | The Ember Walk memorial park: builder, portal + map pins, FPS tour, runestone inscriptions, park mob-spawn block |
-| `RuinsPhotoPatches.cs` | None | Dev harness: spawns each ruin on the test arena, shoots it restored then ruined (same instance, via the toggle) |
-| `RuinsReconPatches.cs` | None | Dev recon: dumps every Ashlands location blueprint, room, spawn list and prefab catalog to `AR_Ruinsecon.tsv` |
+| `RuinsPhotoPatches.cs` | None | Dev harnesses on the test arena: orbit shots restored/ruined (`RuinsPhotoAuto`), purge toggle test (`RuinsPurgeTest`), AshlandRuins seed sweep (`RuinsSeedSweep`), arbor tree trial (`RuinsTreeTrial`), door shots (`RuinsDoorShots`); the four new flags switch themselves off |
+| `RuinsReconPatches.cs` | None | Dev recon: dumps every Ashlands location blueprint, room, spawn list and prefab catalog to `AR_Ruins
+econ.tsv` |
 | `DevAutoLoadPatches.cs` | None (no Harmony patches) | State machine called from `Plugin.Update()` that auto-navigates FejdStartup menus on startup |
 
 **Note on `DevAutoLoadPatches.cs`:** This file has no `[HarmonyPatch]` attributes. Harmony-patching `FejdStartup.Start()` (a coroutine) and `FejdStartup.Update()` (not defined as an override) fails silently. Instead it exposes a `Tick()` method called from `Plugin.Update()` each frame, checking `FejdStartup.instance` directly.
@@ -354,10 +355,15 @@ Section "Ashlands Rebuilt" (F1): `RebuildRuins` (true), `RuinsSymmetryCompletion
 
 **Purge** (`RuinsRebornPatches`): banned prefabs = `Spawner_CharredStone(_Elite/_event)`,
 `Spawner_CharredCross`, all `GraveStone_*` charred/world/Fader graves; Morgen = `Morgen`,
-`Morgen_NonSleeping`, `Spawner_Morgen(_wakeup)`. They are deactivated in location/room blueprints
-during a spawn, deleted when an existing one awakens (`ZNetView.Awake` postfix → next-frame
-`ZNetScene.Destroy`), and Morgen biome spawn entries are disabled. **Permanent**: deleted objects do
-not come back when the switch is turned off. Recon: the 300 `CharredStone_Spawner` locations
+`Morgen_NonSleeping`, `Spawner_Morgen(_wakeup)`. **Reversible since round 2 (2026-10-26)**: nothing
+is deleted. `ZNetView.Awake` registers every banned object in `Tracked` (kind Purge) and
+`ApplyVisibility` `SetActive(false)`s it while `IsSpawnerPurgeActive` / `IsMorgenPurgeActive`
+(inactive = no render, no collision, no SpawnArea/CreatureSpawner updates, Morgen frozen); the
+MasterSwitch / `RemoveSpawnersAndGraves` / `RemoveMorgen` toggles reveal them again, and the
+Morgen biome-spawn edit is reverted too. Blueprints are no longer stripped (only park exhibits
+drop creatures/spawners). Objects the v1 purge already deleted (round 1 deleted them for real)
+are gone for good. `RuinsPurgeTest` proves it: 18/18 hide/show checks, ZDO count never drops
+(it rises while revealed — the spawner spawns). Recon: the 300 `CharredStone_Spawner` locations
 become empty flattened circles; `MorgenHole1-3` pits stay (treasure + carrion) without the Morgen.
 
 **Restoration** (reversible, flips with the MasterSwitch): the ruins (`CharredRuins1-4`,
@@ -372,6 +378,17 @@ completions. They spawn tagged (`ar_restore_piece` ZDO int) and are shown only w
 Existing ruins get their restoration once when their `LocationProxy` / camp `DungeonGenerator`
 loads (stamp `ar_ruins_restored` = `RestoreVersion` on the owner ZDO; bump the version to re-run,
 old tagged pieces are cleared first). `ar_keep_ruined` stamps the park's "before" exhibits.
+**Swaps + doors (round 2, `RestoreVersion` 3)**: `RestoreCore` (shared by locations and camp rooms)
+also applies `Data/ruins_swaps.tsv` (`location|*  from  to  scale`: every broken
+`Ashlands_Ruins_Floor_*_broken*` → its intact floor; `CharredTowerRuins2` `AshlandsTree6_big` →
+`Beech1` 1.0, the tree-trial winner — Oak1 canopies clip through the arches at 1.0/0.8/0.65,
+Beech1 rises through them) and `Data/ruins_doors.tsv` (door pivots from `scripts/ruins/doors.py`,
+the centre wall of the local +Z face of each ground-closed building: CharredRuins2/3/4,
+CharredTowerRuins1, rooms CharredRuins_new01/FortressRuins_new01). A vanilla swap source or door
+wall gets `ar_swapped` = 1 (Tracked kind Swapped: shown only while RUINED), its target spawns
+tagged; door slots are never filled. Stairwell guard: a floor with a stair rising through its
+footprint within 4.5 m below keeps its broken version. `RuinsDoorShots` logs DOORCHECK
+(no active structural piece at a restored door pivot — all PASS).
 Symmetry completions: `scripts/ruins/analyze.py` + `sym2.py` (mirror/rotation search on the forced
 blueprints) + `gen_additions.py` → `AshlandsReborn/Data/ruins_additions.tsv` (69 window-wall
 pieces: CharredRuins1 mirror_x from y>=3 so ground-floor doorways stay open, CharredRuins3/4 one
@@ -404,6 +421,22 @@ site's terrain first. Map pins (player "Dove"): portal, entrance, each station, 
 | 9 AshlandRuins | 1697.3, 2758.1 |
 | 10 CharredRuins1 (cathedral) | 1880.0, 2768.3 |
 | Garden of Embers | 2027.0, 2831.3 |
+
+**Round 2 (2026-10-26)**: runestones face the reader (`FaceReader`: the inscription is on the
+stone's local −Z side, so `LookRotation(stone − reader)`); the arbor's charred tree is forced on
+in park exhibits (`ParkForceRolls`), so ruined = charred tree, restored = beech; camp exhibits pin
+`DungeonGenerator.m_forceSeed` (AshlandRuins `CampSeed = 9`, FortressRuins its `Seed`) AND set
+`RuinsRebornPatches.CampLayoutSeedOnly`, which lifts vanilla's slope/altitude/zone-bounds room
+rejections (`m_maxTilt` 90, `m_minAltitude` −1e6, `IsInsideDungeon` → true) — without it the
+same seed gave 8 vs 12 rooms on the two plots. Seed sweep (seed-only, 1–40): two towers at
+3,4,9,11,13,14,15,19,26,35; 9 reads best (two separate towers ringed by houses). Runestone texts
+= the plan's Appendix 2 (light canon fixes: green light in the south, the fire-touched rise where
+they fell, the cathedral of the Emerald Throne burned first; stone IV unchanged per the user).
+**Random-state gotcha**: the camp `PlaceRoom` postfix saves/restores `UnityEngine.Random.state`
+around `AddRoomRestoration` — the restoration's spawns consumed the generator's sequence, so a
+restored camp placed different rooms than vanilla (park: 13 vs 18). Fixed for world-gen camps too.
+FPS (gap 90, laptop on this run): baseline 37.5, worst station 22.4 = 0.60 of baseline.
+Gallery: `screenshots/ruins-round2/` (before/after pairs, rune close-ups, door shots, tree/seed/purge grids).
 
 Dev automation: `RuinsParkBuild` (+ `RuinsParkReuseLayout` to keep the site), `RuinsParkPortal`,
 `RuinsParkTour` (per-station FPS vs a countryside baseline + screenshots in `AR_Ruins\park`),

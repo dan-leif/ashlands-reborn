@@ -46,13 +46,17 @@ internal static class RuinsParkPatches
         public string Title = "";
         public string Lore = "";
         public int Seed;
+        public int CampSeed;     // camp ruins: DungeonGenerator seed (picked by the seed sweep)
     }
+
+    /// <summary>Park exhibits always roll these on (both versions), so the story pieces are present.</summary>
+    private static readonly HashSet<string> ParkForceRolls = new(StringComparer.Ordinal) { "AshlandsTree6_big" };
 
     // Narrative order: humble arbors first, the great cathedral last.
     private static readonly Exhibit[] Exhibits =
     {
         new() { Id = "CharredTowerRuins2", R = 13, Seed = 1102, Title = "The Arbor of the Old Tree",
-            Lore = "Before the fire, every village grew around a tree. Twisted stone arches were raised to cradle it, so that the roots and the house would grow as one. When the sky burned, the arches cracked, but the tree held them still. We rebuilt the arbor around the same roots." },
+            Lore = "Before the fire, every village grew around a tree. Twisted stone arches were raised to cradle it, so that the roots and the house would grow as one. When the sky burned, the tree burned black and the arches cracked, but its roots held them still. We rebuilt the arbor around the same roots, and a tall beech rises through the arches again." },
         new() { Id = "CharredTowerRuins3", R = 13, Seed = 1103, Title = "The Ring of Pillars",
             Lore = "A gathering ring where the elders spoke. Here the first warning of the burning sky was read aloud, and here the last of the elders fell silent. Its pillars stand again, a circle unbroken." },
         new() { Id = "CharredRuins4", R = 11, Seed = 1104, Title = "The Watchtower",
@@ -67,16 +71,16 @@ internal static class RuinsParkPatches
             Lore = "The same hall, built a second time in the dwarven quarter. Long after the fall, the Dvergr camped among its broken walls and kept its hearth warm. This restoration is our thanks to them." },
         new() { Id = "FortressRuins", R = 35, Seed = 1109, Title = "The Fortress Quarter",
             Lore = "Houses that grew in the shadow of the fortress walls. When the fortress turned against its people, these homes were the first to burn. Their courtyards bloom again." },
-        new() { Id = "AshlandRuins", R = 35, Seed = 1110, Title = "The Twin Towers of the Market Town",
+        new() { Id = "AshlandRuins", R = 35, Seed = 1110, CampSeed = 9, // seed sweep: the only two-tower layout in 1-24 Title = "The Twin Towers of the Market Town",
             Lore = "A market town ringed by stone houses, its twin towers seen from three valleys away. In the long ash they were the tallest graves in the land. Now they are the tallest homes." },
-        new() { Id = "CharredRuins1", R = 30, Seed = 1111, Title = "The Cathedral of the Ember Throne",
-            Lore = "The heart of the old civilization: a cathedral-palace of a hundred spires, where the Ember Throne once stood. It was the last place to fall and the last to rise. Behold it whole. Remember what was lost, so that it is never lost again." },
+        new() { Id = "CharredRuins1", R = 30, Seed = 1111, Title = "The Cathedral of the Emerald Throne",
+            Lore = "The heart of the old civilization: a cathedral-palace of a hundred spires, where the Emerald Throne once stood. It was the first place to burn and the last to rise. Behold it whole. Remember what was lost, so that it is never lost again." },
     };
 
     private static readonly (string topic, string text)[] Interludes =
     {
-        ("I. The Burning Sky", "It began with a light in the south, brighter than the sun. Then the sky caught fire and rained ash for a hundred days. Stone that had stood a thousand winters cracked like river ice."),
-        ("II. The Rising of the Charred", "The fallen did not rest. From graves of black stone they rose, charred and silent, and the living fled north across the sea. For an age, only the dead walked these halls."),
+        ("I. The Burning Sky", "It began with a green light in the south, brighter than the sun. Then the sky caught fire and rained ash for a hundred days. Stone that had stood a thousand winters cracked like river ice."),
+        ("II. The Rising of the Charred", "Those the fire touched did not rest. Where they had fallen they rose, charred and silent, and the living fled across the sea. For an age, only the dead walked these halls."),
         ("III. The Long Ash", "Lava ran where rivers had run. The spawning stones pulsed in the dark. Those who returned found only ruin, and named this land for its ashes."),
         ("IV. The Breaking of the Stones", "At last the heroes came. They shattered the spawning stones and swept away the graves, and the Charred walked no more. The bone-wretches of the pits were driven out, never to return."),
         ("V. The Rebuilding", "Then the children of the survivors came home. Stone by stone, from the old plans carved in the foundations, they raised every hall exactly as it had been. This walk is their promise: we remember the dark times, and we build."),
@@ -401,7 +405,7 @@ internal static class RuinsParkPatches
         PlaceSign(s.P + right * 3.6f, -right, $"{ex.Id}\n<size=70%>restored</size>");
         // the story stone, read while approaching, flanked by blue memorial torches
         var stoneP = s.P - s.D * 7f + right * 3.8f;
-        PlaceRunestone(spawn, stoneP, Quaternion.LookRotation(-s.D), ex.Title, ex.Lore + $"\n\n<size=70%>({ex.Id})</size>");
+        PlaceRunestone(spawn, stoneP, FaceReader(stoneP, s.P - s.D * 14f), ex.Title, ex.Lore + $"\n\n<size=70%>({ex.Id})</size>");
         PlaceTorch(stoneP - s.D * 2.2f, "piece_groundtorch_blue");
         PlaceTorch(stoneP + s.D * 2.2f, "piece_groundtorch_blue");
         PlaceMisc("piece_bench01", s.P - s.D * 7f - right * 3.6f, Quaternion.LookRotation(right));
@@ -428,7 +432,7 @@ internal static class RuinsParkPatches
         PlaceMisc("piece_banner05", gate + right * 6.3f, fwd);
         PlaceTorch(gate - right * 2.4f - s.D * 1.5f, "piece_groundtorch_blue");
         PlaceTorch(gate + right * 2.4f - s.D * 1.5f, "piece_groundtorch_blue");
-        PlaceRunestone(spawn, s.P - right * 6f - s.D * 2f, Quaternion.LookRotation(right), EntranceTopic, EntranceText);
+        PlaceRunestone(spawn, s.P - right * 6f - s.D * 2f, FaceReader(s.P - right * 6f - s.D * 2f, s.P - s.D * 7f), EntranceTopic, EntranceText);
         PlaceSign(s.P + right * 5f - s.D * 2f, -right, "THE EMBER WALK\n<size=60%>remember the dark times</size>");
         PlaceMisc("piece_bench01", s.P + right * 6f + s.D * 1f, Quaternion.LookRotation(-right));
         Plugin.Log.LogInfo($"{Tag} entrance built at {Ground(s.P)}");
@@ -441,7 +445,7 @@ internal static class RuinsParkPatches
         Level(s.P, 10f, y, paint: true);
         Blend(s.P, 22f);
         yield return new WaitForSeconds(1f);
-        PlaceRunestone(spawn, s.P, Quaternion.LookRotation(-s.D), GardenTopic, GardenText);
+        PlaceRunestone(spawn, s.P, FaceReader(s.P, s.P - s.D * 10f), GardenTopic, GardenText);
         for (int i = 0; i < 6; i++)
         {
             var a = i * Mathf.PI / 3f;
@@ -494,7 +498,7 @@ internal static class RuinsParkPatches
         {
             var spawn = AccessTools.Method(typeof(ZoneSystem), "SpawnLocation");
             var mid = from + d * (len * 0.5f) - right * 4f;
-            PlaceRunestone(spawn, mid, Quaternion.LookRotation(right), b.Interlude.Value.Item1, b.Interlude.Value.Item2);
+            PlaceRunestone(spawn, mid, FaceReader(mid, mid + right * 4f - d * 10f), b.Interlude.Value.Item1, b.Interlude.Value.Item2);
             PlaceTorch(mid - d * 2.2f, "piece_groundtorch_green");
             PlaceTorch(mid + d * 2.2f, "piece_groundtorch_green");
         }
@@ -669,6 +673,14 @@ internal static class RuinsParkPatches
         if (sign != null) sign.SetText(text);
     }
 
+    /// <summary>Rotation that turns a RuneStone_Ashlands' inscribed face toward a reader. The inscription
+    /// is on the stone's local -Z side (its Point light sits at z = -1.11), so +Z points away.</summary>
+    private static Quaternion FaceReader(Vector3 stone, Vector3 reader)
+    {
+        var away = stone - reader; away.y = 0f;
+        return away.sqrMagnitude < 1e-4f ? Quaternion.identity : Quaternion.LookRotation(away.normalized);
+    }
+
     private static void PlaceRunestone(System.Reflection.MethodInfo spawn, Vector3 p, Quaternion rot, string topic, string text)
     {
         var loc = RuinsRebornPatches.FindLocation("Runestone_Ashlands");
@@ -703,6 +715,14 @@ internal static class RuinsParkPatches
         RuinsRebornPatches.SuppressRestore = ruined;
         var oldOverride = RuinsRebornPatches.RebuildOverride;
         if (!ruined) RuinsRebornPatches.RebuildOverride = true; // always author the restoration (it still toggles)
+        // Camp ruins seed their room layout from the world position; pin it so both exhibits match.
+        DungeonGenerator.m_forceSeed = ex.CampSeed != 0 ? ex.CampSeed : ex.Seed;
+        RuinsRebornPatches.CampLayoutSeedOnly = true; // ...and so the plot's terrain can't change it
+        // Park-only: force decorative rolls that tell the story (the arbor's charred tree).
+        var forcedRolls = new List<(RandomSpawn rs, float chance)>();
+        foreach (var rs in loc.m_prefab.Asset.GetComponentsInChildren<RandomSpawn>(true))
+            if (rs.m_chanceToSpawn < 100f && rs.GetComponentsInChildren<ZNetView>(true).Any(v => ParkForceRolls.Contains(RuinsRebornPatches.PrefabName(v.gameObject))))
+            { forcedRolls.Add((rs, rs.m_chanceToSpawn)); rs.m_chanceToSpawn = 100f; }
         try
         {
             spawn.Invoke(ZoneSystem.instance, new object[] { loc, ex.Seed, pos, rot, ZoneSystem.SpawnMode.Full, new List<GameObject>(), false });
@@ -710,6 +730,9 @@ internal static class RuinsParkPatches
         catch (Exception e) { Plugin.Log.LogError($"{Tag} spawn {ex.Id}: {e}"); }
         finally
         {
+            DungeonGenerator.m_forceSeed = int.MinValue;
+            RuinsRebornPatches.CampLayoutSeedOnly = false;
+            foreach (var (rs, c) in forcedRolls) rs.m_chanceToSpawn = c;
             RuinsRebornPatches.RebuildOverride = oldOverride;
             RuinsRebornPatches.SuppressRestore = false;
             ParkSpawning = false;
@@ -900,8 +923,41 @@ internal static class RuinsParkPatches
                 ScreenCapture.CaptureScreenshot(Path.Combine(dir, "sign_closeup.png"));
                 yield return new WaitForSeconds(0.8f);
             }
+            // runestone close-ups from where the walker reads them (text must face the camera)
+            if (s.Ex != null && (s.Index == 0 || s.Index == 4))
+            {
+                var stoneP = Ground(s.P - s.D * 7f + s.Right * 3.8f);
+                yield return RuneShot(stoneP, s.P - s.D * 14f, $"rune_station_{s.Index + 1:00}.png");
+            }
+            if (s.Interlude.HasValue && s.Index == 2)
+            {
+                var prev = stations[stations.IndexOf(s) - 1];
+                var d = s.P - prev.P; d.y = 0; var len = d.magnitude; d /= len;
+                var rgt = Vector3.Cross(Vector3.up, d);
+                var imid = prev.P + d * (len * 0.5f) - rgt * 4f;
+                yield return PhotoModePatches.TeleportRoutine(player, Ground(imid + rgt * 4f) + Vector3.up * 2f);
+                yield return WaitAreaReady(imid, 20f);
+                yield return RuneShot(Ground(imid), imid + rgt * 4f - d * 10f, "rune_interlude.png");
+                yield return PhotoModePatches.TeleportRoutine(player, Ground(s.P - s.D * 4f) + Vector3.up * 2f);
+                yield return WaitAreaReady(s.P, r * 2f + 10f);
+            }
             if (s.Ex != null)
             {
+                // ground-level door shots of both buildings (door slots of ruins_doors.tsv, else the trail-facing front)
+                var (rc, sc) = PairCenters(s);
+                foreach (var (c, tagName, rot) in new[] { (rc, "ruined", Quaternion.LookRotation(s.Right)), (sc, "restored", Quaternion.LookRotation(-s.Right)) })
+                {
+                    var g = Ground(c);
+                    var doors = RuinsBlueprints.GetDoors(s.Ex.Id);
+                    var w = doors.Count > 0 ? g + rot * doors[0] : g + rot * new Vector3(0f, 0f, s.Ex.R * 0.6f);
+                    var o = rot * (doors.Count > 0 ? new Vector3(doors[0].x, 0f, doors[0].z).normalized : Vector3.forward);
+                    var camD = w + o * 8f;
+                    camD.y = Mathf.Max(Ground(camD).y + 1.7f, w.y + 1.2f);
+                    PhotoModePatches.SetCameraOverride(camD, Quaternion.LookRotation(w + Vector3.up * 1.4f - camD));
+                    yield return new WaitForSeconds(1.5f);
+                    ScreenCapture.CaptureScreenshot(Path.Combine(dir, $"station_{s.Index + 1:00}_{id}_door_{tagName}.png"));
+                    yield return new WaitForSeconds(0.8f);
+                }
                 // a close look at each building from the trail
                 foreach (var (c, tagName) in new[] { (PairCenters(s).ruined, "ruined"), (PairCenters(s).restored, "restored") })
                 {
@@ -927,6 +983,17 @@ internal static class RuinsParkPatches
         File.WriteAllLines(Path.Combine(dir, "FPS.txt"), results);
         Plugin.RuinsParkTour!.Value = false;
         Plugin.Log.LogInfo($"{Tag} TOUR DONE baseline={baseline:0.0} worstStation={worstAvg:0.0} ratio={(baseline > 0 ? worstAvg / baseline : 0):0.00} min-acceptable={Plugin.RuinsParkMinFps?.Value ?? 0f}");
+    }
+
+    private static IEnumerator RuneShot(Vector3 stone, Vector3 reader, string file)
+    {
+        var dir = Path.Combine(RuinsReconPatches.OutDir(), "park");
+        var toward = reader - stone; toward.y = 0; toward.Normalize();
+        var cam = stone + toward * 3.2f + Vector3.up * 1.9f;
+        PhotoModePatches.SetCameraOverride(cam, Quaternion.LookRotation(stone + Vector3.up * 1.4f - cam));
+        yield return new WaitForSeconds(1.5f);
+        ScreenCapture.CaptureScreenshot(Path.Combine(dir, file));
+        yield return new WaitForSeconds(0.8f);
     }
 
     // ================================================================== runestone inscriptions

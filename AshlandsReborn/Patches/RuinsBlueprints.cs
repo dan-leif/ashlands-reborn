@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 
 namespace AshlandsReborn.Patches;
@@ -25,7 +26,72 @@ internal static class RuinsBlueprints
 
     private static Dictionary<string, List<Piece>>? _data;
 
-    internal static void Reload() => _data = null;
+    internal static void Reload() { _data = null; _swaps = null; _doors = null; }
+
+    /// <summary>Embedded data file, or its dev override in AR_Ruins\ (same name without "ruins_").</summary>
+    private static string? ReadData(string resource, string overrideName)
+    {
+        try
+        {
+            var over = Path.Combine(RuinsReconPatches.OutDir(), overrideName);
+            if (File.Exists(over)) return File.ReadAllText(over);
+            using var s = typeof(RuinsBlueprints).Assembly.GetManifestResourceStream("AshlandsReborn.Data." + resource);
+            if (s == null) return null;
+            using var r = new StreamReader(s);
+            return r.ReadToEnd();
+        }
+        catch (Exception e) { Plugin.Log.LogWarning($"{RuinsRebornPatches.Tag} {resource} load: {e.Message}"); return null; }
+    }
+
+    // ---- swaps: "location (or *) \t from prefab \t to prefab \t scale"
+    private static Dictionary<string, Dictionary<string, (string to, float scale)>>? _swaps;
+
+    /// <summary>What a vanilla piece becomes when its ruin is restored (intact floor, living tree), or null.</summary>
+    internal static (string to, float scale)? GetSwap(string key, string prefab)
+    {
+        if (_swaps == null)
+        {
+            _swaps = new Dictionary<string, Dictionary<string, (string, float)>>(StringComparer.Ordinal);
+            var text = ReadData("ruins_swaps.tsv", "swaps.tsv") ?? "";
+            foreach (var line in text.Split('\n'))
+            {
+                var f = line.Trim().Split('\t');
+                if (f.Length < 3 || f[0].StartsWith("#")) continue;
+                var scale = f.Length > 3 && float.TryParse(f[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var sc) ? sc : 1f;
+                if (!_swaps.TryGetValue(f[0], out var d)) _swaps[f[0]] = d = new Dictionary<string, (string, float)>(StringComparer.Ordinal);
+                d[f[1]] = (f[2], scale);
+            }
+            Plugin.Log.LogInfo($"{RuinsRebornPatches.Tag} swaps loaded: {_swaps.Values.Sum(d => d.Count)} rules");
+        }
+        if (_swaps.TryGetValue(key, out var own) && own.TryGetValue(prefab, out var v)) return v;
+        if (_swaps.TryGetValue("*", out var any) && any.TryGetValue(prefab, out var v2)) return v2;
+        return null;
+    }
+
+    // ---- doors: "location (or room:Name) \t x,y,z" pivots of wall groups left open in the restored building
+    private static Dictionary<string, List<Vector3>>? _doors;
+    private static readonly List<Vector3> NoDoors = new();
+
+    internal static List<Vector3> GetDoors(string key)
+    {
+        if (_doors == null)
+        {
+            _doors = new Dictionary<string, List<Vector3>>(StringComparer.Ordinal);
+            var text = ReadData("ruins_doors.tsv", "doors.tsv") ?? "";
+            var inv = CultureInfo.InvariantCulture;
+            foreach (var line in text.Split('\n'))
+            {
+                var f = line.Trim().Split('\t');
+                if (f.Length < 2 || f[0].StartsWith("#")) continue;
+                var p = f[1].Split(',');
+                if (p.Length != 3) continue;
+                if (!_doors.TryGetValue(f[0], out var l)) _doors[f[0]] = l = new List<Vector3>();
+                l.Add(new Vector3(float.Parse(p[0], inv), float.Parse(p[1], inv), float.Parse(p[2], inv)));
+            }
+            Plugin.Log.LogInfo($"{RuinsRebornPatches.Tag} doors loaded: {_doors.Values.Sum(l => l.Count)} in {_doors.Count} buildings");
+        }
+        return _doors.TryGetValue(key, out var d) ? d : NoDoors;
+    }
 
     private static Dictionary<string, List<Piece>> Data
     {

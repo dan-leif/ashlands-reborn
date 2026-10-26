@@ -35,7 +35,7 @@ namespace AshlandsReborn.Patches;
 internal static class RuinsRebornPatches
 {
     internal const string Tag = "[Ruins Reborn]";
-    internal const int RestoreVersion = 2;
+    internal const int RestoreVersion = 3;
     internal static readonly int RestoredKey = "ar_ruins_restored".GetStableHashCode();
     internal static readonly int RestoreTag = "ar_restore_piece".GetStableHashCode();
     internal static readonly int KeepRuinedKey = "ar_keep_ruined".GetStableHashCode();
@@ -64,6 +64,8 @@ internal static class RuinsRebornPatches
     internal static bool? RebuildOverride;
     /// <summary>Set while the park spawns a "before" exhibit: no restoration, stamp keep-ruined.</summary>
     internal static bool SuppressRestore;
+    /// <summary>Dev harness: when non-null, every camp room placed is recorded here (name, root pos, rot).</summary>
+    internal static List<(string name, Vector3 pos, Quaternion rot)>? RoomLog;
 
     internal static bool IsRebuildActive => RebuildOverride ?? (Plugin.MasterSwitch?.Value == true && Plugin.RuinsRebuild?.Value == true);
     internal static bool IsSpawnerPurgeActive => Plugin.MasterSwitch?.Value == true && Plugin.RemoveSpawnersAndGraves?.Value == true;
@@ -103,17 +105,18 @@ internal static class RuinsRebornPatches
 
     // ================================================================== blueprint roll replay
 
-    /// <summary>Deactivate banned children of a location/room asset for the duration of a spawn.</summary>
+    /// <summary>Deactivate park-banned children of a location/room asset for the duration of a spawn.</summary>
     private static List<GameObject> DeactivateBanned(GameObject asset)
     {
         var list = new List<GameObject>();
         foreach (var nv in asset.GetComponentsInChildren<ZNetView>(true))
         {
             if (nv.gameObject == asset || !nv.gameObject.activeSelf) continue;
-            bool ban = IsBanned(PrefabName(nv.gameObject));
-            // Park exhibits: no creatures and no creature spawners (it's a memorial, not a fortress)
-            if (!ban && RuinsParkPatches.ParkSpawning)
-                ban = nv.GetComponent<CreatureSpawner>() || nv.GetComponent<SpawnArea>() || nv.GetComponent<Character>() || nv.GetComponent<TriggerSpawner>();
+            // The purge no longer strips blueprints (it hides at runtime, reversibly). Only park exhibits
+            // drop creatures and creature spawners: it's a memorial, not a fortress.
+            bool ban = RuinsParkPatches.ParkSpawning &&
+                (nv.GetComponent<CreatureSpawner>() || nv.GetComponent<SpawnArea>() || nv.GetComponent<Character>() || nv.GetComponent<TriggerSpawner>()
+                 || SpawnerAndGravePrefabs.Contains(PrefabName(nv.gameObject)) || MorgenPrefabs.Contains(PrefabName(nv.gameObject)));
             if (ban) { nv.gameObject.SetActive(false); list.Add(nv.gameObject); }
         }
         return list;
@@ -128,12 +131,18 @@ internal static class RuinsRebornPatches
 
     /// <summary>One replay of vanilla's roll sequence: which structural net children end up active.</summary>
     private static HashSet<ZNetView> Roll(ZNetView[] netViews, RandomSpawn[] rss, int seed, Func<RandomSpawn, Vector3> rsWorldPos,
-        Location? loc, DungeonGenerator? dg, bool forced)
+        Location? loc, DungeonGenerator? dg, bool forced, string key = "")
     {
+        bool Relevant(string n) => IsStructural(n) || RuinsBlueprints.GetSwap(key, n) != null;
+        bool SubtreeRelevant(GameObject go)
+        {
+            foreach (var c in go.GetComponentsInChildren<ZNetView>(true)) if (Relevant(PrefabName(c.gameObject))) return true;
+            return false;
+        }
         var forcedList = new List<(RandomSpawn, float)>();
         if (forced)
             foreach (var rs in rss)
-                if (rs.m_chanceToSpawn < 100f && SubtreeHasStructure(rs.gameObject)) { forcedList.Add((rs, rs.m_chanceToSpawn)); rs.m_chanceToSpawn = 100f; }
+                if (rs.m_chanceToSpawn < 100f && SubtreeRelevant(rs.gameObject)) { forcedList.Add((rs, rs.m_chanceToSpawn)); rs.m_chanceToSpawn = 100f; }
         var result = new HashSet<ZNetView>();
         var state = UnityEngine.Random.state;
         try
@@ -142,7 +151,7 @@ internal static class RuinsRebornPatches
             UnityEngine.Random.InitState(seed);
             foreach (var rs in rss) rs.Randomize(rsWorldPos(rs), loc, dg);
             foreach (var nv in netViews)
-                if (nv.gameObject.activeSelf && IsStructural(PrefabName(nv.gameObject))) result.Add(nv);
+                if (nv.gameObject.activeSelf && Relevant(PrefabName(nv.gameObject))) result.Add(nv);
         }
         finally
         {
@@ -154,7 +163,7 @@ internal static class RuinsRebornPatches
         return result;
     }
 
-    internal static GameObject? SpawnTagged(GameObject prefabOrChild, Vector3 pos, Quaternion rot)
+    internal static GameObject? SpawnTagged(GameObject prefabOrChild, Vector3 pos, Quaternion rot, float scale = 1f)
     {
         var old = WearNTear.m_randomInitialDamage;
         WearNTear.m_randomInitialDamage = false;
@@ -162,17 +171,99 @@ internal static class RuinsRebornPatches
         {
             var go = UnityEngine.Object.Instantiate(prefabOrChild, pos, rot);
             var nv = go.GetComponent<ZNetView>();
+            if (Mathf.Abs(scale - 1f) > 0.001f && nv != null) nv.SetLocalScale(Vector3.one * scale);
             var zdo = nv?.GetZDO();
             if (zdo != null)
             {
                 zdo.Set(RestoreTag, 1);
                 zdo.Set(ZDOVars.s_preSnow, true);
-                Tagged.Add(nv!); // Awake ran inside Instantiate, before the tag existed
-                if (!IsRebuildActive) HideQueue.Add(nv!);
+                Track(nv!, (int)VisKind.Restore); // Awake ran inside Instantiate, before the tag existed
             }
             return go;
         }
         finally { WearNTear.m_randomInitialDamage = old; }
+    }
+
+    /// <summary>
+    /// The restoration of one blueprint (location or camp room), given vanilla's roll and the forced roll:
+    /// - pieces only in the forced roll are added (tagged), unless they sit in a door slot;
+    /// - swap sources (broken floor, charred tree) are added as their swap target instead, and a vanilla
+    ///   swap source is marked <see cref="SwappedKey"/> (hidden while restored) with its target added;
+    /// - vanilla pieces in a door slot are marked swapped (hidden while restored), nothing replaces them;
+    /// - floors over a stairwell keep their broken (open) version.
+    /// </summary>
+    private static int RestoreCore(string key, HashSet<ZNetView> vanilla, HashSet<ZNetView> full,
+        Func<Transform, Vector3> local, Func<Transform, Vector3> world, Func<Transform, Quaternion> worldRot, Vector3 searchCenter)
+    {
+        var doors = RuinsBlueprints.GetDoors(key);
+        bool IsDoor(Transform t)
+        {
+            var l = local(t);
+            foreach (var d in doors) if ((d - l).sqrMagnitude < 0.35f * 0.35f) return true;
+            return false;
+        }
+        // stairs in the restored building, for the stairwell guard
+        var stairs = full.Where(nv => PrefabName(nv.gameObject).Contains("Stair")).Select(nv => local(nv.transform)).ToList();
+        bool OverStairwell(Transform t, string name)
+        {
+            if (!name.Contains("Floor")) return false;
+            float half = name.Contains("6x6") ? 3.1f : name.Contains("1point5") ? 0.85f : 1.6f;
+            var l = local(t);
+            foreach (var st in stairs)
+                if (Mathf.Abs(st.x - l.x) < half && Mathf.Abs(st.z - l.z) < half && st.y > l.y - 4.5f && st.y < l.y + 0.5f) return true;
+            return false;
+        }
+        var placed = new HashSet<(string, int, int, int)>();
+        bool Claim(string name, Vector3 w) =>
+            placed.Add((name, Mathf.RoundToInt(w.x * 5f), Mathf.RoundToInt(w.y * 5f), Mathf.RoundToInt(w.z * 5f)));
+        foreach (var nv in vanilla) Claim(PrefabName(nv.gameObject), world(nv.transform)); // intact vanilla pieces count
+
+        List<ZDO>? zdos = null;
+        int n = 0, swapped = 0, doorHidden = 0;
+        foreach (var nv in full)
+        {
+            var name = PrefabName(nv.gameObject);
+            var t = nv.transform;
+            bool door = IsDoor(t);
+            var swap = RuinsBlueprints.GetSwap(key, name);
+            if (swap != null && OverStairwell(t, name)) swap = null;
+            bool isVanilla = vanilla.Contains(nv);
+            if (isVanilla && (door || swap != null))
+            {
+                // hide the vanilla piece while restored
+                zdos ??= SectorZdos(searchCenter);
+                var w = world(t);
+                var h = name.GetStableHashCode();
+                foreach (var z in zdos)
+                    if (z.IsValid() && z.GetPrefab() == h && (z.GetPosition() - w).sqrMagnitude < 0.09f && z.GetLong(ZDOVars.s_creator) == 0)
+                    {
+                        z.Set(SwappedKey, 1);
+                        var inst = ZNetScene.instance.FindInstance(z);
+                        if (inst != null) Track(inst, (int)VisKind.Swapped);
+                        if (door) doorHidden++; else swapped++;
+                    }
+            }
+            if (door) continue;
+            if (isVanilla && swap == null) continue;
+            if (!IsStructural(name) && swap == null) continue; // a rolled-on swap source whose swap is guarded off
+            if (swap != null)
+            {
+                var pf = ZNetScene.instance.GetPrefab(swap.Value.to);
+                if (pf == null || !Claim(swap.Value.to, world(t))) continue;
+                SpawnTagged(pf, world(t), worldRot(t), swap.Value.scale);
+            }
+            else SpawnTagged(nv.gameObject, world(t), worldRot(t));
+            n++;
+        }
+        if (swapped + doorHidden > 0) Plugin.Log.LogInfo($"{Tag} {key}: {swapped} vanilla pieces swapped, {doorHidden} opened as doors");
+        return n;
+    }
+
+    private static List<ZDO> SectorZdos(Vector3 c)
+    {
+        var l = new List<ZDO>();
+        ZDOMan.instance.FindSectorObjects(ZoneSystem.GetZone(c), new SimulationDistance(1, 1, classic: true), l);
+        return l;
     }
 
     /// <summary>Spawn the restoration of one location instance (vanilla roll vs forced roll diff + symmetry).</summary>
@@ -193,14 +284,10 @@ internal static class RuinsRebornPatches
             var rss = Utils.GetEnabledComponentsInChildren<RandomSpawn>(asset);
             var loc = asset.GetComponent<Location>();
             Vector3 RsPos(RandomSpawn rs) => pos + rot * rs.transform.position;
-            var vanilla = Roll(netViews, rss, seed, RsPos, loc, null, forced: false);
-            var full = Roll(netViews, rss, seed, RsPos, loc, null, forced: true);
-            foreach (var nv in full)
-            {
-                if (vanilla.Contains(nv)) continue;
-                SpawnTagged(nv.gameObject, pos + rot * nv.transform.position, rot * nv.transform.rotation);
-                n++;
-            }
+            var key = location.m_prefab.Name;
+            var vanilla = Roll(netViews, rss, seed, RsPos, loc, null, forced: false, key);
+            var full = Roll(netViews, rss, seed, RsPos, loc, null, forced: true, key);
+            n = RestoreCore(key, vanilla, full, t => t.position, t => pos + rot * t.position, t => rot * t.rotation, pos);
         }
         finally
         {
@@ -344,8 +431,15 @@ internal static class RuinsRebornPatches
             try
             {
                 foreach (var go in __state) if (go) go.SetActive(true);
+                RoomLog?.Add((roomData.m_prefab.Name, pos, rot));
                 if (mode == ZoneSystem.SpawnMode.Full && IsRebuildActive && !SuppressRestore)
-                    AddRoomRestoration(__instance, roomData, pos, rot);
+                {
+                    // The generator places its next room from the global Random sequence; the restoration's
+                    // spawns (Awake etc.) must not consume it, or a restored camp lays out differently.
+                    var st = UnityEngine.Random.state;
+                    try { AddRoomRestoration(__instance, roomData, pos, rot); }
+                    finally { UnityEngine.Random.state = st; }
+                }
             }
             catch (Exception e) { Plugin.Log.LogError($"{Tag} PlaceRoom postfix: {e}"); }
             finally { roomData.m_prefab.Release(); }
@@ -362,6 +456,33 @@ internal static class RuinsRebornPatches
             if (zdo == null) return;
             if (SuppressRestore) zdo.Set(KeepRuinedKey, 1);
             else if (IsRebuildActive) zdo.Set(RestoredKey, RestoreVersion);
+        }
+    }
+
+    /// <summary>Park / harness: while set, a camp ruin's room layout depends on its seed alone. Vanilla also
+    /// rejects room spots by ground slope, altitude and the zone's bounds, so two camps with the same seed
+    /// on different plots still came out different (park run: 8 vs 12 rooms).</summary>
+    internal static bool CampLayoutSeedOnly;
+
+    [HarmonyPatch(typeof(DungeonGenerator), nameof(DungeonGenerator.Generate), new[] { typeof(int), typeof(ZoneSystem.SpawnMode) })]
+    private static class DGSeedOnlyPatch
+    {
+        private static void Prefix(DungeonGenerator __instance)
+        {
+            if (!CampLayoutSeedOnly || !IsRuinDG(__instance)) return;
+            __instance.m_maxTilt = 90f;        // cos(90) = 0: any ground normal passes
+            __instance.m_minAltitude = -1e6f;  // any altitude passes
+        }
+    }
+
+    [HarmonyPatch(typeof(DungeonGenerator), "IsInsideDungeon")]
+    private static class DGInsidePatch
+    {
+        private static bool Prefix(DungeonGenerator __instance, ref bool __result)
+        {
+            if (!CampLayoutSeedOnly || !IsRuinDG(__instance)) return true;
+            __result = true;
+            return false;
         }
     }
 
@@ -416,14 +537,10 @@ internal static class RuinsRebornPatches
             var v = dg.m_useCustomInteriorTransform ? pos - dg.transform.position : pos;
             int seed = (int)v.x * 4271 + (int)v.y * 9187 + (int)v.z * 2134;
             if (dg.m_addBaseSeedToRandomSpawn) seed += dg.GetSeed();
-            var vanilla = Roll(netViews, rss, seed, rs => W(rs.transform), null, dg, forced: false);
-            var full = Roll(netViews, rss, seed, rs => W(rs.transform), null, dg, forced: true);
-            foreach (var nv in full)
-            {
-                if (vanilla.Contains(nv)) continue;
-                SpawnTagged(nv.gameObject, W(nv.transform), rot * (rInv * nv.transform.rotation));
-                n++;
-            }
+            var key = "room:" + data.m_prefab.Name;
+            var vanilla = Roll(netViews, rss, seed, rs => W(rs.transform), null, dg, forced: false, key);
+            var full = Roll(netViews, rss, seed, rs => W(rs.transform), null, dg, forced: true, key);
+            n = RestoreCore(key, vanilla, full, t => rInv * (t.position - rPos), W, t => rot * (rInv * t.rotation), pos);
         }
         finally
         {
@@ -470,9 +587,6 @@ internal static class RuinsRebornPatches
 
     // ================================================================== show / hide (MasterSwitch)
 
-    private static readonly HashSet<ZNetView> Tagged = new();
-    private static readonly List<ZNetView> HideQueue = new();
-
     internal static void DeleteZdo(ZDO z)
     {
         var inst = ZNetScene.instance.FindInstance(z);
@@ -489,8 +603,7 @@ internal static class RuinsRebornPatches
     internal static void OnRestoreToggled()
     {
         bool show = IsRebuildActive;
-        Tagged.RemoveWhere(nv => nv == null);
-        foreach (var nv in Tagged) if (nv.gameObject.activeSelf != show) nv.gameObject.SetActive(show);
+        int hidden = ApplyVisibility();
         RefreshDamageVisuals();
         if (show)
         {
@@ -502,7 +615,7 @@ internal static class RuinsRebornPatches
                     Pending.Add(new PendingRestore { Owner = nv!, Due = Time.time + 0.5f, Rooms = rooms });
             }
         }
-        Plugin.Log.LogInfo($"{Tag} ruins {(show ? "RESTORED" : "RUINED")} ({Tagged.Count} restoration pieces loaded)");
+        Plugin.Log.LogInfo($"{Tag} ruins {(show ? "RESTORED" : "RUINED")} ({Tracked.Count} tracked objects, {hidden} hidden)");
     }
 
     private static readonly System.Reflection.MethodInfo? UpdateVisualMethod = AccessTools.Method(typeof(WearNTear), "UpdateVisual");
@@ -539,9 +652,28 @@ internal static class RuinsRebornPatches
         return false;
     }
 
-    // ================================================================== purge + tag tracking
+    // ================================================================== visibility (purge, restoration, swaps)
 
-    private static readonly List<ZNetView> PurgeQueue = new();
+    /// <summary>Vanilla pieces replaced by a swap (broken floor -> intact floor, charred tree -> living
+    /// tree, doorway walls): shown only while ruined.</summary>
+    internal static readonly int SwappedKey = "ar_swapped".GetStableHashCode();
+
+    private enum VisKind { Restore, Swapped, Purge }
+    private static readonly Dictionary<ZNetView, VisKind> Tracked = new();
+    private static readonly List<ZNetView> VisQueue = new();
+
+    private static bool ShouldShow(ZNetView nv, VisKind k) => k switch
+    {
+        VisKind.Restore => IsRebuildActive,
+        VisKind.Swapped => !IsRebuildActive,
+        _ => !IsBanned(PrefabName(nv.gameObject)),
+    };
+
+    internal static void Track(ZNetView nv, int kind)
+    {
+        Tracked[nv] = (VisKind)kind;
+        VisQueue.Add(nv);
+    }
 
     [HarmonyPatch(typeof(ZNetView), "Awake")]
     private static class NetViewAwakePatch
@@ -550,14 +682,29 @@ internal static class RuinsRebornPatches
         {
             var zdo = __instance.GetZDO();
             if (zdo == null) return;
-            if (zdo.GetInt(RestoreTag) == 1)
+            if (zdo.GetInt(RestoreTag) == 1) Track(__instance, (int)VisKind.Restore);
+            else if (zdo.GetInt(SwappedKey) == 1) Track(__instance, (int)VisKind.Swapped);
+            else
             {
-                Tagged.Add(__instance);
-                if (!IsRebuildActive) HideQueue.Add(__instance);
-                return;
+                var name = PrefabName(__instance.gameObject);
+                if (SpawnerAndGravePrefabs.Contains(name) || MorgenPrefabs.Contains(name)) Track(__instance, (int)VisKind.Purge);
             }
-            if (Plugin.MasterSwitch?.Value == true && IsBanned(PrefabName(__instance.gameObject))) PurgeQueue.Add(__instance);
         }
+    }
+
+    private static int ApplyVisibility()
+    {
+        int hidden = 0;
+        var dead = new List<ZNetView>();
+        foreach (var kv in Tracked)
+        {
+            if (kv.Key == null) { dead.Add(kv.Key!); continue; }
+            var show = ShouldShow(kv.Key, kv.Value);
+            if (kv.Key.gameObject.activeSelf != show) kv.Key.gameObject.SetActive(show);
+            if (!show) hidden++;
+        }
+        foreach (var d in dead) Tracked.Remove(d);
+        return hidden;
     }
 
     private static readonly Dictionary<SpawnSystem.SpawnData, bool> SpawnDataOriginal = new();
@@ -573,12 +720,14 @@ internal static class RuinsRebornPatches
             }
     }
 
+    /// <summary>MasterSwitch / RemoveSpawnersAndGraves / RemoveMorgen changed: hide or reveal the purged
+    /// objects (nothing is ever deleted) and re-enable or disable Morgen biome spawns.</summary>
     internal static void OnPurgeConfigChanged()
     {
         ApplySpawnListEdits();
-        if (IsSpawnerPurgeActive || IsMorgenPurgeActive)
-            foreach (var nv in UnityEngine.Object.FindObjectsByType<ZNetView>(FindObjectsSortMode.None))
-                if (nv.GetZDO() != null && IsBanned(PrefabName(nv.gameObject))) PurgeQueue.Add(nv);
+        int hidden = ApplyVisibility();
+        Plugin.Log.LogInfo($"{Tag} purge {(IsSpawnerPurgeActive ? "spawners/graves hidden" : "spawners/graves shown")}, " +
+                           $"{(IsMorgenPurgeActive ? "Morgen hidden" : "Morgen shown")} ({hidden} objects hidden)");
     }
 
     private static ZNetScene? _spawnListsAppliedFor;
@@ -587,31 +736,22 @@ internal static class RuinsRebornPatches
     /// <summary>Called from Plugin.Update() every frame.</summary>
     internal static void Tick()
     {
-        if (ZNetScene.instance == null) { Tagged.Clear(); return; }
+        if (ZNetScene.instance == null) { Tracked.Clear(); VisQueue.Clear(); return; }
         if (_spawnListsAppliedFor != ZNetScene.instance)
         {
             _spawnListsAppliedFor = ZNetScene.instance;
             ApplySpawnListEdits();
         }
 
-        if (HideQueue.Count > 0)
+        if (VisQueue.Count > 0)
         {
-            bool show = IsRebuildActive;
-            foreach (var nv in HideQueue) if (nv && nv.gameObject.activeSelf != show) nv.gameObject.SetActive(show);
-            HideQueue.Clear();
-        }
-
-        if (PurgeQueue.Count > 0)
-        {
-            foreach (var nv in PurgeQueue)
-            {
-                if (nv == null || !nv.IsValid()) continue;
-                if (!nv.IsOwner()) nv.ClaimOwnership();
-                ZNetScene.instance.Destroy(nv.gameObject);
-                _purged++;
-            }
-            PurgeQueue.Clear();
-            Plugin.Log.LogInfo($"{Tag} purged total={_purged}");
+            foreach (var nv in VisQueue)
+                if (nv && Tracked.TryGetValue(nv, out var k))
+                {
+                    var show = ShouldShow(nv, k);
+                    if (nv.gameObject.activeSelf != show) nv.gameObject.SetActive(show);
+                }
+            VisQueue.Clear();
         }
 
         for (int i = Pending.Count - 1; i >= 0; i--)

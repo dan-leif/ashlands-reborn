@@ -28,6 +28,8 @@
   <ItemGroup>
     <None Remove="Lib\**" />
     <EmbeddedResource Include="Data/ruins_additions.tsv" LogicalName="AshlandsReborn.Data.ruins_additions.tsv" />
+    <EmbeddedResource Include="Data/ruins_swaps.tsv" LogicalName="AshlandsReborn.Data.ruins_swaps.tsv" />
+    <EmbeddedResource Include="Data/ruins_doors.tsv" LogicalName="AshlandsReborn.Data.ruins_doors.tsv" />
   </ItemGroup>
   <!-- Prefer GamePath when BepInEx is present. Use game's 0Harmony to avoid NuGet version conflicts. -->
   <ItemGroup Condition="Exists('$(GamePath)\BepInEx\core\BepInEx.dll')">

@@ -1,0 +1,7 @@
+# location	door pivot x,y,z (location/room-local)  (scripts/ruins/doors.py)
+CharredRuins2	-1.000,-1.000,8.000
+CharredRuins3	0.000,-1.000,4.000
+CharredRuins4	0.000,3.000,4.000
+CharredTowerRuins1	0.000,1.250,12.000
+room:CharredRuins_new01	3.000,-0.250,7.000
+room:FortressRuins_new01	3.000,-0.250,7.000

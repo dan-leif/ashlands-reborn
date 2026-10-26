@@ -1,0 +1,10 @@
+# location (* = every ruin)	vanilla prefab	restored prefab	scale
+# Broken floors become intact (same pivot + footprint; recon bounds). Floors over a stairwell are skipped at runtime.
+*	Ashlands_Ruins_Floor_3x3_broken1	Ashlands_Ruins_Floor_3x3	1
+*	Ashlands_Ruins_Floor_3x3_broken2	Ashlands_Ruins_Floor_3x3	1
+*	Ashlands_Ruins_Floor_3x3_broken3	Ashlands_Ruins_Floor_3x3	1
+*	Ashlands_Ruins_Floor_6x6_broken1	Ashlands_Ruins_Floor_6x6	1
+*	Ashlands_Ruins_Floor_6x6_broken2	Ashlands_Ruins_Floor_6x6	1
+*	Ashlands_Ruins_Floor_1point5x1point5_broken	Ashlands_Ruins_Floor_1point5x1point5	1
+# The Old Tree of the arbor lives again (tree trial: Beech1 rises through the arches; Oak1 canopies clip through them at every scale).
+CharredTowerRuins2	AshlandsTree6_big	Beech1	1
