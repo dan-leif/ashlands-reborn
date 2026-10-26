@@ -27,6 +27,7 @@
        reference resolution, so without this the frozen Lib refs silently win even when the game is modded. -->
   <ItemGroup>
     <None Remove="Lib\**" />
+    <EmbeddedResource Include="Data/ruins_additions.tsv" LogicalName="AshlandsReborn.Data.ruins_additions.tsv" />
   </ItemGroup>
   <!-- Prefer GamePath when BepInEx is present. Use game's 0Harmony to avoid NuGet version conflicts. -->
   <ItemGroup Condition="Exists('$(GamePath)\BepInEx\core\BepInEx.dll')">
@@ -38,6 +39,7 @@
     <Reference Include="assembly_valheim" HintPath="$(GamePath)\valheim_Data\Managed\assembly_valheim.dll" Private="False" />
     <Reference Include="assembly_utils" HintPath="$(GamePath)\valheim_Data\Managed\assembly_utils.dll" Private="False" />
     <Reference Include="MagicaClothV2" HintPath="$(GamePath)\valheim_Data\Managed\MagicaClothV2.dll" Private="False" />
+    <Reference Include="SoftReferenceableAssets" HintPath="$(GamePath)\valheim_Data\Managed\SoftReferenceableAssets.dll" Private="False" />
     <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.InputLegacyModule.dll" Private="False" Condition="Exists('$(GamePath)\valheim_Data\Managed\UnityEngine.InputLegacyModule.dll')" />
     <Reference Include="UnityEngine.PhysicsModule" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.PhysicsModule.dll" Private="False" Condition="Exists('$(GamePath)\valheim_Data\Managed\UnityEngine.PhysicsModule.dll')" />
     <Reference Include="UnityEngine.AnimationModule" HintPath="$(GamePath)\valheim_Data\Managed\UnityEngine.AnimationModule.dll" Private="False" Condition="Exists('$(GamePath)\valheim_Data\Managed\UnityEngine.AnimationModule.dll')" />
@@ -63,6 +65,7 @@
     <Reference Include="assembly_valheim" HintPath="$(LibDir)\assembly_valheim.dll" Private="False" />
     <Reference Include="assembly_utils" HintPath="$(LibDir)\assembly_utils.dll" Private="False" Condition="Exists('$(LibDir)\assembly_utils.dll')" />
     <Reference Include="MagicaClothV2" HintPath="$(LibDir)\MagicaClothV2.dll" Private="False" Condition="Exists('$(LibDir)\MagicaClothV2.dll')" />
+    <Reference Include="SoftReferenceableAssets" HintPath="$(LibDir)\SoftReferenceableAssets.dll" Private="False" Condition="Exists('$(LibDir)\SoftReferenceableAssets.dll')" />
   </ItemGroup>
   <!-- NuGet UnityEngine only as last resort when neither game path nor Lib has the assemblies -->
   <ItemGroup Condition="!Exists('$(GamePath)\BepInEx\core\BepInEx.dll') and !Exists('$(LibDir)\Assembly-CSharp.dll')">

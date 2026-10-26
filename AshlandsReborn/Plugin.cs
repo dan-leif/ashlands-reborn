@@ -258,6 +258,21 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<bool> TerrainPhotoAuto { get; private set; } = null!;
     public static ConfigEntry<bool> TestArenaBuild { get; private set; } = null!;
     public static ConfigEntry<bool> TestArenaVerify { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsReconDump { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsPhotoAuto { get; private set; } = null!;
+    public static ConfigEntry<string> RuinsPhotoLocations { get; private set; } = null!;
+    public static ConfigEntry<string> RuinsPhotoVariants { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsRebuild { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsParkBuild { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsParkTour { get; private set; } = null!;
+    public static ConfigEntry<string> RuinsParkPos { get; private set; } = null!;
+    public static ConfigEntry<float> RuinsParkGap { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsParkReuseLayout { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsParkPortal { get; private set; } = null!;
+    public static ConfigEntry<float> RuinsParkMinFps { get; private set; } = null!;
+    public static ConfigEntry<bool> RuinsSymmetry { get; private set; } = null!;
+    public static ConfigEntry<bool> RemoveSpawnersAndGraves { get; private set; } = null!;
+    public static ConfigEntry<bool> RemoveMorgen { get; private set; } = null!;
     public static ConfigEntry<string> TestArenaPos { get; private set; } = null!;
     public static ConfigEntry<float> TestArenaRadius { get; private set; } = null!;
     public static ConfigEntry<string> TestArenaPaint { get; private set; } = null!;
@@ -2055,6 +2070,53 @@ public class Plugin : BaseUnityPlugin
             "capture set per tuple (the LegacySmoothLine* sliders are set, terrain refreshed, then " +
             "restored). Include '1,0,0,0' as the pure-grass reference for the difference-based line mask.");
 
+        RuinsReconDump = Config.Bind(
+            "Dev Automation",
+            "RuinsReconDump",
+            false,
+            "Dev: once after world load, dump every Ashlands location blueprint, the Ashlands spawn list, " +
+            "the ZNetScene prefab catalog and this world's Ashlands location instances to AR_Ruins\recon.tsv.");
+
+        RuinsPhotoAuto = Config.Bind("Dev Automation", "RuinsPhotoAuto", false,
+            "Dev: once after world load, spawn each RuinsPhotoLocations location on the test arena (per RuinsPhotoVariants), " +
+            "photograph it, and delete it again. Output: AR_Ruins/photos.");
+        RuinsPhotoLocations = Config.Bind("Dev Automation", "RuinsPhotoLocations",
+            "CharredRuins4,CharredRuins3,CharredRuins2,CharredRuins1,CharredTowerRuins1,CharredTowerRuins2,CharredTowerRuins3,AshlandRuins,FortressRuins",
+            "Dev: CSV of location names the ruins photo harness shoots.");
+        RuinsPhotoVariants = Config.Bind("Dev Automation", "RuinsPhotoVariants", "vanilla,rebuilt",
+            "Dev: CSV of variants per location: vanilla (rebuild off) and/or rebuilt.");
+
+        RuinsParkBuild = Config.Bind("Dev Automation", "RuinsParkBuild", false,
+            "Dev: once after world load, build (or rebuild) the Ember Memorial park at RuinsParkPos (empty = search a site), " +
+            "then switch itself off. Clears the previous park's objects first.");
+        RuinsParkTour = Config.Bind("Dev Automation", "RuinsParkTour", false,
+            "Dev: once after world load, walk the park station by station, log FPS per station and capture screenshots (AR_Ruins/park), then switch off.");
+        RuinsParkPos = Config.Bind("Ashlands Rebuilt", "MemorialParkPos", "",
+            "The Ember Walk layout: station points x,z separated by ';' (written by the park builder). Random mob spawns are blocked along it.");
+        RuinsParkGap = Config.Bind("Dev Automation", "RuinsParkGap", 40f,
+            "Dev: extra trail length (m) between park stations. Larger = stations further apart (fewer exhibits loaded at once = better FPS).");
+        RuinsParkPortal = Config.Bind("Dev Automation", "RuinsParkPortal", false,
+            "Dev: once after world load, (re)place the linked portal pair world start <-> Ember Walk entrance (tag EmberWalk) and the map pins, then switch off.");
+        RuinsParkReuseLayout = Config.Bind("Dev Automation", "RuinsParkReuseLayout", false,
+            "Dev: rebuild the park on its current layout (MemorialParkPos) instead of searching a new site.");
+        RuinsParkMinFps = Config.Bind("Dev Automation", "RuinsParkMinFps", 45f,
+            "Dev: the FPS the park tour should sustain at every station (reported in the TOUR DONE line).");
+
+        RuinsRebuild = Config.Bind("Ashlands Rebuilt", "RebuildRuins", true,
+            "GAMEPLAY: restore every Ashlands ruin as designed - every storey/wall/arch the blueprint can roll is built and " +
+            "damage cracks are hidden. Reversible: the restoration pieces hide again when this or the MasterSwitch is turned off.");
+        RuinsSymmetry = Config.Bind("Ashlands Rebuilt", "RuinsSymmetryCompletion", true,
+            "Also add the pieces the symmetry analysis says are missing from each ruin design.");
+        RemoveSpawnersAndGraves = Config.Bind("Ashlands Rebuilt", "RemoveSpawnersAndGraves", true,
+            "GAMEPLAY: remove charred spawners (stone + cross) and all charred gravestones. Removed objects are deleted from the world save.");
+        RemoveMorgen = Config.Bind("Ashlands Rebuilt", "RemoveMorgen", true,
+            "GAMEPLAY: remove the Morgen entirely - no biome spawns, no Morgen-hole spawners, existing Morgen deleted.");
+        RemoveSpawnersAndGraves.SettingChanged += (_, _) => Patches.RuinsRebornPatches.OnPurgeConfigChanged();
+        RemoveMorgen.SettingChanged += (_, _) => Patches.RuinsRebornPatches.OnPurgeConfigChanged();
+        // Master switch (hotkey or F1) and RebuildRuins flip every loaded ruin between ruined/restored.
+        MasterSwitch.SettingChanged += (_, _) => { Patches.RuinsRebornPatches.OnRestoreToggled(); Patches.RuinsRebornPatches.OnPurgeConfigChanged(); };
+        RuinsRebuild.SettingChanged += (_, _) => Patches.RuinsRebornPatches.OnRestoreToggled();
+
         FortressStoneSweep = Config.Bind(
             "Dev Automation",
             "FortressStoneSweep",
@@ -2742,6 +2804,10 @@ public class Plugin : BaseUnityPlugin
         Patches.LifecycleTestPatches.Tick();
         Patches.TerrainPhotoPatches.Tick();
         Patches.TestArenaPatches.Tick();
+        Patches.RuinsReconPatches.Tick();
+        Patches.RuinsRebornPatches.Tick();
+        Patches.RuinsPhotoPatches.Tick();
+        Patches.RuinsParkPatches.Tick();
         Patches.MageWeaponTestPatches.Tick();
         Patches.FableBunnyPatches.ReconTick();
         Patches.FableMorgenSkins.TestTick();

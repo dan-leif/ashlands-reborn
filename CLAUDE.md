@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Ashlands Reborn** is a BepInEx plugin for Valheim (Steam App 892970) that visually transforms the Ashlands biome into a Meadows-like aesthetic without changing gameplay. It uses Harmony patches to override weather, terrain vertex colors, tree spawning, and creature visuals at runtime.
+**Ashlands Reborn** is a BepInEx plugin for Valheim (Steam App 892970) that transforms the Ashlands biome into a Meadows-like land. It began as visual-only; since 2026-10-25 the ethos is bolder and **gameplay changes are allowed** (see "Ashlands Rebuilt" below: spawners, graves and the Morgen are removed, ruins are rebuilt). It uses Harmony patches to override weather, terrain vertex colors, tree spawning, creature visuals and world generation at runtime.
 
 - Plugin GUID: `com.ashlandsreborn.weather`
 - Target: .NET 4.7.2, `valheim.exe` process
@@ -198,6 +198,11 @@ All plugin logic is structured as Harmony patches. `Plugin.cs` is the entry poin
 | `PhotoModePatches.cs` | `GameCamera.LateUpdate` (prefix) | Dev verification harness: spawns a warrior, orbits the camera, captures full-body + close-up screenshots autonomously |
 | `LifecycleTestPatches.cs` | None (no Harmony patches) | Dev M4 self-test: spawns 3 warriors (incl. 2★), asserts toggle/refresh/sync/scale lifecycle invariants |
 | `MageWeaponTestPatches.cs` | None (no Harmony patches) | Dev harness (`MageWeaponTest`): dumps the ObjectDB/ZNetScene staff catalog + candidate prefab hierarchies, then spawns a pinned Charred_Mage and cycles `MageWeaponTestList` through `FableMageWeapon`, screenshotting each staff in-hand. `MageWeaponRefCapture` prepends vanilla-carry references (player equipping each player staff; DvergerMageFire/Ice/Support; puppet-disabled Charred_Mage); `MageWeaponRotSweep` captures each staff once per rot/offset combination, written to the swept staff's own family knobs (tuning mode). Output: `AR_MageWeapon\` |
+| `RuinsRebornPatches.cs` | `ZoneSystem.SpawnLocation`, `LocationProxy.SetLocation/SpawnLocation`, `DungeonGenerator.PlaceRoom/Generate/Spawn`, `WearNTear.SetHealthVisual`, `ZNetView.Awake` | Ashlands Rebuilt: purge (spawners/graves/Morgen) + reversible ruin restoration (see "Ashlands Rebuilt") |
+| `RuinsBlueprints.cs` | None | Loads the symmetry completions (`Data/ruins_additions.tsv`, embedded) and spawns them as restoration pieces |
+| `RuinsParkPatches.cs` | `RuneStone.Interact/GetHoverText`, `WearNTear.Awake`, `SpawnSystem.IsSpawnPointGood` | The Ember Walk memorial park: builder, portal + map pins, FPS tour, runestone inscriptions, park mob-spawn block |
+| `RuinsPhotoPatches.cs` | None | Dev harness: spawns each ruin on the test arena, shoots it restored then ruined (same instance, via the toggle) |
+| `RuinsReconPatches.cs` | None | Dev recon: dumps every Ashlands location blueprint, room, spawn list and prefab catalog to `AR_Ruinsecon.tsv` |
 | `DevAutoLoadPatches.cs` | None (no Harmony patches) | State machine called from `Plugin.Update()` that auto-navigates FejdStartup menus on startup |
 
 **Note on `DevAutoLoadPatches.cs`:** This file has no `[HarmonyPatch]` attributes. Harmony-patching `FejdStartup.Start()` (a coroutine) and `FejdStartup.Update()` (not defined as an override) fails silently. Instead it exposes a `Tick()` method called from `Plugin.Update()` each frame, checking `FejdStartup.instance` directly.
@@ -341,6 +346,75 @@ public static bool IsWeatherOverrideActive => MasterSwitch?.Value == true && Ena
 ```
 
 All `ConfigEntry` properties are `public static` so patch classes read them directly from `Plugin.*` without needing an instance.
+
+### Ashlands Rebuilt (GAMEPLAY: purge + ruin restoration, 2026-10-25)
+
+Section "Ashlands Rebuilt" (F1): `RebuildRuins` (true), `RuinsSymmetryCompletion` (true),
+`RemoveSpawnersAndGraves` (true), `RemoveMorgen` (true), `MemorialParkPos` (park layout).
+
+**Purge** (`RuinsRebornPatches`): banned prefabs = `Spawner_CharredStone(_Elite/_event)`,
+`Spawner_CharredCross`, all `GraveStone_*` charred/world/Fader graves; Morgen = `Morgen`,
+`Morgen_NonSleeping`, `Spawner_Morgen(_wakeup)`. They are deactivated in location/room blueprints
+during a spawn, deleted when an existing one awakens (`ZNetView.Awake` postfix → next-frame
+`ZNetScene.Destroy`), and Morgen biome spawn entries are disabled. **Permanent**: deleted objects do
+not come back when the switch is turned off. Recon: the 300 `CharredStone_Spawner` locations
+become empty flattened circles; `MorgenHole1-3` pits stay (treasure + carrion) without the Morgen.
+
+**Restoration** (reversible, flips with the MasterSwitch): the ruins (`CharredRuins1-4`,
+`CharredTowerRuins1(_dvergr)/2/3`, camp generators `AshlandRuins`/`FortressRuins` via their
+`DungeonGenerator` rooms) are modular towers whose storeys / wall fragments / arches are each a
+`RandomSpawn` roll (recon: broken pieces come in matched sets - wall fragments 3+4+5 and window
+2+3 / 4+5+6 form one wall, Arch2 halves 1+2, pillar tips 1+2+3). Vanilla's generation is left
+untouched; the restoration = structural pieces that roll on when every structural roll is
+forced (same seed, same Random sequence replayed) minus the vanilla roll, plus the symmetry
+completions. They spawn tagged (`ar_restore_piece` ZDO int) and are shown only while
+`IsRebuildActive`; `WearNTear.SetHealthVisual` shows ruin pieces' "new" mesh while restored.
+Existing ruins get their restoration once when their `LocationProxy` / camp `DungeonGenerator`
+loads (stamp `ar_ruins_restored` = `RestoreVersion` on the owner ZDO; bump the version to re-run,
+old tagged pieces are cleared first). `ar_keep_ruined` stamps the park's "before" exhibits.
+Symmetry completions: `scripts/ruins/analyze.py` + `sym2.py` (mirror/rotation search on the forced
+blueprints) + `gen_additions.py` → `AshlandsReborn/Data/ruins_additions.tsv` (69 window-wall
+pieces: CharredRuins1 mirror_x from y>=3 so ground-floor doorways stay open, CharredRuins3/4 one
+upper window wall each). Tower ruins are already 100% 4-fold symmetric once fully rolled;
+CharredRuins2 is L-shaped (no symmetry). Galleries: `screenshots/ruins-rebuilt/` (run4 =
+toggle proof, same instance).
+
+### The Ember Walk (memorial park, world "Reborn")
+
+A paved avenue from a gate to the Garden of Embers; at each station the RUINED exhibit stands
+on the walker's left and the RESTORED one on the right, with pole signs naming the internal
+location id, a story runestone (custom inscription stored on the `Runestone_Ashlands` proxy ZDO),
+blue torches, benches, and interlude runestones (the cataclysm story) between stations.
+Everything is tagged `ar_park`; rebuilding (`RuinsParkBuild`) clears it and resets the old
+site's terrain first. Map pins (player "Dove"): portal, entrance, each station, garden.
+
+| Point | Coordinates (x, z) |
+|---|---|
+| **Portal at world start** (beside the StartTemple, tag `EmberWalk`) | -117.2, 7.2 (y 34.8) |
+| Portal at the walk entrance | 2157.5, 2019.8 |
+| Entrance gate / plaza | 2150.5, 2019.4 |
+| 1 CharredTowerRuins2 | 2027.6, 2012.5 |
+| 2 CharredTowerRuins3 | 1937.3, 1927.7 |
+| 3 CharredRuins4 | 1820.5, 1962.9 |
+| 4 CharredRuins3 | 1743.8, 2080.1 |
+| 5 CharredRuins2 | 1664.4, 2201.4 |
+| 6 CharredTowerRuins1 | 1633.4, 2333.8 |
+| 7 CharredTowerRuins1_dvergr | 1706.4, 2478.4 |
+| 8 FortressRuins | 1621.5, 2608.1 |
+| 9 AshlandRuins | 1697.3, 2758.1 |
+| 10 CharredRuins1 (cathedral) | 1880.0, 2768.3 |
+| Garden of Embers | 2027.0, 2831.3 |
+
+Dev automation: `RuinsParkBuild` (+ `RuinsParkReuseLayout` to keep the site), `RuinsParkPortal`,
+`RuinsParkTour` (per-station FPS vs a countryside baseline + screenshots in `AR_Ruins\park`),
+`RuinsParkGap` (90 m shipped). FPS (gap 90, laptop): baseline 66, stations 46-61 (worst 69% of
+baseline); gap 40 dropped the cathedral/market stations to ~45% of baseline. This laptop's
+absolute FPS swings 2x with power state - always compare against the same run's baseline.
+Gotchas: unsupported signs/arches collapse (park pieces get `m_noSupportWear = false` in a
+`WearNTear.Awake` postfix); the game runs exclusive fullscreen, so desktop captures are black -
+harnesses use `ScreenCapture`; park sites need flat ground (greedy chain search over
+`WorldGenerator`), planned-but-ungenerated locations inside the footprint are dropped.
+Gallery: `screenshots/ruins-park/final/`.
 
 ### Fable Warrior puppet (CURRENT Charred Warrior system — covers all four charred creatures)
 
@@ -736,7 +810,7 @@ vanilla, `recolored/` = defaults, `sweep/` + labeled composite).
 
 | Config key | Default hotkey | Effect |
 |---|---|---|
-| `MasterSwitch` | Backspace | Toggle all features |
+| `MasterSwitch` | Backslash | Toggle all features (also flips every ruin between ruined and restored) |
 | `TerrainPhotoKey` | F7 | Run the terrain transition photo harness on demand |
 | `TreeRefreshKey` | F8 | Respawn tree replacements |
 | `ValkyrieRefreshKey` | F9 | Re-apply the Valkyrie swap to nearby Fallen Valkyries |

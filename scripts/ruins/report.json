@@ -1,0 +1,1130 @@
+{
+ "CharredRuins1": {
+  "loc": "CharredRuins1",
+  "pieces": 1543,
+  "size": [
+   32.0,
+   43.5,
+   48.0
+  ],
+  "top": [
+   [
+    0.491,
+    "bbox",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     2.0
+    ]
+   ],
+   [
+    0.491,
+    "origin",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.491,
+    "centroid",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     -1.5
+    ]
+   ],
+   [
+    0.181,
+    "bbox",
+    "mirror_z",
+    [
+     0.0,
+     0.0,
+     2.0
+    ]
+   ],
+   [
+    0.169,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     2.0
+    ]
+   ],
+   [
+    0.116,
+    "bbox",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     2.0
+    ]
+   ]
+  ],
+  "symmetries": [],
+  "additions": [],
+  "counts": {
+   "Ashlands_Pillar4": 178,
+   "Ashlands_Ruins_Wall_Broken3_4x6": 70,
+   "Ashlands_Ruins_Wall_Broken5_4x6": 70,
+   "Ashlands_Ruins_Floor_3x3_broken3": 66,
+   "Ashland_Steepstair": 114,
+   "Ashlands_Ruins_Floor_1point5x1point5": 57,
+   "Ashlands_Ruins_Wall_Window_4x6_broken4": 76,
+   "Ashlands_Ruins_Floor_3x3_broken2": 57,
+   "Ashlands_Ruins_Wall_Window_4x6_broken5": 76,
+   "Ashlands_Ruins_Wall_Window_4x6_broken6": 76,
+   "Ashlands_Ruins_Wall_Window_4x6_broken3": 76,
+   "Ashlands_Ruins_Wall_Window_4x6_broken2": 76,
+   "Ashlands_Ruins_Floor_3x3_broken1": 30,
+   "Ashlands_Pillar4_tip3_broken2": 43,
+   "Ashlands_Pillar4_tip3_broken3": 43,
+   "Ashlands_Pillar4_tip3_broken1": 43,
+   "Ashlands_Arch2_Broken2": 120,
+   "Ashlands_Pillar4_tip2_broken2": 32,
+   "Ashlands_Pillar4_tip2_broken1": 32,
+   "Ashlands_Arch2_Broken1": 120,
+   "Ashlands_Ruins_Wall_Broken4_4x6": 70,
+   "Ashlands_Ruins_Floor_6x6_broken1": 10,
+   "Ashlands_Altar": 8
+  }
+ },
+ "CharredRuins2": {
+  "loc": "CharredRuins2",
+  "pieces": 352,
+  "size": [
+   16.0,
+   35.5,
+   16.0
+  ],
+  "top": [
+   [
+    0.179,
+    "bbox",
+    "mirror_z",
+    [
+     -1.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.179,
+    "origin",
+    "mirror_z",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.131,
+    "bbox",
+    "rot90",
+    [
+     -1.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.131,
+    "bbox",
+    "rot270",
+    [
+     -1.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.131,
+    "bbox",
+    "mirror_x",
+    [
+     -1.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.131,
+    "centroid",
+    "mirror_x",
+    [
+     -1.0,
+     0.0,
+     -0.5
+    ]
+   ]
+  ],
+  "symmetries": [],
+  "additions": [],
+  "counts": {
+   "Ashlands_Ruins_Wall_Window_4x6_broken4": 16,
+   "Ashlands_Ruins_Floor_6x6_broken1": 4,
+   "Ashlands_Pillar4": 36,
+   "Ashlands_Ruins_Wall_Window_4x6_broken5": 16,
+   "Ashlands_Ruins_Wall_Window_4x6_broken6": 16,
+   "Ashlands_Ruins_Wall_Window_4x6_broken2": 17,
+   "Ashlands_Ruins_Floor_3x3_broken1": 8,
+   "Ashlands_Ruins_Floor_3x3_broken3": 13,
+   "Ashland_Steepstair": 24,
+   "Ashlands_Ruins_Floor_1point5x1point5": 12,
+   "Ashlands_Arch2_Broken1": 40,
+   "Ashlands_Ruins_Floor_3x3_broken2": 11,
+   "Ashlands_Ruins_Wall_Window_4x6_broken3": 17,
+   "Ashlands_Pillar4_tip2_broken1": 11,
+   "Ashlands_Pillar4_tip2_broken2": 11,
+   "Ashlands_Arch2_Broken2": 40,
+   "Ashlands_Pillar4_tip3_broken1": 13,
+   "Ashlands_Pillar4_tip3_broken2": 13,
+   "Ashlands_Pillar4_tip3_broken3": 13,
+   "Ashlands_Ruins_Wall_Broken4_4x6": 7,
+   "Ashlands_Ruins_Wall_Broken5_4x6": 7,
+   "Ashlands_Ruins_Wall_Broken3_4x6": 7
+  }
+ },
+ "CharredRuins3": {
+  "loc": "CharredRuins3",
+  "pieces": 185,
+  "size": [
+   8.0,
+   43.5,
+   8.0
+  ],
+  "top": [
+   [
+    0.519,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.519,
+    "origin",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.519,
+    "centroid",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     -0.0
+    ]
+   ],
+   [
+    0.508,
+    "bbox",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.508,
+    "origin",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.508,
+    "centroid",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     -0.0
+    ]
+   ]
+  ],
+  "symmetries": [],
+  "additions": [],
+  "counts": {
+   "Ashlands_Pillar4": 28,
+   "Ashlands_Ruins_Wall_Broken3_4x6": 12,
+   "Ashlands_Ruins_Wall_Broken5_4x6": 12,
+   "Ashlands_Ruins_Wall_Broken4_4x6": 12,
+   "Ashland_Steepstair": 12,
+   "Ashlands_Ruins_Floor_1point5x1point5": 6,
+   "Ashlands_Ruins_Floor_3x3_broken3": 7,
+   "Ashlands_Ruins_Wall_Window_4x6_broken5": 8,
+   "Ashlands_Ruins_Wall_Window_4x6_broken6": 8,
+   "Ashlands_Ruins_Wall_Window_4x6_broken2": 8,
+   "Ashlands_Ruins_Floor_3x3_broken1": 3,
+   "Ashlands_Ruins_Wall_Window_4x6_broken4": 8,
+   "Ashlands_Ruins_Floor_3x3_broken2": 5,
+   "Ashlands_Ruins_Wall_Window_4x6_broken3": 8,
+   "Ashlands_Pillar4_tip2_broken1": 4,
+   "Ashlands_Pillar4_tip2_broken2": 4,
+   "Ashlands_Arch2_Broken2": 12,
+   "Ashlands_Arch2_Broken1": 12,
+   "Ashlands_Pillar4_tip3_broken1": 5,
+   "Ashlands_Pillar4_tip3_broken2": 5,
+   "Ashlands_Pillar4_tip3_broken3": 5,
+   "Ashlands_Ruins_Floor_6x6_broken1": 1
+  }
+ },
+ "CharredRuins4": {
+  "loc": "CharredRuins4",
+  "pieces": 133,
+  "size": [
+   8.0,
+   35.5,
+   8.0
+  ],
+  "top": [
+   [
+    0.436,
+    "bbox",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.436,
+    "origin",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.436,
+    "centroid",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     -0.0
+    ]
+   ],
+   [
+    0.406,
+    "bbox",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.406,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.406,
+    "bbox",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ]
+  ],
+  "symmetries": [],
+  "additions": [],
+  "counts": {
+   "Ashlands_Pillar4": 20,
+   "Ashland_Steepstair": 8,
+   "Ashlands_Ruins_Floor_1point5x1point5": 4,
+   "Ashlands_Ruins_Wall_Window_4x6_broken5": 8,
+   "Ashlands_Ruins_Floor_3x3_broken3": 6,
+   "Ashlands_Ruins_Wall_Window_4x6_broken2": 8,
+   "Ashlands_Ruins_Wall_Window_4x6_broken6": 8,
+   "Ashlands_Ruins_Wall_Window_4x6_broken4": 8,
+   "Ashlands_Ruins_Floor_3x3_broken2": 5,
+   "Ashlands_Ruins_Wall_Window_4x6_broken3": 8,
+   "Ashlands_Pillar4_tip2_broken1": 4,
+   "Ashlands_Pillar4_tip2_broken2": 4,
+   "Ashlands_Arch2_Broken2": 12,
+   "Ashlands_Arch2_Broken1": 12,
+   "Ashlands_Pillar4_tip3_broken1": 5,
+   "Ashlands_Pillar4_tip3_broken2": 5,
+   "Ashlands_Pillar4_tip3_broken3": 5,
+   "Ashlands_Ruins_Floor_6x6_broken1": 1,
+   "Ashlands_Ruins_Floor_3x3_broken1": 2
+  }
+ },
+ "CharredTowerRuins1": {
+  "loc": "CharredTowerRuins1",
+  "pieces": 401,
+  "size": [
+   24.0,
+   14.8,
+   24.0
+  ],
+  "top": [
+   [
+    0.748,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.748,
+    "origin",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.748,
+    "centroid",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     -0.0
+    ]
+   ],
+   [
+    0.526,
+    "bbox",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.526,
+    "bbox",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.526,
+    "origin",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ]
+  ],
+  "symmetries": [
+   [
+    0.748,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.748,
+    "origin",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.748,
+    "centroid",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     -0.0
+    ]
+   ]
+  ],
+  "additions": [],
+  "counts": {
+   "Ashlands_Floor": 221,
+   "Ashlands_Pillar4": 16,
+   "Ashlands_ArchRoofDamaged_half1": 36,
+   "Ashlands_Pillar4_tip_broken1": 25,
+   "Ashlands_Pillar4_tip_broken2": 25,
+   "Ashlands_ArchRoofDamaged_half2": 36,
+   "Ashlands_Ruins_Wall_Window_4x6_broken6": 6,
+   "Ashlands_Ruins_Wall_Top_wHole": 12,
+   "Ashlands_Ruins_Wall_Window_4x6_broken4": 6,
+   "Ashlands_Ruins_Wall_Window_4x6_broken2": 6,
+   "Ashlands_Ruins_Wall_Window_4x6_broken5": 6,
+   "Ashlands_Ruins_Wall_Window_4x6_broken3": 6
+  }
+ },
+ "CharredTowerRuins1_dvergr": {
+  "loc": "CharredTowerRuins1_dvergr",
+  "pieces": 389,
+  "size": [
+   24.0,
+   14.8,
+   24.0
+  ],
+  "top": [
+   [
+    0.71,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.71,
+    "origin",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.71,
+    "centroid",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.542,
+    "bbox",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.542,
+    "bbox",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.542,
+    "origin",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ]
+  ],
+  "symmetries": [
+   [
+    0.71,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.71,
+    "origin",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.71,
+    "centroid",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ]
+  ],
+  "additions": [],
+  "counts": {
+   "Ashlands_Floor": 221,
+   "Ashlands_Pillar4": 16,
+   "Ashlands_ArchRoofDamaged_half1": 36,
+   "Ashlands_Pillar4_tip_broken1": 25,
+   "Ashlands_Pillar4_tip_broken2": 25,
+   "Ashlands_ArchRoofDamaged_half2": 36,
+   "Ashlands_Ruins_Wall_Top_wHole": 12,
+   "Ashlands_Ruins_Wall_Window_4x6_broken4": 4,
+   "Ashlands_Ruins_Wall_Window_4x6_broken2": 4,
+   "Ashlands_Ruins_Wall_Window_4x6_broken5": 3,
+   "Ashlands_Ruins_Wall_Window_4x6_broken3": 4,
+   "Ashlands_Ruins_Wall_Window_4x6_broken6": 3
+  }
+ },
+ "CharredTowerRuins2": {
+  "loc": "CharredTowerRuins2",
+  "pieces": 40,
+  "size": [
+   17.0,
+   12.5,
+   17.0
+  ],
+  "top": [
+   [
+    0.7,
+    "bbox",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "bbox",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "origin",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "origin",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "origin",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ]
+  ],
+  "symmetries": [
+   [
+    0.7,
+    "bbox",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "bbox",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "origin",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "origin",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "origin",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "centroid",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "centroid",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.7,
+    "centroid",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.6,
+    "bbox",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.6,
+    "origin",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.6,
+    "centroid",
+    "mirror_x",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ]
+  ],
+  "additions": [],
+  "counts": {
+   "Ashlands_Pillar4": 8,
+   "Ashlands_Ruins_twist_PillarBase": 8,
+   "Ashlands_Ruins_twist_PillarBaseSmall": 8,
+   "Ashlands_Ruins_twist_ArchBig": 16
+  }
+ },
+ "CharredTowerRuins3": {
+  "loc": "CharredTowerRuins3",
+  "pieces": 64,
+  "size": [
+   17.0,
+   14.5,
+   17.0
+  ],
+  "top": [
+   [
+    0.812,
+    "bbox",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "bbox",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "origin",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "origin",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "origin",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ]
+  ],
+  "symmetries": [
+   [
+    0.812,
+    "bbox",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "bbox",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "bbox",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "origin",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "origin",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "origin",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    0.812,
+    "centroid",
+    "rot90",
+    [
+     0.0,
+     0.0,
+     -0.0
+    ]
+   ],
+   [
+    0.812,
+    "centroid",
+    "rot180",
+    [
+     0.0,
+     0.0,
+     -0.0
+    ]
+   ],
+   [
+    0.812,
+    "centroid",
+    "rot270",
+    [
+     0.0,
+     0.0,
+     -0.0
+    ]
+   ]
+  ],
+  "additions": [],
+  "counts": {
+   "Ashlands_Pillar4": 12,
+   "Ashlands_Ruins_twist_PillarBase": 12,
+   "Ashlands_Ruins_twist_PillarBaseSmall": 16,
+   "Ashlands_Ruins_twist_ArchBig": 24
+  }
+ },
+ "_kit": {
+  "CharredRuins1": [
+   "Ashland_Steepstair",
+   "Ashlands_Altar",
+   "Ashlands_Arch2_Broken1",
+   "Ashlands_Arch2_Broken2",
+   "Ashlands_Pillar4",
+   "Ashlands_Pillar4_tip2_broken1",
+   "Ashlands_Pillar4_tip2_broken2",
+   "Ashlands_Pillar4_tip3_broken1",
+   "Ashlands_Pillar4_tip3_broken2",
+   "Ashlands_Pillar4_tip3_broken3",
+   "Ashlands_Ruins_Floor_1point5x1point5",
+   "Ashlands_Ruins_Floor_3x3_broken1",
+   "Ashlands_Ruins_Floor_3x3_broken2",
+   "Ashlands_Ruins_Floor_3x3_broken3",
+   "Ashlands_Ruins_Floor_6x6_broken1",
+   "Ashlands_Ruins_Wall_Broken3_4x6",
+   "Ashlands_Ruins_Wall_Broken4_4x6",
+   "Ashlands_Ruins_Wall_Broken5_4x6",
+   "Ashlands_Ruins_Wall_Window_4x6_broken2",
+   "Ashlands_Ruins_Wall_Window_4x6_broken3",
+   "Ashlands_Ruins_Wall_Window_4x6_broken4",
+   "Ashlands_Ruins_Wall_Window_4x6_broken5",
+   "Ashlands_Ruins_Wall_Window_4x6_broken6"
+  ],
+  "CharredRuins2": [
+   "Ashland_Steepstair",
+   "Ashlands_Arch2_Broken1",
+   "Ashlands_Arch2_Broken2",
+   "Ashlands_Pillar4",
+   "Ashlands_Pillar4_tip2_broken1",
+   "Ashlands_Pillar4_tip2_broken2",
+   "Ashlands_Pillar4_tip3_broken1",
+   "Ashlands_Pillar4_tip3_broken2",
+   "Ashlands_Pillar4_tip3_broken3",
+   "Ashlands_Ruins_Floor_1point5x1point5",
+   "Ashlands_Ruins_Floor_3x3_broken1",
+   "Ashlands_Ruins_Floor_3x3_broken2",
+   "Ashlands_Ruins_Floor_3x3_broken3",
+   "Ashlands_Ruins_Floor_6x6_broken1",
+   "Ashlands_Ruins_Wall_Broken3_4x6",
+   "Ashlands_Ruins_Wall_Broken4_4x6",
+   "Ashlands_Ruins_Wall_Broken5_4x6",
+   "Ashlands_Ruins_Wall_Window_4x6_broken2",
+   "Ashlands_Ruins_Wall_Window_4x6_broken3",
+   "Ashlands_Ruins_Wall_Window_4x6_broken4",
+   "Ashlands_Ruins_Wall_Window_4x6_broken5",
+   "Ashlands_Ruins_Wall_Window_4x6_broken6"
+  ],
+  "CharredRuins3": [
+   "Ashland_Steepstair",
+   "Ashlands_Arch2_Broken1",
+   "Ashlands_Arch2_Broken2",
+   "Ashlands_Pillar4",
+   "Ashlands_Pillar4_tip2_broken1",
+   "Ashlands_Pillar4_tip2_broken2",
+   "Ashlands_Pillar4_tip3_broken1",
+   "Ashlands_Pillar4_tip3_broken2",
+   "Ashlands_Pillar4_tip3_broken3",
+   "Ashlands_Ruins_Floor_1point5x1point5",
+   "Ashlands_Ruins_Floor_3x3_broken1",
+   "Ashlands_Ruins_Floor_3x3_broken2",
+   "Ashlands_Ruins_Floor_3x3_broken3",
+   "Ashlands_Ruins_Floor_6x6_broken1",
+   "Ashlands_Ruins_Wall_Broken3_4x6",
+   "Ashlands_Ruins_Wall_Broken4_4x6",
+   "Ashlands_Ruins_Wall_Broken5_4x6",
+   "Ashlands_Ruins_Wall_Window_4x6_broken2",
+   "Ashlands_Ruins_Wall_Window_4x6_broken3",
+   "Ashlands_Ruins_Wall_Window_4x6_broken4",
+   "Ashlands_Ruins_Wall_Window_4x6_broken5",
+   "Ashlands_Ruins_Wall_Window_4x6_broken6"
+  ],
+  "CharredRuins4": [
+   "Ashland_Steepstair",
+   "Ashlands_Arch2_Broken1",
+   "Ashlands_Arch2_Broken2",
+   "Ashlands_Pillar4",
+   "Ashlands_Pillar4_tip2_broken1",
+   "Ashlands_Pillar4_tip2_broken2",
+   "Ashlands_Pillar4_tip3_broken1",
+   "Ashlands_Pillar4_tip3_broken2",
+   "Ashlands_Pillar4_tip3_broken3",
+   "Ashlands_Ruins_Floor_1point5x1point5",
+   "Ashlands_Ruins_Floor_3x3_broken1",
+   "Ashlands_Ruins_Floor_3x3_broken2",
+   "Ashlands_Ruins_Floor_3x3_broken3",
+   "Ashlands_Ruins_Floor_6x6_broken1",
+   "Ashlands_Ruins_Wall_Window_4x6_broken2",
+   "Ashlands_Ruins_Wall_Window_4x6_broken3",
+   "Ashlands_Ruins_Wall_Window_4x6_broken4",
+   "Ashlands_Ruins_Wall_Window_4x6_broken5",
+   "Ashlands_Ruins_Wall_Window_4x6_broken6"
+  ],
+  "CharredTowerRuins1": [
+   "Ashlands_ArchRoofDamaged_half1",
+   "Ashlands_ArchRoofDamaged_half2",
+   "Ashlands_Floor",
+   "Ashlands_Pillar4",
+   "Ashlands_Pillar4_tip_broken1",
+   "Ashlands_Pillar4_tip_broken2",
+   "Ashlands_Ruins_Wall_Top_wHole",
+   "Ashlands_Ruins_Wall_Window_4x6_broken2",
+   "Ashlands_Ruins_Wall_Window_4x6_broken3",
+   "Ashlands_Ruins_Wall_Window_4x6_broken4",
+   "Ashlands_Ruins_Wall_Window_4x6_broken5",
+   "Ashlands_Ruins_Wall_Window_4x6_broken6"
+  ],
+  "CharredTowerRuins1_dvergr": [
+   "Ashlands_ArchRoofDamaged_half1",
+   "Ashlands_ArchRoofDamaged_half2",
+   "Ashlands_Floor",
+   "Ashlands_Pillar4",
+   "Ashlands_Pillar4_tip_broken1",
+   "Ashlands_Pillar4_tip_broken2",
+   "Ashlands_Ruins_Wall_Top_wHole",
+   "Ashlands_Ruins_Wall_Window_4x6_broken2",
+   "Ashlands_Ruins_Wall_Window_4x6_broken3",
+   "Ashlands_Ruins_Wall_Window_4x6_broken4",
+   "Ashlands_Ruins_Wall_Window_4x6_broken5",
+   "Ashlands_Ruins_Wall_Window_4x6_broken6"
+  ],
+  "CharredTowerRuins2": [
+   "Ashlands_Pillar4",
+   "Ashlands_Ruins_twist_ArchBig",
+   "Ashlands_Ruins_twist_PillarBase",
+   "Ashlands_Ruins_twist_PillarBaseSmall"
+  ],
+  "CharredTowerRuins3": [
+   "Ashlands_Pillar4",
+   "Ashlands_Ruins_twist_ArchBig",
+   "Ashlands_Ruins_twist_PillarBase",
+   "Ashlands_Ruins_twist_PillarBaseSmall"
+  ]
+ }
+}

@@ -1,0 +1,118 @@
+Ashland_Stair		bmin=-2,-0.02,-2;bmax=2.026,2,2.01
+Ashland_Steepstair		bmin=-0.552,-0.8,-1.003;bmax=0.552,2.102,1.003
+AshlandsBranch1	;	bmin=-3.303,-0.367,-0.502;bmax=3.493,0.502,0.367
+AshlandsBranch2	;	bmin=-2.377,-0.02,-1.102;bmax=2.232,0.941,1.386
+AshlandsBranch3	;	bmin=-6.341,-0.435,-0.435;bmax=6.363,0.435,0.435
+AshlandsBush1	;	bmin=-1.947,-0.594,-1.359;bmax=1.447,2.06,0.932
+AshlandsBush2	;	bmin=-0.134,-0.062,-0.135;bmax=0.094,0.2,0.165
+AshlandsTree1	;	bmin=-4.838,-3.567,-4.398;bmax=4.201,19.523,4.438
+AshlandsTree3	;	bmin=-3.738,-3.226,-3.861;bmax=4.471,27.064,5.38
+AshlandsTree4	;	bmin=-3.354,-2.095,-3.713;bmax=4.009,15.691,3.473
+AshlandsTree5	;	bmin=-4.519,-3.226,-4.845;bmax=5.264,23.794,4.678
+AshlandsTree6	;	bmin=-8.66,-2.079,-11.523;bmax=10.519,15.624,7.688
+AshlandsTree6_big	;	bmin=-8.66,-2.079,-11.523;bmax=10.519,15.624,7.688
+AshlandsTreeLog1	;	bmin=-0.435,-6.341,-0.435;bmax=0.435,6.363,0.435
+AshlandsTreeLog2	;	bmin=-1,-4.081,-1;bmax=1,4.08,1
+AshlandsTreeLogHalf1	;	bmin=-0.502,-3.303,-0.502;bmax=0.367,3.493,0.367
+AshlandsTreeLogHalf2	;	bmin=-1.002,-2.374,-1;bmax=0.998,2.351,1
+AshlandsTreeStump1	;	bmin=-1.449,-6.401,-1.084;bmax=1.199,0.743,1.782
+AshlandsTreeStump2	;	bmin=-1.004,-4.466,-0.751;bmax=0.83,0.483,1.234
+AshlandsTreeStump3	;	bmin=-1.118,-2.079,-2.913;bmax=4.373,1.413,2.725
+Ashlands_Altar		bmin=-1.093,-0.014,-1.075;bmax=1.075,2.559,1.075
+Ashlands_Arch1		bmin=0,0,-0.982;bmax=2.966,3.985,0.982
+Ashlands_Arch2		bmin=0,0.001,-0.982;bmax=4.153,5.58,0.982
+Ashlands_Arch2_Broken1		bmin=0.858,0.001,-0.982;bmax=4.153,4.438,0.982
+Ashlands_Arch2_Broken2		bmin=0,2.205,-0.982;bmax=2.37,5.58,0.983
+Ashlands_ArchRoof	;	bmin=-0.024,0,-3.046;bmax=3.059,4.012,3.046
+Ashlands_ArchRoofDamaged		bmin=-2.58,-3.568,-3.528;bmax=2.724,3.097,3.942
+Ashlands_ArchRoofDamaged_half1		bmin=-3.169,-3,-1.8;bmax=1.625,3.022,3
+Ashlands_ArchRoofDamaged_half2		bmin=-3.152,-3,-3;bmax=1.625,3.052,1.935
+Ashlands_ArchRoofLong_Damaged		bmin=-3.107,-0.026,-3.248;bmax=0.067,4.032,3.105
+Ashlands_Boss_Pillar		bmin=-2.307,-0.014,-2.28;bmax=2.328,8.015,2.279
+Ashlands_Boss_Pillar_Twist_broken1		bmin=-2.228,-2.014,-2.202;bmax=2.228,4.287,2.202
+Ashlands_Boss_Pillar_Twist_broken2		bmin=-1.934,-3.925,-1.661;bmax=1.965,5.283,2.025
+Ashlands_Boss_Pillar_Twist_broken3		bmin=-1.053,-4.12,-0.823;bmax=1.475,5.982,1.515
+Ashlands_Floor		bmin=-1,-0.5,-1;bmax=1,0.501,1
+Ashlands_Fortress_Floor		bmin=-1,-0.5,-1;bmax=1,0.501,1
+Ashlands_Fortress_Gate		bmin=-4.273,-0.231,-1;bmax=4.273,7.33,1
+Ashlands_Fortress_Gate_Door		
+Ashlands_Fortress_Wall_Pillar	;	bmin=-2.283,0,0;bmax=2.283,7.997,4.546
+Ashlands_Fortress_Wall_PillarTop	;	bmin=-0.807,0,-1.559;bmax=0.807,4.999,1.559
+Ashlands_Fortress_Wall_PillarTopStone	;	bmin=-0.807,-3.944,-1.036;bmax=0.807,1.075,1.559
+Ashlands_Fortress_Wall_PillarTopStone_frac	;	bmin=-0.807,-3.944,-1.036;bmax=0.807,1.075,1.559
+Ashlands_Fortress_Wall_PillarTop_frac	;	bmin=-0.807,0,-1.559;bmax=0.807,4.999,1.559
+Ashlands_Fortress_Wall_Pillar_base	;	bmin=-2.283,0,0;bmax=2.283,3,4.546
+Ashlands_Fortress_Wall_Pillar_base_frac	;	
+Ashlands_Fortress_Wall_Pillar_frac	;	bmin=-2.283,0,0;bmax=2.283,7.997,4.546
+Ashlands_Fortress_Wall_Spikes		bmin=-0.338,-1.806,-2;bmax=1.804,0.977,2
+Ashlands_Pillar4		bmin=-1.14,-0.007,-1.154;bmax=1.14,4.007,1.164
+Ashlands_Pillar4_tip		bmin=-1.101,-0.007,-1.114;bmax=1.101,6.035,1.114
+Ashlands_Pillar4_tip2		bmin=-1.101,-0.007,-1.201;bmax=1.101,6.035,1.114
+Ashlands_Pillar4_tip2_broken1		bmin=-1.101,-1.007,-1.201;bmax=1.101,2.297,1.114
+Ashlands_Pillar4_tip2_broken2		bmin=-0.739,-2.074,-1.172;bmax=0.721,2.035,0.2
+Ashlands_Pillar4_tip3		bmin=-1.101,-0.007,-1.114;bmax=1.101,9.991,1.114
+Ashlands_Pillar4_tip3_broken1		bmin=-1.101,-1.007,-1.114;bmax=1.101,2.144,1.114
+Ashlands_Pillar4_tip3_broken2		bmin=-1.012,-1.962,-0.967;bmax=0.831,2.642,0.982
+Ashlands_Pillar4_tip3_broken3		bmin=-0.758,-2.06,-0.526;bmax=0.412,2.991,0.738
+Ashlands_Pillar4_tip_broken1		bmin=-1.101,-1.007,-1.114;bmax=1.101,2.613,1.114
+Ashlands_Pillar4_tip_broken2		bmin=-0.605,-1.094,-0.673;bmax=0.619,2.035,0.553
+Ashlands_PillarBase3_double		bmin=-1.154,-0.006,-1.14;bmax=1.154,1.007,1.14
+Ashlands_Ramp		bmin=-0.004,-0.001,-1;bmax=2.985,3.999,1
+Ashlands_Ruins_Floor_1point5x1point5		bmin=-0.747,-0.219,-0.75;bmax=0.75,0.219,0.748
+Ashlands_Ruins_Floor_1point5x1point5_broken		bmin=-0.747,-0.219,-0.75;bmax=0.75,0.219,0.748
+Ashlands_Ruins_Floor_3x3		bmin=-1.495,-0.219,-1.5;bmax=1.5,0.219,1.496
+Ashlands_Ruins_Floor_3x3_broken1		bmin=-1.502,-0.219,-1.496;bmax=1.495,0.219,1.5
+Ashlands_Ruins_Floor_3x3_broken2		bmin=-1.501,-0.219,-1.495;bmax=1.494,0.219,1.501
+Ashlands_Ruins_Floor_3x3_broken3		bmin=-1.058,-0.219,-1.5;bmax=1.5,0.219,1.496
+Ashlands_Ruins_Floor_6x6		bmin=-2.995,-0.219,-2.996;bmax=2.995,0.219,2.996
+Ashlands_Ruins_Floor_6x6_broken1		bmin=-2.995,-0.247,-2.996;bmax=2.995,0.247,2.996
+Ashlands_Ruins_Floor_6x6_broken2		bmin=-2.995,-0.284,-2.996;bmax=2.995,0.284,2.996
+Ashlands_Ruins_Ramp		bmin=-0.004,-0.001,-1;bmax=2.985,3.999,1
+Ashlands_Ruins_Ramp_Upsidedown		bmin=-0.004,0.001,-1;bmax=2.985,4.001,1
+Ashlands_Ruins_TopStone		bmin=-0.501,0,-2;bmax=0.501,1.024,1.001
+Ashlands_Ruins_Wall_4x6	;	bmin=-3,-0.005,-0.998;bmax=3.001,4,0.998
+Ashlands_Ruins_Wall_Broken3_4x6		bmin=-3,-0.005,-0.998;bmax=-0.825,4,0.998
+Ashlands_Ruins_Wall_Broken4_4x6		bmin=0.581,-0.005,-0.998;bmax=3,4,0.998
+Ashlands_Ruins_Wall_Broken5_4x6		bmin=-1.507,-0.005,-0.52;bmax=2.022,4,0.52
+Ashlands_Ruins_Wall_Top_wHole		bmin=-3.039,-0.02,-0.506;bmax=3.039,4.367,0.506
+Ashlands_Ruins_Wall_Window_4x6_broken2		bmin=-3,-0.005,-0.976;bmax=1.152,4,0.976
+Ashlands_Ruins_Wall_Window_4x6_broken3		bmin=-2.022,-0.005,-0.976;bmax=3,4,0.976
+Ashlands_Ruins_Wall_Window_4x6_broken4		bmin=0.569,-0.005,-0.998;bmax=3,4,0.998
+Ashlands_Ruins_Wall_Window_4x6_broken5		bmin=-3,-0.005,-0.998;bmax=-1.011,4,0.998
+Ashlands_Ruins_Wall_Window_4x6_broken6		bmin=-2.022,-0.005,-0.52;bmax=1.168,4,0.52
+Ashlands_Ruins_Wall_Windows_Broken_4x6	;	bmin=-3.539,-0.998,-3.001;bmax=3.537,0.998,2.996
+Ashlands_Ruins_twist_ArchBig		bmin=-1.577,-2.503,-0.57;bmax=2.503,1.577,0.57
+Ashlands_Ruins_twist_PillarBase		bmin=-1.154,-0.007,-1.14;bmax=1.154,4.006,1.14
+Ashlands_Ruins_twist_PillarBaseSmall		bmin=-0.577,-0.006,-0.57;bmax=0.577,2.003,0.57
+Ashlands_StairsBroad		bmin=-3.054,0.003,-3.814;bmax=3.054,0.979,0.003
+Ashlands_WallBlock	;	bmin=-0.535,-1.041,-1.058;bmax=0.535,1.042,1.057
+Ashlands_WallBlock_1x2x2		bmin=-0.517,-1.02,-0.559;bmax=0.518,1.021,0.558
+Ashlands_WallBlock_base		bmin=-1.173,-1.018,-0.713;bmax=1.034,1.043,0.661
+Ashlands_Wall_2x2		bmin=-1.271,-0.431,-0.599;bmax=1.491,2.014,0.588
+Ashlands_Wall_2x2_cornerL		bmin=-1.08,-0.431,-1.485;bmax=1.725,2.014,0.64
+Ashlands_Wall_2x2_cornerL_top		bmin=-1.076,-0.431,-1.485;bmax=1.725,2.129,0.641
+Ashlands_Wall_2x2_cornerR		bmin=-1.316,-0.418,-1.271;bmax=1.348,2.014,1.057
+Ashlands_Wall_2x2_cornerR_top		bmin=-1.309,-0.435,-1.247;bmax=1.355,2.095,1.081
+Ashlands_Wall_2x2_edge		bmin=-1.067,-0.431,-0.585;bmax=1.741,2.014,0.597
+Ashlands_Wall_2x2_edge2		bmin=-1.059,-0.431,-0.599;bmax=1.741,2.014,0.588
+Ashlands_Wall_2x2_edge2_top		bmin=-1.083,-0.431,-0.586;bmax=1.726,2.014,0.6
+Ashlands_Wall_2x2_edge_top		bmin=-1.067,-0.431,-0.585;bmax=1.741,2.014,0.597
+Ashlands_Wall_2x2_top		bmin=-1.293,-0.439,-0.599;bmax=1.47,2.105,0.588
+Ashlands_floor_large	;	
+Ashlands_floor_large_fractured	;	
+Ashlands_rock1	;	bmin=-31.256,-14.52,-13.462;bmax=25.983,15.44,15.423
+Ashlands_rock2	;	bmin=-12.628,-12.867,-11.064;bmax=15.126,3.97,13.098
+Charred_Archer	;	
+Charred_Archer_Fader	;	
+Charred_Breastplate	;	
+Charred_Helmet	;	
+Charred_HipCloth	;	
+Charred_Mage	;	
+Charred_MageCloths	;	
+Charred_Melee	;	
+Charred_Melee_Dyrnwyn	;	
+Charred_Melee_Fader	;	
+Charred_Melee_Ragdoll	;	
+Charred_Twitcher	;	
+Charred_Twitcher_Summoned	;	
+Charred_altar_bellfragment	;	bmin=-38.93,-0.005,-38.93;bmax=38.93,308,38.93
